@@ -1,0 +1,35 @@
+<nav class="main-nav">
+    <div class="nav-container">
+        <a href="/" class="nav-brand">
+            <span class="icon">⚔️</span>
+            <span>Chronicles of the Patterns</span>
+        </a>
+
+        <button class="nav-toggle">☰</button>
+
+        <ul class="nav-links">
+            <!-- Home -->
+            <li><a href="/" class="nav-link"><span class="icon">🏠</span> Home</a></li>
+
+            <!-- DM Only -->
+            <li class="nav-dm-only"><a href="/dm" class="nav-link"><span class="icon">🎲</span> DM Dashboard</a></li>
+
+            <!-- Player Only -->
+            <li class="nav-player-only"><a href="/player-dashboard.html" class="nav-link"><span class="icon">🎭</span> My Dashboard</a></li>
+            <li class="nav-player-only"><a href="/player-dashboard.html#characters" class="nav-link"><span class="icon">👤</span> Characters</a></li>
+            <li class="nav-player-only"><a href="/player-dashboard.html#claims" class="nav-link"><span class="icon">🏆</span> Claims</a></li>
+
+            <!-- Shared -->
+            <li><a href="/guide.html" class="nav-link"><span class="icon">📖</span> Guide</a></li>
+
+            <!-- Guest Only -->
+            <li class="nav-guest-only"><a href="/player-login.html" class="nav-link"><span class="icon">🔐</span> Player Login</a></li>
+            <li class="nav-guest-only"><a href="/dm" class="nav-link"><span class="icon">🎲</span> DM Portal</a></li>
+        </ul>
+
+        <div class="nav-user">
+            <span class="nav-username"></span>
+            <button class="nav-logout" onclick="handleNavLogout()">Logout</button>
+        </div>
+    </div>
+</nav>

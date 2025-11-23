@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Player Dashboard - Amber Campaign</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/navigation.css">
+    <link rel="stylesheet" href="/css/player-dashboard.css">
+</head>
+<body>
+    <!-- Navigation will be injected here -->
+    <script src="/js/load-navigation.js"></script>
+    <script src="/js/navigation.js"></script>
+
+    <div class="dashboard">
+        <header>
+            <div class="header-content">
+                <div>
+                    <h1>🎭 Player Dashboard</h1>
+                    <p class="subtitle">Chronicles of the Patterns</p>
+                </div>
+            </div>
+        </header>
+
+        <nav class="tabs">
+            <button class="tab-btn active" data-tab="characters">My Characters</button>
+            <button class="tab-btn" data-tab="journal">Journal</button>
+            <button class="tab-btn" data-tab="claims">Claims & Rankings</button>
+            <button class="tab-btn" data-tab="progress">Progress Timeline</button>
+        </nav>
+
+        <main class="content">
+            <!-- Characters Tab -->
+            <div id="characters-tab" class="tab-content active">
+                <div class="tab-header">
+                    <h2>My Characters</h2>
+                    <button class="btn-primary" onclick="openCreateCharacter()">
+                        + Create New Character
+                    </button>
+                </div>
+
+                <div id="characters-list" class="characters-grid">
+                    <div class="loading">Loading characters...</div>
+                </div>
+
+                <div id="character-details" class="character-sheet" style="display: none;">
+                    <!-- Character details will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Claims Tab -->
+            <div id="claims-tab" class="tab-content">
+                <div class="tab-header">
+                    <h2>Attribute Claims & Rankings</h2>
+                </div>
+
+                <div id="claims-content">
+                    <div class="info-message">
+                        <p>Select a character from "My Characters" to view and manage their claims.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Progress Tab -->
+            <div id="progress-tab" class="tab-content">
+                <div class="tab-header">
+                    <h2>Progress Timeline</h2>
+                </div>
+
+                <div id="progress-content">
+                    <div class="info-message">
+                        <p>Select a character from "My Characters" to view their progress timeline.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Journal Tab -->
+            <div id="journal-tab" class="tab-content">
+                <div class="tab-header">
+                    <h2>Journal</h2>
+                    <button class="btn-primary" onclick="openNewJournalEntry()">
+                        + New Entry
+                    </button>
+                </div>
+
+                <div id="journal-content">
+                    <div class="info-message">
+                        <p>Select a character to view and create journal entries.</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Create Character Modal -->
+    <div id="create-character-modal" class="modal">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h2>Create New Character</h2>
+                <button class="close-btn" onclick="closeCreateCharacter()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="create-character-form">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="char-name">Character Name *</label>
+                            <input type="text" id="char-name" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="char-race">Race *</label>
+                            <input type="text" id="char-race" required placeholder="e.g., Human, Elf, Dwarf">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="char-class">Class *</label>
+                            <input type="text" id="char-class" required placeholder="e.g., Wizard, Fighter, Rogue">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="char-level">Level *</label>
+                            <input type="number" id="char-level" value="1" min="1" max="20" required>
+                        </div>
+                    </div>
+
+                    <h3>Ability Scores</h3>
+                    <div class="form-grid abilities">
+                        <div class="form-group">
+                            <label for="char-str">Strength</label>
+                            <input type="number" id="char-str" value="10" min="1" max="30">
+                        </div>
+                        <div class="form-group">
+                            <label for="char-dex">Dexterity</label>
+                            <input type="number" id="char-dex" value="10" min="1" max="30">
+                        </div>
+                        <div class="form-group">
+                            <label for="char-con">Constitution</label>
+                            <input type="number" id="char-con" value="10" min="1" max="30">
+                        </div>
+                        <div class="form-group">
+                            <label for="char-int">Intelligence</label>
+                            <input type="number" id="char-int" value="10" min="1" max="30">
+                        </div>
+                        <div class="form-group">
+                            <label for="char-wis">Wisdom</label>
+                            <input type="number" id="char-wis" value="10" min="1" max="30">
+                        </div>
+                        <div class="form-group">
+                            <label for="char-cha">Charisma</label>
+                            <input type="number" id="char-cha" value="10" min="1" max="30">
+                        </div>
+                    </div>
+
+                    <h3>Amber-Specific Attributes</h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="char-order-chaos">Order/Chaos Balance (0-100)</label>
+                            <input type="number" id="char-order-chaos" value="50" min="0" max="100">
+                            <small>0 = Pure Chaos, 50 = Neutral, 100 = Pure Order</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="char-pattern">Pattern Imprint</label>
+                            <select id="char-pattern">
+                                <option value="">None</option>
+                                <option value="First Pattern">First Pattern</option>
+                                <option value="Corwin Pattern">Corwin Pattern</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="char-logrus">Logrus Imprint</label>
+                            <select id="char-logrus">
+                                <option value="">None</option>
+                                <option value="Basic">Basic</option>
+                                <option value="Advanced">Advanced</option>
+                                <option value="Master">Master</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="char-blood">Blood Purity</label>
+                            <select id="char-blood">
+                                <option value="None">None - No royal blood</option>
+                                <option value="Half">Half - Descendant of royalty</option>
+                                <option value="Pure">Pure - Direct royal lineage</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="char-trump">Trump Artist</label>
+                            <select id="char-trump">
+                                <option value="0">No</option>
+                                <option value="1">Yes</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <h3>Background</h3>
+                    <div class="form-group">
+                        <label for="char-backstory">Character Backstory</label>
+                        <textarea id="char-backstory" rows="4" placeholder="Tell us about your character..."></textarea>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" onclick="closeCreateCharacter()">Cancel</button>
+                        <button type="submit" class="btn-primary">Create Character</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Journal Entry Modal -->
+    <div id="journal-entry-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>New Journal Entry</h2>
+                <button class="close-btn" onclick="closeJournalEntry()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="journal-entry-form">
+                    <div class="form-group">
+                        <label for="journal-character">Character *</label>
+                        <select id="journal-character" required>
+                            <option value="">Select a character...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="journal-title">Title *</label>
+                        <input type="text" id="journal-title" required placeholder="What happened?">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="journal-content">Entry *</label>
+                        <textarea id="journal-content" rows="8" required placeholder="Describe what your character experienced..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="journal-visibility">
+                            <input type="checkbox" id="journal-visibility">
+                            Make this entry public (visible to other players)
+                        </label>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" onclick="closeJournalEntry()">Cancel</button>
+                        <button type="submit" class="btn-primary">Save Entry</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/player-dashboard.js"></script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node --version:*)",
+      "Bash(npm:*)",
+      "Bash(test:*)",
+      "Bash(curl:*)",
+      "Bash(netstat:*)",
+      "Bash(python -m json.tool:*)",
+      "Bash(node add_shadows.js:*)",
+      "Bash(node src/database/migrate-claims.js:*)",
+      "Bash(node:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

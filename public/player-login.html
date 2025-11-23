@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Player Login - Amber Campaign</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .login-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            max-width: 450px;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .login-header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .login-header h1 {
+            margin: 0 0 10px 0;
+            font-size: 2rem;
+        }
+
+        .login-header p {
+            margin: 0;
+            opacity: 0.9;
+        }
+
+        .login-content {
+            padding: 40px 30px;
+        }
+
+        .tab-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 12px;
+            background: var(--light);
+            border: 2px solid transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.3s ease;
+        }
+
+        .tab-button.active {
+            background: white;
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .tab-button:hover:not(.active) {
+            background: #e0e0e0;
+        }
+
+        .form-section {
+            display: none;
+        }
+
+        .form-section.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid var(--light);
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .form-group small {
+            display: block;
+            margin-top: 5px;
+            color: #666;
+            font-size: 0.85rem;
+        }
+
+        .submit-button {
+            width: 100%;
+            padding: 14px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .submit-button:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(52, 152, 219, 0.4);
+        }
+
+        .submit-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .error-message {
+            background: #fee;
+            border: 1px solid #fcc;
+            color: #c33;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .success-message {
+            background: #efe;
+            border: 1px solid #cfc;
+            color: #3c3;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .success-message.show {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .dm-link {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid var(--light);
+        }
+
+        .dm-link a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .dm-link a:hover {
+            text-decoration: underline;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <h1>🎭 Player Portal</h1>
+            <p>Chronicles of the Patterns</p>
+        </div>
+
+        <div class="login-content">
+            <div class="tab-buttons">
+                <button class="tab-button active" onclick="showTab('login')">Login</button>
+                <button class="tab-button" onclick="showTab('register')">Register</button>
+            </div>
+
+            <div id="error-message" class="error-message"></div>
+            <div id="success-message" class="success-message"></div>
+
+            <!-- Login Form -->
+            <div id="login-section" class="form-section active">
+                <form id="login-form" onsubmit="handleLogin(event)">
+                    <div class="form-group">
+                        <label for="login-username">Username</label>
+                        <input type="text" id="login-username" required autocomplete="username">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="login-password">Password</label>
+                        <input type="password" id="login-password" required autocomplete="current-password">
+                    </div>
+
+                    <button type="submit" class="submit-button">Login</button>
+                </form>
+            </div>
+
+            <!-- Register Form -->
+            <div id="register-section" class="form-section">
+                <form id="register-form" onsubmit="handleRegister(event)">
+                    <div class="form-group">
+                        <label for="register-username">Username</label>
+                        <input type="text" id="register-username" required minlength="3" autocomplete="username">
+                        <small>At least 3 characters</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="register-email">Email (optional)</label>
+                        <input type="email" id="register-email" autocomplete="email">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="register-password">Password</label>
+                        <input type="password" id="register-password" required minlength="6" autocomplete="new-password">
+                        <small>At least 6 characters</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="register-password-confirm">Confirm Password</label>
+                        <input type="password" id="register-password-confirm" required minlength="6" autocomplete="new-password">
+                    </div>
+
+                    <button type="submit" class="submit-button">Create Account</button>
+                </form>
+            </div>
+
+            <div class="dm-link">
+                <p>Are you the DM? <a href="/dm">Go to DM Dashboard</a></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showTab(tab) {
+            // Update tab buttons
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // Update form sections
+            document.querySelectorAll('.form-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            document.getElementById(`${tab}-section`).classList.add('active');
+
+            // Clear messages
+            hideMessages();
+        }
+
+        function showError(message) {
+            const errorEl = document.getElementById('error-message');
+            errorEl.textContent = message;
+            errorEl.classList.add('show');
+
+            const successEl = document.getElementById('success-message');
+            successEl.classList.remove('show');
+        }
+
+        function showSuccess(message) {
+            const successEl = document.getElementById('success-message');
+            successEl.textContent = message;
+            successEl.classList.add('show');
+
+            const errorEl = document.getElementById('error-message');
+            errorEl.classList.remove('show');
+        }
+
+        function hideMessages() {
+            document.getElementById('error-message').classList.remove('show');
+            document.getElementById('success-message').classList.remove('show');
+        }
+
+        async function handleLogin(event) {
+            event.preventDefault();
+            hideMessages();
+
+            const username = document.getElementById('login-username').value;
+            const password = document.getElementById('login-password').value;
+
+            const submitButton = event.target.querySelector('button[type="submit"]');
+            submitButton.disabled = true;
+            submitButton.textContent = 'Logging in...';
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Store token in localStorage
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+
+                    showSuccess('Login successful! Redirecting...');
+
+                    // Redirect to player dashboard
+                    setTimeout(() => {
+                        window.location.href = '/player-dashboard.html';
+                    }, 1000);
+                } else {
+                    showError(data.error || 'Login failed');
+                    submitButton.disabled = false;
+                    submitButton.textContent = 'Login';
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                showError('Connection error. Please try again.');
+                submitButton.disabled = false;
+                submitButton.textContent = 'Login';
+            }
+        }
+
+        async function handleRegister(event) {
+            event.preventDefault();
+            hideMessages();
+
+            const username = document.getElementById('register-username').value;
+            const email = document.getElementById('register-email').value;
+            const password = document.getElementById('register-password').value;
+            const passwordConfirm = document.getElementById('register-password-confirm').value;
+
+            // Validate password match
+            if (password !== passwordConfirm) {
+                showError('Passwords do not match');
+                return;
+            }
+
+            const submitButton = event.target.querySelector('button[type="submit"]');
+            submitButton.disabled = true;
+            submitButton.textContent = 'Creating account...';
+
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username,
+                        email: email || null,
+                        password,
+                        is_dm: false
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Store token in localStorage
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+
+                    showSuccess('Account created! Redirecting...');
+
+                    // Redirect to player dashboard
+                    setTimeout(() => {
+                        window.location.href = '/player-dashboard.html';
+                    }, 1000);
+                } else {
+                    showError(data.error || 'Registration failed');
+                    submitButton.disabled = false;
+                    submitButton.textContent = 'Create Account';
+                }
+            } catch (error) {
+                console.error('Registration error:', error);
+                showError('Connection error. Please try again.');
+                submitButton.disabled = false;
+                submitButton.textContent = 'Create Account';
+            }
+        }
+
+        // Check if already logged in
+        window.addEventListener('DOMContentLoaded', () => {
+            const token = localStorage.getItem('token');
+            if (token) {
+                // Verify token is still valid
+                fetch('/api/auth/me', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                })
+                .then(response => {
+                    if (response.ok) {
+                        // Already logged in, redirect to dashboard
+                        window.location.href = '/player-dashboard.html';
+                    } else {
+                        // Token invalid, clear it
+                        localStorage.removeItem('token');
+                        localStorage.removeItem('user');
+                    }
+                })
+                .catch(() => {
+                    // Connection error, clear token
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                });
+            }
+        });
+    </script>
+</body>
+</html>

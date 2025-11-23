@@ -1,0 +1,211 @@
+/* Global Navigation Menu */
+
+.main-nav {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+.nav-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 60px;
+}
+
+.nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-decoration: none;
+    color: white;
+    font-weight: 700;
+    font-size: 1.3rem;
+    transition: opacity 0.3s ease;
+}
+
+.nav-brand:hover {
+    opacity: 0.8;
+}
+
+.nav-brand .icon {
+    font-size: 1.5rem;
+}
+
+.nav-links {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.nav-links li {
+    margin: 0;
+}
+
+.nav-link {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    color: white;
+    text-decoration: none;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+    font-weight: 500;
+    font-size: 0.95rem;
+}
+
+.nav-link:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.nav-link.active {
+    background: rgba(255, 255, 255, 0.2);
+    font-weight: 600;
+}
+
+.nav-link .icon {
+    font-size: 1.1rem;
+}
+
+/* User section */
+.nav-user {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding-left: 15px;
+    border-left: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.nav-username {
+    color: white;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.nav-logout {
+    padding: 6px 14px;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+}
+
+.nav-logout:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Mobile menu toggle */
+.nav-toggle {
+    display: none;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.8rem;
+    cursor: pointer;
+    padding: 5px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .nav-container {
+        flex-wrap: wrap;
+        height: auto;
+        padding: 10px 15px;
+    }
+
+    .nav-toggle {
+        display: block;
+        order: 3;
+    }
+
+    .nav-brand {
+        order: 1;
+        font-size: 1.1rem;
+    }
+
+    .nav-user {
+        order: 2;
+        border-left: none;
+        padding-left: 0;
+        margin-left: auto;
+        margin-right: 10px;
+    }
+
+    .nav-username {
+        display: none;
+    }
+
+    .nav-links {
+        order: 4;
+        width: 100%;
+        flex-direction: column;
+        gap: 0;
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease;
+    }
+
+    .nav-links.open {
+        max-height: 400px;
+        padding: 10px 0;
+    }
+
+    .nav-link {
+        width: 100%;
+        justify-content: flex-start;
+        padding: 12px 16px;
+        border-radius: 0;
+    }
+
+    .nav-link:hover {
+        background: rgba(255, 255, 255, 0.1);
+    }
+}
+
+/* Hide navigation elements based on role */
+.nav-dm-only {
+    display: none;
+}
+
+.nav-player-only {
+    display: none;
+}
+
+.nav-guest-only {
+    display: none;
+}
+
+/* Show based on user state (will be controlled by JavaScript) */
+body[data-user-role="dm"] .nav-dm-only {
+    display: flex;
+}
+
+body[data-user-role="player"] .nav-player-only {
+    display: flex;
+}
+
+body[data-user-role="guest"] .nav-guest-only {
+    display: flex;
+}
+
+body[data-user-role="dm"] .nav-user,
+body[data-user-role="player"] .nav-user {
+    display: flex;
+}
+
+body[data-user-role="guest"] .nav-user {
+    display: none;
+}

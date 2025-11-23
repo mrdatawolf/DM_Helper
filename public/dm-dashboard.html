@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DM Helper - Amber Campaign</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/navigation.css">
+</head>
+<body data-user-role="dm">
+    <!-- Navigation will be injected here -->
+    <script src="/js/load-navigation.js"></script>
+    <script src="/js/navigation.js"></script>
+
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <div>
+                    <h1>DM Helper - Amber Campaign</h1>
+                    <p class="subtitle">Chronicles of the Patterns</p>
+                </div>
+            </div>
+        </header>
+
+        <nav class="tabs">
+            <button class="tab-btn active" data-tab="characters">Characters</button>
+            <button class="tab-btn" data-tab="shadows">Shadows</button>
+            <button class="tab-btn" data-tab="sessions">Sessions</button>
+            <button class="tab-btn" data-tab="progress">Progress Tracking</button>
+        </nav>
+
+        <!-- Characters Tab -->
+        <div id="characters-tab" class="tab-content active">
+            <div class="tab-header">
+                <h2>Characters</h2>
+                <button class="btn-primary" onclick="showCreateCharacterModal()">+ Create Character</button>
+            </div>
+            <div id="characters-list" class="grid">
+                <!-- Characters will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Shadows Tab -->
+        <div id="shadows-tab" class="tab-content">
+            <div class="tab-header">
+                <h2>Shadows of the Multiverse</h2>
+                <button class="btn-primary" onclick="showCreateShadowModal()">+ Create Shadow</button>
+            </div>
+            <div id="shadows-list" class="grid">
+                <!-- Shadows will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Sessions Tab -->
+        <div id="sessions-tab" class="tab-content">
+            <div class="tab-header">
+                <h2>Campaign Sessions</h2>
+                <button class="btn-primary" onclick="showCreateSessionModal()">+ Create Session</button>
+            </div>
+            <div id="sessions-list">
+                <!-- Sessions will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Progress Tracking Tab -->
+        <div id="progress-tab" class="tab-content">
+            <div class="tab-header">
+                <h2>Character Progress</h2>
+                <button class="btn-primary" onclick="showAddProgressModal()">+ Add Progress Entry</button>
+            </div>
+            <div class="filter-section">
+                <label>Filter by Character:
+                    <select id="progress-filter-character" onchange="loadProgress()">
+                        <option value="">All Characters</option>
+                    </select>
+                </label>
+            </div>
+            <div id="progress-list">
+                <!-- Progress entries will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Container -->
+    <div id="modal-overlay" class="modal-overlay" onclick="closeModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3 id="modal-title">Modal Title</h3>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-body">
+                <!-- Modal content will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/app.js"></script>
+</body>
+</html>
