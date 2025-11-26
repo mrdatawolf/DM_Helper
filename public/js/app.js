@@ -6,6 +6,7 @@ let characters = [];
 let shadows = [];
 let sessions = [];
 let progress = [];
+let journalEntries = [];
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
@@ -39,6 +40,11 @@ function switchTab(tabName) {
     document.querySelectorAll('.tab-content').forEach(content => {
         content.classList.toggle('active', content.id === `${tabName}-tab`);
     });
+
+    // Load journal entries when switching to journal tab
+    if (tabName === 'journal') {
+        loadJournalEntries();
+    }
 }
 
 // Load all data
@@ -58,6 +64,7 @@ async function loadCharacters() {
         characters = await response.json();
         renderCharacters();
         updateProgressFilter();
+        updateJournalFilter();
     } catch (error) {
         console.error('Error loading characters:', error);
     }
@@ -637,6 +644,320 @@ async function deleteProgress(id) {
     }
 }
 
+// ========== JOURNAL FUNCTIONS ==========
+
+// Update journal filter dropdown
+function updateJournalFilter() {
+    const select = document.getElementById('journal-filter-character');
+    if (!select) return;
+
+    select.innerHTML = '<option value="">All Characters</option>' +
+        characters.map(char => `<option value="${char.id}">${char.name}</option>`).join('');
+}
+
+// Load journal entries
+async function loadJournalEntries() {
+    const container = document.getElementById('journal-content');
+    const characterFilter = document.getElementById('journal-filter-character')?.value || '';
+    const publicOnlyFilter = document.getElementById('journal-filter-public')?.checked || false;
+
+    try {
+        const response = await fetch(`${API_BASE}/journal/user`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to load journal entries');
+        }
+
+        const data = await response.json();
+        let entries = data.entries || [];
+
+        // Apply filters
+        if (characterFilter) {
+            entries = entries.filter(e => e.character_id == characterFilter);
+        }
+        if (publicOnlyFilter) {
+            entries = entries.filter(e => e.is_public === 1);
+        }
+
+        journalEntries = entries;
+        renderJournalEntries();
+
+    } catch (error) {
+        console.error('Error loading journal entries:', error);
+        container.innerHTML = `
+            <div class="error-state">
+                <h3>Failed to Load Journal Entries</h3>
+                <p>${error.message}</p>
+            </div>
+        `;
+    }
+}
+
+// Render journal entries
+function renderJournalEntries() {
+    const container = document.getElementById('journal-content');
+
+    if (journalEntries.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <h3>No Journal Entries</h3>
+                <p>Create your first journal entry to document the campaign.</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="journal-entries">
+            ${journalEntries.map(entry => `
+                <div class="journal-entry-card">
+                    <div class="entry-header">
+                        <div>
+                            <h3>${entry.title}</h3>
+                            <span class="entry-meta">
+                                ${entry.character_name} • ${new Date(entry.created_at).toLocaleDateString()}
+                                ${entry.is_public ? '<span class="public-badge">Public</span>' : '<span class="private-badge">Private</span>'}
+                            </span>
+                        </div>
+                        <div class="entry-actions">
+                            <button class="btn-secondary btn-sm" onclick="editJournalEntry(${entry.id})">Edit</button>
+                            <button class="btn-secondary btn-sm" onclick="deleteJournalEntry(${entry.id})">Delete</button>
+                        </div>
+                    </div>
+                    <div class="entry-content">
+                        <p>${entry.content}</p>
+                    </div>
+                    <div class="entry-footer">
+                        <small>By ${entry.author_username}</small>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+// Open new journal entry modal
+function openNewJournalEntry() {
+    const modalContent = `
+        <form id="journal-entry-form" onsubmit="handleJournalSubmit(event); return false;">
+            <div class="form-group">
+                <label for="journal-character">Character *</label>
+                <select id="journal-character" required>
+                    <option value="">Select a character...</option>
+                    ${characters.map(char => `<option value="${char.id}">${char.name}</option>`).join('')}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="journal-title">Title *</label>
+                <input type="text" id="journal-title" required placeholder="What happened?">
+            </div>
+            <div class="form-group">
+                <label for="journal-content">Entry *</label>
+                <textarea id="journal-content" rows="8" required></textarea>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="journal-visibility">
+                    Make this entry public (visible to all players)
+                </label>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" onclick="closeModal()">Cancel</button>
+                <button type="submit" class="btn-primary">Save Entry</button>
+            </div>
+        </form>
+    `;
+
+    showModal('New Journal Entry', modalContent);
+}
+
+// Handle journal entry submission
+async function handleJournalSubmit(event) {
+    event.preventDefault();
+
+    const submitButton = event.target.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    submitButton.textContent = 'Saving...';
+
+    const characterId = parseInt(document.getElementById('journal-character').value);
+    const title = document.getElementById('journal-title').value;
+    const content = document.getElementById('journal-content').value;
+
+    // Client-side validation
+    if (!characterId || isNaN(characterId)) {
+        alert('Please select a character');
+        submitButton.disabled = false;
+        submitButton.textContent = 'Save Entry';
+        return;
+    }
+
+    if (!title || title.trim() === '') {
+        alert('Please enter a title');
+        submitButton.disabled = false;
+        submitButton.textContent = 'Save Entry';
+        return;
+    }
+
+    if (!content || content.trim() === '') {
+        alert('Please enter content for the journal entry');
+        submitButton.disabled = false;
+        submitButton.textContent = 'Save Entry';
+        return;
+    }
+
+    const entryData = {
+        character_id: characterId,
+        title: title.trim(),
+        content: content.trim(),
+        is_public: document.getElementById('journal-visibility').checked ? 1 : 0
+    };
+
+    console.log('Sending journal entry data:', entryData);
+
+    try {
+        const response = await fetch(`${API_BASE}/journal`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+            },
+            body: JSON.stringify(entryData)
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to create journal entry');
+        }
+
+        closeModal();
+        await loadJournalEntries();
+        alert('Journal entry saved successfully!');
+
+    } catch (error) {
+        console.error('Error creating journal entry:', error);
+        console.error('Full error details:', error);
+        alert(`Failed to save journal entry: ${error.message}`);
+    } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = 'Save Entry';
+    }
+}
+
+// Edit journal entry
+async function editJournalEntry(entryId) {
+    const entry = journalEntries.find(e => e.id === entryId);
+    if (!entry) {
+        alert('Journal entry not found');
+        return;
+    }
+
+    const modalContent = `
+        <form id="journal-edit-form" onsubmit="handleJournalUpdate(event, ${entryId}); return false;">
+            <div class="form-group">
+                <label for="edit-journal-character">Character *</label>
+                <select id="edit-journal-character" required>
+                    <option value="">Select a character...</option>
+                    ${characters.map(char => `<option value="${char.id}" ${char.id === entry.character_id ? 'selected' : ''}>${char.name}</option>`).join('')}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="edit-journal-title">Title *</label>
+                <input type="text" id="edit-journal-title" required placeholder="What happened?" value="${entry.title}">
+            </div>
+            <div class="form-group">
+                <label for="edit-journal-content">Entry *</label>
+                <textarea id="edit-journal-content" rows="8" required>${entry.content}</textarea>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="edit-journal-visibility" ${entry.is_public ? 'checked' : ''}>
+                    Make this entry public (visible to all players)
+                </label>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" onclick="closeModal()">Cancel</button>
+                <button type="submit" class="btn-primary">Update Entry</button>
+            </div>
+        </form>
+    `;
+
+    showModal('Edit Journal Entry', modalContent);
+}
+
+// Handle journal entry update
+async function handleJournalUpdate(event, entryId) {
+    event.preventDefault();
+
+    const submitButton = event.target.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    submitButton.textContent = 'Updating...';
+
+    const entryData = {
+        character_id: parseInt(document.getElementById('edit-journal-character').value),
+        title: document.getElementById('edit-journal-title').value,
+        content: document.getElementById('edit-journal-content').value,
+        is_public: document.getElementById('edit-journal-visibility').checked ? 1 : 0
+    };
+
+    try {
+        const response = await fetch(`${API_BASE}/journal/${entryId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+            },
+            body: JSON.stringify(entryData)
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to update journal entry');
+        }
+
+        closeModal();
+        await loadJournalEntries();
+        alert('Journal entry updated successfully!');
+
+    } catch (error) {
+        console.error('Error updating journal entry:', error);
+        alert(`Failed to update journal entry: ${error.message}`);
+    } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = 'Update Entry';
+    }
+}
+
+// Delete journal entry
+async function deleteJournalEntry(entryId) {
+    if (!confirm('Are you sure you want to delete this journal entry?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/journal/${entryId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to delete journal entry');
+        }
+
+        await loadJournalEntries();
+        alert('Journal entry deleted successfully!');
+
+    } catch (error) {
+        console.error('Error deleting journal entry:', error);
+        alert(`Failed to delete journal entry: ${error.message}`);
+    }
+}
+
 // Placeholder functions for view/edit (to be implemented)
 function viewCharacter(id) {
     alert('View character details - to be implemented');
@@ -656,4 +977,140 @@ function editSession(id) {
 
 function editProgress(id) {
     alert('Edit progress - to be implemented');
+}
+
+// ========== CLAIMS RANKINGS FUNCTIONS ==========
+
+// Load claims rankings for DM view
+async function loadClaimsRankings() {
+    const container = document.getElementById('claims-rankings-container');
+    const summaryContainer = document.getElementById('claims-summary-stats');
+
+    container.innerHTML = '<div class="loading">Loading claims rankings...</div>';
+
+    try {
+        const response = await fetch('/api/claims/rankings/all/with-best');
+        const rankings = await response.json();
+
+        if (Object.keys(rankings).length === 0) {
+            container.innerHTML = '<div style="text-align: center; color: #999; padding: 40px; font-style: italic;">No attribute claims have been made yet.</div>';
+            summaryContainer.innerHTML = '';
+            return;
+        }
+
+        // Calculate summary stats
+        let totalAttributes = Object.keys(rankings).length;
+        let totalClaims = 0;
+        let totalPoints = 0;
+        let mostCompetitiveAttr = '';
+        let mostCompetitiveCount = 0;
+
+        Object.entries(rankings).forEach(([attr, chars]) => {
+            totalClaims += chars.length;
+            chars.forEach(char => totalPoints += char.points_spent);
+
+            if (chars.length > mostCompetitiveCount) {
+                mostCompetitiveCount = chars.length;
+                mostCompetitiveAttr = attr;
+            }
+        });
+
+        summaryContainer.innerHTML = `
+            <div style="background: var(--light); padding: 15px; border-radius: 8px; text-align: center;">
+                <div style="font-size: 32px; font-weight: bold; color: var(--primary);">${totalAttributes}</div>
+                <div style="font-size: 14px; color: #666; margin-top: 5px;">Attributes Claimed</div>
+            </div>
+            <div style="background: var(--light); padding: 15px; border-radius: 8px; text-align: center;">
+                <div style="font-size: 32px; font-weight: bold; color: var(--primary);">${totalClaims}</div>
+                <div style="font-size: 14px; color: #666; margin-top: 5px;">Total Claims</div>
+            </div>
+            <div style="background: var(--light); padding: 15px; border-radius: 8px; text-align: center;">
+                <div style="font-size: 32px; font-weight: bold; color: var(--primary);">${totalPoints}</div>
+                <div style="font-size: 14px; color: #666; margin-top: 5px;">Total Points Spent</div>
+            </div>
+            <div style="background: var(--light); padding: 15px; border-radius: 8px; text-align: center;">
+                <div style="font-size: 32px; font-weight: bold; color: var(--primary);">${mostCompetitiveAttr || 'N/A'}</div>
+                <div style="font-size: 14px; color: #666; margin-top: 5px;">Most Competitive (${mostCompetitiveCount} claims)</div>
+            </div>
+        `;
+
+        // Render each attribute section
+        container.innerHTML = '';
+        Object.entries(rankings).forEach(([attributeName, characters]) => {
+            const section = document.createElement('div');
+            section.style.cssText = 'background: white; padding: 20px; border-radius: 8px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);';
+
+            let tableHTML = `
+                <h3 style="margin-top: 0; color: var(--primary); border-bottom: 2px solid var(--primary); padding-bottom: 10px;">${attributeName}</h3>
+                <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                    <thead>
+                        <tr style="background: var(--light);">
+                            <th style="padding: 12px; text-align: left; font-weight: bold; border-bottom: 2px solid #ddd;">Rank</th>
+                            <th style="padding: 12px; text-align: left; font-weight: bold; border-bottom: 2px solid #ddd;">Character</th>
+                            <th style="padding: 12px; text-align: left; font-weight: bold; border-bottom: 2px solid #ddd;">Points Spent</th>
+                            <th style="padding: 12px; text-align: left; font-weight: bold; border-bottom: 2px solid #ddd;">Justification</th>
+                            <th style="padding: 12px; text-align: left; font-weight: bold; border-bottom: 2px solid #ddd;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            characters.forEach((char, index) => {
+                let rankBadgeStyle = 'display: inline-block; background: #666; color: white; padding: 4px 12px; border-radius: 12px; font-size: 14px; font-weight: bold; min-width: 30px; text-align: center;';
+
+                if (index === 0) {
+                    rankBadgeStyle = rankBadgeStyle.replace('background: #666', 'background: #FFD700; color: #333');
+                } else if (index === 1) {
+                    rankBadgeStyle = rankBadgeStyle.replace('background: #666', 'background: #C0C0C0; color: #333');
+                } else if (index === 2) {
+                    rankBadgeStyle = rankBadgeStyle.replace('background: #666', 'background: #CD7F32');
+                }
+
+                tableHTML += `
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 12px;"><span style="${rankBadgeStyle}">#${char.rank_position}</span></td>
+                        <td style="padding: 12px;">
+                            <strong>${char.character_name}</strong>
+                            ${char.is_best ? '<span style="display: inline-block; background: #4CAF50; color: white; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-left: 10px;">🏆 BEST</span>' : ''}
+                        </td>
+                        <td style="padding: 12px;"><span style="font-size: 18px; font-weight: bold; color: var(--primary);">${char.points_spent}</span> points</td>
+                        <td style="padding: 12px;"><span style="font-style: italic; color: #666; font-size: 14px;">${char.justification || 'No justification provided'}</span></td>
+                        <td style="padding: 12px;">
+                            ${char.is_best ?
+                                '<span style="color: #4CAF50; font-weight: bold;">Gets +2 total bonus</span>' :
+                                '<span style="color: #666;">Gets +1 claim bonus</span>'}
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tableHTML += `
+                    </tbody>
+                </table>
+            `;
+
+            // Add secret bonus info for the best character
+            const bestChar = characters.find(c => c.is_best);
+            if (bestChar) {
+                tableHTML += `
+                    <div style="background: #e8f5e9; padding: 10px; border-radius: 4px; margin-top: 10px; border-left: 3px solid #4CAF50;">
+                        <strong>🔒 Secret:</strong> ${bestChar.character_name} gets a hidden +1 bonus on top of the visible +1 claim bonus.
+                        Players won't know who's truly the best, creating suspense!
+                    </div>
+                `;
+            }
+
+            section.innerHTML = tableHTML;
+            container.appendChild(section);
+        });
+
+    } catch (error) {
+        console.error('Error loading rankings:', error);
+        container.innerHTML = `
+            <div style="text-align: center; padding: 40px; color: #e74c3c;">
+                <p>Failed to load rankings: ${error.message}</p>
+                <button class="btn-primary" onclick="loadClaimsRankings()">Retry</button>
+            </div>
+        `;
+    }
 }

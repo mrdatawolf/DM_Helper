@@ -27,6 +27,8 @@
             <button class="tab-btn" data-tab="shadows">Shadows</button>
             <button class="tab-btn" data-tab="sessions">Sessions</button>
             <button class="tab-btn" data-tab="progress">Progress Tracking</button>
+            <button class="tab-btn" data-tab="claims">Claims Rankings</button>
+            <button class="tab-btn" data-tab="journal">Journal</button>
         </nav>
 
         <!-- Characters Tab -->
@@ -77,6 +79,55 @@
             </div>
             <div id="progress-list">
                 <!-- Progress entries will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Claims Rankings Tab -->
+        <div id="claims-tab" class="tab-content">
+            <div class="tab-header">
+                <h2>Attribute Claims Rankings</h2>
+                <button class="btn-secondary" onclick="loadClaimsRankings()">🔄 Refresh</button>
+            </div>
+
+            <div class="dm-info" style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;">
+                <h3 style="margin-top: 0;">🎭 DM Secret Information</h3>
+                <p><strong>How the Hidden Bonus System Works:</strong></p>
+                <ul>
+                    <li>Players get <strong>+1 bonus</strong> automatically when they've claimed an attribute</li>
+                    <li>Characters marked with 🏆 <strong>BEST</strong> secretly get an additional <strong>+1 bonus</strong> (total +2)</li>
+                    <li>Players don't know who's actually the best - they only see their own +1 claim bonus</li>
+                    <li>The best character is determined by: highest points spent, or earliest timestamp if tied</li>
+                </ul>
+            </div>
+
+            <div id="claims-summary-stats" class="grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0;">
+                <!-- Summary stats will be loaded here -->
+            </div>
+
+            <div id="claims-rankings-container">
+                <div class="loading">Loading claims rankings...</div>
+            </div>
+        </div>
+
+        <!-- Journal Tab -->
+        <div id="journal-tab" class="tab-content">
+            <div class="tab-header">
+                <h2>Campaign Journal</h2>
+                <button class="btn-primary" onclick="openNewJournalEntry()">+ New Entry</button>
+            </div>
+            <div class="filter-section">
+                <label>Filter by Character:
+                    <select id="journal-filter-character" onchange="loadJournalEntries()">
+                        <option value="">All Characters</option>
+                    </select>
+                </label>
+                <label style="margin-left: 20px;">
+                    <input type="checkbox" id="journal-filter-public" onchange="loadJournalEntries()">
+                    Show only public entries
+                </label>
+            </div>
+            <div id="journal-content">
+                <!-- Journal entries will be loaded here -->
             </div>
         </div>
     </div>

@@ -305,4 +305,134 @@ router.get('/history/:character_id', (req, res) => {
     }
 });
 
+// Resolve a claim for an attribute check (returns bonuses for player)
+router.post('/resolve', (req, res) => {
+    try {
+        const db = getDatabase();
+        const { character_id, attribute_name, roll_result } = req.body;
+
+        if (!character_id || !attribute_name || roll_result === undefined) {
+            return res.status(400).json({
+                error: 'character_id, attribute_name, and roll_result are required'
+            });
+        }
+
+        // Get this character's claim
+        const claim = db.prepare(`
+            SELECT * FROM attribute_claims
+            WHERE character_id = ? AND attribute_name = ?
+        `).get(character_id, attribute_name);
+
+        if (!claim || claim.points_spent === 0) {
+            // No claim made
+            return res.json({
+                base_roll: roll_result,
+                claim_bonus: 0,
+                total_bonus: 0,
+                final_result: roll_result,
+                message: 'No claim bonus'
+            });
+        }
+
+        // Get all claims for this attribute to determine if character is truly the best
+        const allClaims = db.prepare(`
+            SELECT character_id, points_spent
+            FROM attribute_claims
+            WHERE attribute_name = ?
+            ORDER BY points_spent DESC, updated_at ASC
+        `).all(attribute_name);
+
+        // Check if this character is the best (highest points, or tied for highest with earliest timestamp)
+        const isBest = allClaims.length > 0 && allClaims[0].character_id === character_id;
+
+        // Calculate bonuses
+        const claimBonus = 1;  // +1 for making a claim
+        const hiddenBonus = isBest ? 1 : 0;  // +1 hidden bonus if truly the best
+        const totalBonus = claimBonus + hiddenBonus;
+
+        res.json({
+            base_roll: roll_result,
+            claim_bonus: claimBonus,  // Player sees this
+            total_bonus: totalBonus,  // DM sees the full bonus including hidden +1
+            final_result: roll_result + totalBonus,
+            message: 'Claimed Best',
+            is_actually_best: isBest  // DM only info
+        });
+
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get rankings with 'best' indicator (enhanced DM view)
+router.get('/rankings/actual/:attribute_name/with-best', (req, res) => {
+    try {
+        const db = getDatabase();
+        const rankings = db.prepare(`
+            SELECT
+                ac.character_id,
+                c.name as character_name,
+                ac.attribute_name,
+                ac.points_spent,
+                ac.justification,
+                ac.updated_at
+            FROM attribute_claims ac
+            JOIN characters c ON ac.character_id = c.id
+            WHERE ac.attribute_name = ?
+            ORDER BY ac.points_spent DESC, ac.updated_at ASC
+        `).all(req.params.attribute_name);
+
+        // Mark the best (first in sorted order)
+        const result = rankings.map((rank, index) => ({
+            ...rank,
+            is_best: index === 0,
+            rank_position: index + 1
+        }));
+
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get all rankings with best indicators (enhanced DM overview)
+router.get('/rankings/all/with-best', (req, res) => {
+    try {
+        const db = getDatabase();
+
+        // Get all distinct attributes that have claims
+        const attributes = db.prepare(`
+            SELECT DISTINCT attribute_name FROM attribute_claims ORDER BY attribute_name
+        `).all();
+
+        const allRankings = {};
+
+        for (const attr of attributes) {
+            const rankings = db.prepare(`
+                SELECT
+                    ac.character_id,
+                    c.name as character_name,
+                    ac.points_spent,
+                    ac.justification,
+                    ac.updated_at
+                FROM attribute_claims ac
+                JOIN characters c ON ac.character_id = c.id
+                WHERE ac.attribute_name = ?
+                ORDER BY ac.points_spent DESC, ac.updated_at ASC
+            `).all(attr.attribute_name);
+
+            // Mark the best
+            allRankings[attr.attribute_name] = rankings.map((rank, index) => ({
+                ...rank,
+                is_best: index === 0,
+                rank_position: index + 1
+            }));
+        }
+
+        res.json(allRankings);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router;

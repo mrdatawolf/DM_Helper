@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attribute Claims - DM View</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .dm-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .dm-info {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #ffc107;
+        }
+
+        .attribute-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .attribute-section h3 {
+            margin-top: 0;
+            color: var(--primary);
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 10px;
+        }
+
+        .ranking-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .ranking-table th {
+            background: var(--light);
+            padding: 12px;
+            text-align: left;
+            font-weight: bold;
+            border-bottom: 2px solid #ddd;
+        }
+
+        .ranking-table td {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .ranking-table tr:hover {
+            background: #f9f9f9;
+        }
+
+        .rank-badge {
+            display: inline-block;
+            background: #666;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: bold;
+            min-width: 30px;
+            text-align: center;
+        }
+
+        .rank-badge.first {
+            background: #FFD700;
+            color: #333;
+        }
+
+        .rank-badge.second {
+            background: #C0C0C0;
+            color: #333;
+        }
+
+        .rank-badge.third {
+            background: #CD7F32;
+            color: white;
+        }
+
+        .best-indicator {
+            display: inline-block;
+            background: #4CAF50;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+
+        .secret-bonus-info {
+            background: #e8f5e9;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            border-left: 3px solid #4CAF50;
+        }
+
+        .points-spent {
+            font-size: 18px;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .justification {
+            font-style: italic;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .refresh-btn {
+            float: right;
+            padding: 10px 20px;
+        }
+
+        .no-claims {
+            text-align: center;
+            color: #999;
+            padding: 40px;
+            font-style: italic;
+        }
+
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .stat-card {
+            background: var(--light);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-card .value {
+            font-size: 32px;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .stat-card .label {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="dm-container">
+        <h1>Attribute Claims - DM View</h1>
+
+        <button class="btn-primary refresh-btn" onclick="loadRankings()">🔄 Refresh</button>
+
+        <div class="dm-info">
+            <h3>🎭 DM Secret Information</h3>
+            <p><strong>How the Hidden Bonus System Works:</strong></p>
+            <ul>
+                <li>Players get <strong>+1 bonus</strong> automatically when they've claimed an attribute</li>
+                <li>Characters marked with 🏆 <strong>BEST</strong> secretly get an additional <strong>+1 bonus</strong> (total +2)</li>
+                <li>Players don't know who's actually the best - they only see their own +1 claim bonus</li>
+                <li>The best character is determined by: highest points spent, or earliest timestamp if tied</li>
+            </ul>
+        </div>
+
+        <div class="summary-stats" id="summary-stats">
+            <!-- Will be populated dynamically -->
+        </div>
+
+        <div id="rankings-container">
+            <!-- Will be populated dynamically -->
+        </div>
+    </div>
+
+    <script>
+        async function loadRankings() {
+            try {
+                const response = await fetch('/api/claims/rankings/all/with-best');
+                const rankings = await response.json();
+
+                const container = document.getElementById('rankings-container');
+                const summaryContainer = document.getElementById('summary-stats');
+
+                if (Object.keys(rankings).length === 0) {
+                    container.innerHTML = '<div class="no-claims">No attribute claims have been made yet.</div>';
+                    summaryContainer.innerHTML = '';
+                    return;
+                }
+
+                // Calculate summary stats
+                let totalAttributes = Object.keys(rankings).length;
+                let totalClaims = 0;
+                let totalPoints = 0;
+                let mostCompetitiveAttr = '';
+                let mostCompetitiveCount = 0;
+
+                Object.entries(rankings).forEach(([attr, chars]) => {
+                    totalClaims += chars.length;
+                    chars.forEach(char => totalPoints += char.points_spent);
+
+                    if (chars.length > mostCompetitiveCount) {
+                        mostCompetitiveCount = chars.length;
+                        mostCompetitiveAttr = attr;
+                    }
+                });
+
+                summaryContainer.innerHTML = `
+                    <div class="stat-card">
+                        <div class="value">${totalAttributes}</div>
+                        <div class="label">Attributes Claimed</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="value">${totalClaims}</div>
+                        <div class="label">Total Claims</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="value">${totalPoints}</div>
+                        <div class="label">Total Points Spent</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="value">${mostCompetitiveAttr || 'N/A'}</div>
+                        <div class="label">Most Competitive (${mostCompetitiveCount} claims)</div>
+                    </div>
+                `;
+
+                // Render each attribute section
+                container.innerHTML = '';
+                Object.entries(rankings).forEach(([attributeName, characters]) => {
+                    const section = document.createElement('div');
+                    section.className = 'attribute-section';
+
+                    let tableHTML = `
+                        <h3>${attributeName}</h3>
+                        <table class="ranking-table">
+                            <thead>
+                                <tr>
+                                    <th>Rank</th>
+                                    <th>Character</th>
+                                    <th>Points Spent</th>
+                                    <th>Justification</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+
+                    characters.forEach((char, index) => {
+                        let rankClass = '';
+                        if (index === 0) rankClass = 'first';
+                        else if (index === 1) rankClass = 'second';
+                        else if (index === 2) rankClass = 'third';
+
+                        tableHTML += `
+                            <tr>
+                                <td><span class="rank-badge ${rankClass}">#${char.rank_position}</span></td>
+                                <td>
+                                    <strong>${char.character_name}</strong>
+                                    ${char.is_best ? '<span class="best-indicator">🏆 BEST</span>' : ''}
+                                </td>
+                                <td><span class="points-spent">${char.points_spent}</span> points</td>
+                                <td><span class="justification">${char.justification || 'No justification provided'}</span></td>
+                                <td>
+                                    ${char.is_best ?
+                                        '<span style="color: #4CAF50; font-weight: bold;">Gets +2 total bonus</span>' :
+                                        '<span style="color: #666;">Gets +1 claim bonus</span>'}
+                                </td>
+                            </tr>
+                        `;
+                    });
+
+                    tableHTML += `
+                            </tbody>
+                        </table>
+                    `;
+
+                    // Add secret bonus info for the best character
+                    const bestChar = characters.find(c => c.is_best);
+                    if (bestChar) {
+                        tableHTML += `
+                            <div class="secret-bonus-info">
+                                <strong>🔒 Secret:</strong> ${bestChar.character_name} gets a hidden +1 bonus on top of the visible +1 claim bonus.
+                                Players won't know who's truly the best, creating suspense!
+                            </div>
+                        `;
+                    }
+
+                    section.innerHTML = tableHTML;
+                    container.appendChild(section);
+                });
+
+            } catch (error) {
+                console.error('Error loading rankings:', error);
+                alert('Failed to load rankings: ' + error.message);
+            }
+        }
+
+        // Auto-refresh every 30 seconds
+        setInterval(loadRankings, 30000);
+
+        // Initial load
+        loadRankings();
+    </script>
+</body>
+</html>

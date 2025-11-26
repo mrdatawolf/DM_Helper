@@ -361,7 +361,7 @@ For details on shadow reflections (Rebma, Tir-na Nog'th, The Depths, The Neon Sp
 - **Amber (Kolvir)** - The eternal city, seat of the First Pattern
 - **Deidre** - Noir reflection of Amber, Corwin's first shadow
 - **Rebma** - Underwater mirror of Amber
-- **Tir-na Nog'th** - Ghost city in the sky (full moon)
+- **Tir-na Nog'th** - Ghost city in the sky above Kolvir (full moon)
 - **The Depths** - Deidre's shadow mirror (rain access)
 - **The Neon Spire** - Deidre's ghost city (new moon)
 - **Shadow Earth** - Similar to our world

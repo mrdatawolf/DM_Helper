@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attribute Claims - Player View</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .claim-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .roll-interface {
+            background: var(--light);
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .attribute-select {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        .attribute-btn {
+            padding: 10px 20px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .attribute-btn:hover {
+            background: var(--secondary);
+        }
+
+        .attribute-btn.selected {
+            background: var(--secondary);
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+        }
+
+        .attribute-btn.has-claim {
+            position: relative;
+            padding-right: 40px;
+        }
+
+        .attribute-btn.has-claim::after {
+            content: "⭐";
+            position: absolute;
+            right: 10px;
+            font-size: 16px;
+        }
+
+        .roll-result {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .roll-result.show {
+            display: block;
+        }
+
+        .bonus-breakdown {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        .bonus-badge {
+            display: inline-block;
+            background: var(--success);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: bold;
+            margin: 5px;
+        }
+
+        .final-result {
+            font-size: 36px;
+            font-weight: bold;
+            color: var(--primary);
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .claim-info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid var(--primary);
+        }
+
+        .dice-roll {
+            font-size: 24px;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .character-select {
+            margin: 20px 0;
+        }
+
+        .character-select select {
+            width: 100%;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="claim-container">
+        <h1>Attribute Claims - Test Interface</h1>
+
+        <div class="claim-info">
+            <h3>How Claim Bonuses Work:</h3>
+            <ul>
+                <li><strong>+1 Claim Bonus:</strong> You get this automatically when you've claimed to be the best at an attribute</li>
+                <li><strong>Hidden +1 Best Bonus:</strong> The DM secretly gives you this IF you're actually the best (you won't know for sure!)</li>
+                <li><strong>Total Possible:</strong> Up to +2 bonus on your roll if you're truly the best</li>
+            </ul>
+        </div>
+
+        <div class="character-select">
+            <label for="character-select"><strong>Select Character:</strong></label>
+            <select id="character-select">
+                <option value="">Choose a character...</option>
+            </select>
+        </div>
+
+        <div class="roll-interface">
+            <h2>Make an Attribute Check</h2>
+
+            <p><strong>Select an attribute to roll:</strong></p>
+            <div class="attribute-select" id="attribute-buttons">
+                <!-- Will be populated dynamically -->
+            </div>
+
+            <button id="roll-btn" class="btn-primary" style="width: 100%; margin-top: 20px; padding: 15px;" disabled>
+                Roll the Dice! 🎲
+            </button>
+
+            <div id="roll-result" class="roll-result">
+                <div class="dice-roll">
+                    Rolled: <span id="dice-value">--</span>
+                </div>
+
+                <div class="bonus-breakdown">
+                    <h3>Bonus Breakdown:</h3>
+                    <div id="bonus-display"></div>
+                </div>
+
+                <div class="final-result">
+                    Final Result: <span id="final-value">--</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedCharacter = null;
+        let selectedAttribute = null;
+        let characterClaims = {};
+
+        const commonAttributes = [
+            'Strength', 'Speed', 'Combat', 'Stealth', 'Intelligence',
+            'Persuasion', 'Endurance', 'Archery', 'Swordsmanship', 'Magic'
+        ];
+
+        // Load characters
+        async function loadCharacters() {
+            try {
+                const response = await fetch('/api/characters');
+                const characters = await response.json();
+
+                const select = document.getElementById('character-select');
+                select.innerHTML = '<option value="">Choose a character...</option>';
+
+                characters.forEach(char => {
+                    const option = document.createElement('option');
+                    option.value = char.id;
+                    option.textContent = char.name;
+                    select.appendChild(option);
+                });
+
+            } catch (error) {
+                console.error('Error loading characters:', error);
+            }
+        }
+
+        // Load character claims
+        async function loadClaims(characterId) {
+            try {
+                const response = await fetch(`/api/claims/character/${characterId}`);
+                const claims = await response.json();
+
+                characterClaims = {};
+                claims.forEach(claim => {
+                    characterClaims[claim.attribute_name] = claim.points_spent;
+                });
+
+                renderAttributeButtons();
+
+            } catch (error) {
+                console.error('Error loading claims:', error);
+            }
+        }
+
+        // Render attribute buttons
+        function renderAttributeButtons() {
+            const container = document.getElementById('attribute-buttons');
+            container.innerHTML = '';
+
+            commonAttributes.forEach(attr => {
+                const btn = document.createElement('button');
+                btn.className = 'attribute-btn';
+                btn.textContent = attr;
+
+                if (characterClaims[attr] && characterClaims[attr] > 0) {
+                    btn.classList.add('has-claim');
+                    btn.title = `You've claimed ${characterClaims[attr]} points on ${attr}`;
+                }
+
+                btn.onclick = () => selectAttribute(attr, btn);
+                container.appendChild(btn);
+            });
+        }
+
+        // Select attribute
+        function selectAttribute(attr, btnElement) {
+            // Remove previous selection
+            document.querySelectorAll('.attribute-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+
+            // Select new
+            btnElement.classList.add('selected');
+            selectedAttribute = attr;
+
+            // Enable roll button if character is selected
+            document.getElementById('roll-btn').disabled = !selectedCharacter;
+
+            // Hide previous result
+            document.getElementById('roll-result').classList.remove('show');
+        }
+
+        // Roll dice
+        async function rollDice() {
+            if (!selectedCharacter || !selectedAttribute) {
+                alert('Please select a character and attribute');
+                return;
+            }
+
+            // Simulate a d20 roll
+            const diceRoll = Math.floor(Math.random() * 20) + 1;
+
+            // Call the resolve endpoint
+            try {
+                const response = await fetch('/api/claims/resolve', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        character_id: selectedCharacter,
+                        attribute_name: selectedAttribute,
+                        roll_result: diceRoll
+                    })
+                });
+
+                const result = await response.json();
+
+                // Display result
+                document.getElementById('dice-value').textContent = result.base_roll;
+                document.getElementById('final-value').textContent = result.final_result;
+
+                // Show bonus breakdown
+                const bonusDisplay = document.getElementById('bonus-display');
+                bonusDisplay.innerHTML = '';
+
+                if (result.claim_bonus > 0) {
+                    bonusDisplay.innerHTML += `
+                        <span class="bonus-badge">+${result.claim_bonus} ${result.message}</span>
+                        <p style="margin: 10px 0;">You get a +1 bonus because you claimed to be the best at ${selectedAttribute}!</p>
+                    `;
+                }
+
+                if (result.total_bonus > result.claim_bonus) {
+                    bonusDisplay.innerHTML += `
+                        <p style="margin: 10px 0; color: var(--success); font-weight: bold;">
+                            ✨ You rolled exceptionally well! (+${result.total_bonus} total bonus)
+                        </p>
+                    `;
+                } else if (result.claim_bonus === 0) {
+                    bonusDisplay.innerHTML += `
+                        <p style="margin: 10px 0; color: #666;">
+                            No claim bonus. Consider spending claim points on ${selectedAttribute} to get future bonuses!
+                        </p>
+                    `;
+                }
+
+                document.getElementById('roll-result').classList.add('show');
+
+            } catch (error) {
+                console.error('Error resolving claim:', error);
+                alert('Failed to resolve claim: ' + error.message);
+            }
+        }
+
+        // Character selection
+        document.getElementById('character-select').addEventListener('change', (e) => {
+            const characterId = e.target.value;
+            if (characterId) {
+                selectedCharacter = parseInt(characterId);
+                loadClaims(characterId);
+                document.getElementById('roll-btn').disabled = !selectedAttribute;
+            } else {
+                selectedCharacter = null;
+                characterClaims = {};
+                renderAttributeButtons();
+                document.getElementById('roll-btn').disabled = true;
+            }
+        });
+
+        // Roll button
+        document.getElementById('roll-btn').addEventListener('click', rollDice);
+
+        // Initialize
+        loadCharacters();
+        renderAttributeButtons();
+    </script>
+</body>
+</html>

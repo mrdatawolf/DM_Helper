@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Attribute Claims</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .claims-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .point-pool {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin: 20px 0;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .point-pool h2 {
+            margin: 0 0 10px 0;
+            font-size: 24px;
+        }
+
+        .points-display {
+            font-size: 48px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .points-breakdown {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+
+        .claims-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .claim-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .claim-card:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transform: translateY(-2px);
+        }
+
+        .claim-card h3 {
+            margin: 0 0 15px 0;
+            color: var(--primary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .claim-card.has-claim {
+            border-left: 4px solid var(--success);
+        }
+
+        .points-invested {
+            background: var(--success);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .no-claim {
+            color: #999;
+            font-style: italic;
+        }
+
+        .justification-text {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 14px;
+            margin: 10px 0;
+            font-style: italic;
+        }
+
+        .add-points-btn {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal.active {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        .modal-content h2 {
+            margin-top: 0;
+            color: var(--primary);
+        }
+
+        .form-group {
+            margin: 20px 0;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        .character-select-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .character-select-section select {
+            width: 100%;
+            padding: 12px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            font-size: 16px;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid var(--primary);
+        }
+
+        .info-box h4 {
+            margin-top: 0;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state i {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="claims-container">
+        <h1>Attribute Claims</h1>
+
+        <div class="info-box">
+            <h4>How Attribute Claims Work:</h4>
+            <ul>
+                <li>Spend claim points to assert you're the best at specific attributes</li>
+                <li>You get <strong>+1 bonus</strong> on rolls for claimed attributes</li>
+                <li>The character who invests the most points in an attribute is secretly the best</li>
+                <li>Provide justification for your claims based on your backstory and abilities</li>
+            </ul>
+        </div>
+
+        <div class="character-select-section">
+            <label for="character-select"><strong>Select Your Character:</strong></label>
+            <select id="character-select">
+                <option value="">Choose a character...</option>
+            </select>
+        </div>
+
+        <div id="point-pool-display" style="display: none;">
+            <div class="point-pool">
+                <h2>Available Claim Points</h2>
+                <div class="points-display">
+                    <span id="available-points">0</span>
+                </div>
+                <div class="points-breakdown">
+                    <div>
+                        <strong>Total:</strong> <span id="total-points">0</span>
+                    </div>
+                    <div>
+                        <strong>Spent:</strong> <span id="spent-points">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="claims-display" style="display: none;">
+            <h2>Your Claims</h2>
+            <div class="claims-grid" id="claims-grid">
+                <!-- Will be populated dynamically -->
+            </div>
+        </div>
+
+        <div id="empty-state" class="empty-state">
+            <p>Select a character to view and manage attribute claims</p>
+        </div>
+    </div>
+
+    <!-- Add/Edit Claim Modal -->
+    <div id="claim-modal" class="modal">
+        <div class="modal-content">
+            <h2 id="modal-title">Add Points to Claim</h2>
+
+            <form id="claim-form">
+                <input type="hidden" id="modal-attribute">
+
+                <div class="form-group">
+                    <label for="points-to-add">Points to Add:</label>
+                    <input type="number" id="points-to-add" min="1" max="10" required>
+                    <small>Available: <span id="modal-available-points">0</span> points</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="claim-justification">Justification: *</label>
+                    <textarea id="claim-justification" required placeholder="Explain why your character is the best at this attribute. Reference your backstory, training, or natural abilities..."></textarea>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" onclick="closeClaimModal()">Cancel</button>
+                    <button type="submit" class="btn-primary">Add Points</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let selectedCharacter = null;
+        let claimPool = null;
+        let currentClaims = {};
+
+        const commonAttributes = [
+            'Strength', 'Speed', 'Combat', 'Stealth', 'Intelligence',
+            'Persuasion', 'Endurance', 'Archery', 'Swordsmanship', 'Magic',
+            'Perception', 'Charisma', 'Wisdom', 'Leadership', 'Tactics'
+        ];
+
+        // Load characters
+        async function loadCharacters() {
+            try {
+                const response = await fetch('/api/characters');
+                const characters = await response.json();
+
+                const select = document.getElementById('character-select');
+                select.innerHTML = '<option value="">Choose a character...</option>';
+
+                characters.forEach(char => {
+                    const option = document.createElement('option');
+                    option.value = char.id;
+                    option.textContent = char.name;
+                    select.appendChild(option);
+                });
+
+            } catch (error) {
+                console.error('Error loading characters:', error);
+            }
+        }
+
+        // Load character's claim pool and claims
+        async function loadCharacterClaims(characterId) {
+            try {
+                // Load claim pool
+                const poolResponse = await fetch(`/api/claims/pool/${characterId}`);
+                if (poolResponse.ok) {
+                    claimPool = await poolResponse.json();
+                } else {
+                    // No pool exists yet
+                    claimPool = { total_points: 10, spent_points: 0 };
+                }
+
+                // Load existing claims
+                const claimsResponse = await fetch(`/api/claims/character/${characterId}`);
+                const claims = await claimsResponse.json();
+
+                currentClaims = {};
+                claims.forEach(claim => {
+                    currentClaims[claim.attribute_name] = claim;
+                });
+
+                displayClaimPool();
+                displayClaims();
+
+            } catch (error) {
+                console.error('Error loading claims:', error);
+                alert('Failed to load claims: ' + error.message);
+            }
+        }
+
+        // Display claim pool
+        function displayClaimPool() {
+            document.getElementById('total-points').textContent = claimPool.total_points;
+            document.getElementById('spent-points').textContent = claimPool.spent_points;
+            document.getElementById('available-points').textContent = claimPool.total_points - claimPool.spent_points;
+
+            document.getElementById('point-pool-display').style.display = 'block';
+            document.getElementById('empty-state').style.display = 'none';
+        }
+
+        // Display claims grid
+        function displayClaims() {
+            const grid = document.getElementById('claims-grid');
+            grid.innerHTML = '';
+
+            commonAttributes.forEach(attr => {
+                const claim = currentClaims[attr];
+                const card = document.createElement('div');
+                card.className = 'claim-card' + (claim ? ' has-claim' : '');
+
+                let cardContent = `
+                    <h3>
+                        <span>${attr}</span>
+                        ${claim ? `<span class="points-invested">${claim.points_spent} pts</span>` : '<span class="no-claim">No claim</span>'}
+                    </h3>
+                `;
+
+                if (claim) {
+                    cardContent += `
+                        <div class="justification-text">
+                            "${claim.justification}"
+                        </div>
+                    `;
+                }
+
+                const availablePoints = claimPool.total_points - claimPool.spent_points;
+                if (availablePoints > 0) {
+                    cardContent += `
+                        <button class="btn-primary add-points-btn" onclick="openClaimModal('${attr}')">
+                            ${claim ? 'Add More Points' : 'Make Claim'}
+                        </button>
+                    `;
+                } else if (!claim) {
+                    cardContent += `
+                        <p style="text-align: center; color: #999; font-size: 14px; margin-top: 10px;">
+                            No points available
+                        </p>
+                    `;
+                }
+
+                card.innerHTML = cardContent;
+                grid.appendChild(card);
+            });
+
+            document.getElementById('claims-display').style.display = 'block';
+        }
+
+        // Open claim modal
+        function openClaimModal(attribute) {
+            const claim = currentClaims[attribute];
+            const availablePoints = claimPool.total_points - claimPool.spent_points;
+
+            document.getElementById('modal-title').textContent = claim ?
+                `Add Points to ${attribute}` :
+                `Claim to be Best at ${attribute}`;
+
+            document.getElementById('modal-attribute').value = attribute;
+            document.getElementById('modal-available-points').textContent = availablePoints;
+            document.getElementById('points-to-add').max = availablePoints;
+            document.getElementById('points-to-add').value = Math.min(1, availablePoints);
+
+            if (claim) {
+                document.getElementById('claim-justification').value = claim.justification;
+            } else {
+                document.getElementById('claim-justification').value = '';
+            }
+
+            document.getElementById('claim-modal').classList.add('active');
+        }
+
+        // Close claim modal
+        function closeClaimModal() {
+            document.getElementById('claim-modal').classList.remove('active');
+            document.getElementById('claim-form').reset();
+        }
+
+        // Handle claim form submission
+        document.getElementById('claim-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const attribute = document.getElementById('modal-attribute').value;
+            const pointsToAdd = parseInt(document.getElementById('points-to-add').value);
+            const justification = document.getElementById('claim-justification').value;
+
+            try {
+                const response = await fetch('/api/claims/allocate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        character_id: selectedCharacter,
+                        attribute_name: attribute,
+                        points_to_add: pointsToAdd,
+                        justification: justification
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to allocate points');
+                }
+
+                // Reload claims
+                await loadCharacterClaims(selectedCharacter);
+                closeClaimModal();
+
+            } catch (error) {
+                console.error('Error allocating points:', error);
+                alert('Failed to allocate points: ' + error.message);
+            }
+        });
+
+        // Character selection
+        document.getElementById('character-select').addEventListener('change', (e) => {
+            const characterId = e.target.value;
+            if (characterId) {
+                selectedCharacter = parseInt(characterId);
+                loadCharacterClaims(characterId);
+            } else {
+                selectedCharacter = null;
+                document.getElementById('point-pool-display').style.display = 'none';
+                document.getElementById('claims-display').style.display = 'none';
+                document.getElementById('empty-state').style.display = 'block';
+            }
+        });
+
+        // Close modal when clicking outside
+        document.getElementById('claim-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'claim-modal') {
+                closeClaimModal();
+            }
+        });
+
+        // Initialize
+        loadCharacters();
+    </script>
+</body>
+</html>
