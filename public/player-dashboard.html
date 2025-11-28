@@ -26,6 +26,7 @@
         <nav class="tabs">
             <button class="tab-btn active" data-tab="characters">My Characters</button>
             <button class="tab-btn" data-tab="journal">Journal</button>
+            <button class="tab-btn" data-tab="sessions">Sessions</button>
             <button class="tab-btn" data-tab="claims">Claims & Rankings</button>
             <button class="tab-btn" data-tab="dice">Dice Roller</button>
             <button class="tab-btn" data-tab="progress">Progress Timeline</button>
@@ -173,6 +174,66 @@
                 <div id="journal-content">
                     <div class="info-message">
                         <p>Select a character to view and create journal entries.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sessions Tab -->
+            <div id="sessions-tab" class="tab-content">
+                <div class="tab-header">
+                    <h2>Session Tracker</h2>
+                    <button class="btn-primary" onclick="createNewSession()">
+                        + New Session
+                    </button>
+                </div>
+
+                <div id="sessions-content">
+                    <div class="sessions-container">
+                        <!-- Active Session -->
+                        <div id="active-session-section" style="display: none;">
+                            <div class="session-card active-session">
+                                <div class="session-header">
+                                    <h3 id="active-session-title">Session Title</h3>
+                                    <div class="session-actions">
+                                        <button class="btn-secondary btn-sm" onclick="toggleCombatTracker()">Combat Tracker</button>
+                                        <button class="btn-secondary btn-sm" onclick="endActiveSession()">End Session</button>
+                                    </div>
+                                </div>
+
+                                <!-- Session Notes -->
+                                <div class="session-notes-section">
+                                    <h4>Session Notes</h4>
+                                    <textarea id="active-session-notes" rows="6" placeholder="Take notes during the session..."></textarea>
+                                    <button class="btn-primary btn-sm" onclick="saveSessionNotes()">Save Notes</button>
+                                </div>
+
+                                <!-- Combat Tracker -->
+                                <div id="combat-tracker" style="display: none;">
+                                    <div class="combat-header">
+                                        <h4>Combat Tracker</h4>
+                                        <div class="combat-controls">
+                                            <button class="btn-primary btn-sm" onclick="addCombatant()">+ Add Combatant</button>
+                                            <button class="btn-secondary btn-sm" onclick="nextTurn()">Next Turn</button>
+                                            <button class="btn-danger btn-sm" onclick="endCombat()">End Combat</button>
+                                        </div>
+                                    </div>
+
+                                    <div class="initiative-tracker" id="initiative-list">
+                                        <!-- Will be populated dynamically -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Session History -->
+                        <div class="session-history-section">
+                            <h3>Session History</h3>
+                            <div id="session-history-list">
+                                <div class="info-message">
+                                    <p>No sessions yet. Create a new session to start tracking!</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -2205,3 +2205,299 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+// ============================================
+// SESSION TRACKER FUNCTIONALITY
+// ============================================
+
+// Session Tracker State
+let activeSession = null;
+let combatants = [];
+let currentTurnIndex = 0;
+let sessionHistory = [];
+
+// Create new session
+function createNewSession() {
+    const title = prompt('Enter session title:', `Session ${new Date().toLocaleDateString()}`);
+
+    if (!title) return;
+
+    activeSession = {
+        id: Date.now(),
+        title: title,
+        startTime: new Date(),
+        notes: '',
+        combats: []
+    };
+
+    displayActiveSession();
+}
+
+// Display active session
+function displayActiveSession() {
+    if (!activeSession) return;
+
+    document.getElementById('active-session-section').style.display = 'block';
+    document.getElementById('active-session-title').textContent = activeSession.title;
+    document.getElementById('active-session-notes').value = activeSession.notes || '';
+}
+
+// Save session notes
+function saveSessionNotes() {
+    if (!activeSession) return;
+
+    activeSession.notes = document.getElementById('active-session-notes').value;
+    alert('Session notes saved!');
+}
+
+// Toggle combat tracker
+function toggleCombatTracker() {
+    const tracker = document.getElementById('combat-tracker');
+
+    if (tracker.style.display === 'none') {
+        tracker.style.display = 'block';
+
+        if (combatants.length === 0) {
+            // Start new combat
+            addCombatant();
+        } else {
+            displayCombatTracker();
+        }
+    } else {
+        tracker.style.display = 'none';
+    }
+}
+
+// Add combatant to combat
+function addCombatant() {
+    const name = prompt('Combatant name:');
+    if (!name) return;
+
+    const initiative = parseInt(prompt('Initiative roll:', '10'));
+    const maxHP = parseInt(prompt('Max HP:', '20'));
+    const type = confirm('Is this a player character?') ? 'player' : 'enemy';
+
+    const combatant = {
+        id: Date.now(),
+        name: name,
+        initiative: initiative || 10,
+        maxHP: maxHP || 20,
+        currentHP: maxHP || 20,
+        type: type,
+        conditions: []
+    };
+
+    combatants.push(combatant);
+
+    // Sort by initiative (descending)
+    combatants.sort((a, b) => b.initiative - a.initiative);
+
+    displayCombatTracker();
+}
+
+// Display combat tracker
+function displayCombatTracker() {
+    const container = document.getElementById('initiative-list');
+
+    if (combatants.length === 0) {
+        container.innerHTML = '<p style="text-align: center; padding: 20px; color: #999;">No combatants yet. Click "Add Combatant" to start!</p>';
+        return;
+    }
+
+    let html = '';
+
+    combatants.forEach((combatant, index) => {
+        const hpPercent = (combatant.currentHP / combatant.maxHP) * 100;
+        const hpBarClass = hpPercent < 30 ? 'low' : '';
+        const isActiveTurn = index === currentTurnIndex;
+
+        html += `
+            <div class="combatant-card ${combatant.type} ${isActiveTurn ? 'active-turn' : ''}">
+                <div class="combatant-info">
+                    <div class="combatant-initiative">${combatant.initiative}</div>
+                    <div class="combatant-name">${combatant.name}${isActiveTurn ? ' 👉' : ''}</div>
+                    <div class="combatant-hp">
+                        <div class="hp-bar">
+                            <div class="hp-bar-fill ${hpBarClass}" style="width: ${hpPercent}%"></div>
+                        </div>
+                        <div class="hp-text">${combatant.currentHP} / ${combatant.maxHP}</div>
+                    </div>
+                    <div class="combatant-conditions">
+                        ${combatant.conditions.map(c => `<span class="condition-tag">${c}</span>`).join('')}
+                    </div>
+                </div>
+                <div class="combatant-actions">
+                    <button class="btn-icon" onclick="adjustHP(${combatant.id}, -1)" title="Damage">-</button>
+                    <button class="btn-icon" onclick="adjustHP(${combatant.id}, 1)" title="Heal">+</button>
+                    <button class="btn-icon" onclick="addCondition(${combatant.id})" title="Add Condition">⚠</button>
+                    <button class="btn-icon danger" onclick="removeCombatant(${combatant.id})" title="Remove">×</button>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+// Adjust combatant HP
+function adjustHP(combatantId, amount) {
+    const combatant = combatants.find(c => c.id === combatantId);
+    if (!combatant) return;
+
+    if (amount < 0) {
+        // Damage
+        const damage = parseInt(prompt('Damage amount:', '5'));
+        if (damage) {
+            combatant.currentHP = Math.max(0, combatant.currentHP - damage);
+        }
+    } else {
+        // Heal
+        const healing = parseInt(prompt('Healing amount:', '5'));
+        if (healing) {
+            combatant.currentHP = Math.min(combatant.maxHP, combatant.currentHP + healing);
+        }
+    }
+
+    displayCombatTracker();
+}
+
+// Add condition to combatant
+function addCondition(combatantId) {
+    const combatant = combatants.find(c => c.id === combatantId);
+    if (!combatant) return;
+
+    const condition = prompt('Condition (e.g., Stunned, Prone, Blinded):');
+    if (condition) {
+        combatant.conditions.push(condition);
+        displayCombatTracker();
+    }
+}
+
+// Remove combatant from combat
+function removeCombatant(combatantId) {
+    if (!confirm('Remove this combatant?')) return;
+
+    combatants = combatants.filter(c => c.id !== combatantId);
+
+    // Adjust current turn if needed
+    if (currentTurnIndex >= combatants.length) {
+        currentTurnIndex = 0;
+    }
+
+    displayCombatTracker();
+}
+
+// Next turn in combat
+function nextTurn() {
+    if (combatants.length === 0) return;
+
+    currentTurnIndex = (currentTurnIndex + 1) % combatants.length;
+
+    if (currentTurnIndex === 0) {
+        // New round
+        if (confirm('Starting a new round. Clear any end-of-round conditions?')) {
+            // Could add logic here to clear conditions that last "until end of round"
+        }
+    }
+
+    displayCombatTracker();
+}
+
+// End combat
+function endCombat() {
+    if (!confirm('End this combat encounter?')) return;
+
+    // Save combat to session
+    if (activeSession) {
+        activeSession.combats.push({
+            participants: combatants.map(c => c.name),
+            duration: combatants.length + ' rounds',
+            timestamp: new Date()
+        });
+    }
+
+    combatants = [];
+    currentTurnIndex = 0;
+    document.getElementById('combat-tracker').style.display = 'none';
+}
+
+// End active session
+function endActiveSession() {
+    if (!activeSession) return;
+
+    if (!confirm('End this session? Notes will be saved to history.')) return;
+
+    activeSession.endTime = new Date();
+    sessionHistory.unshift(activeSession);
+
+    // Clear active session
+    activeSession = null;
+    combatants = [];
+    currentTurnIndex = 0;
+
+    document.getElementById('active-session-section').style.display = 'none';
+    document.getElementById('combat-tracker').style.display = 'none';
+
+    displaySessionHistory();
+    alert('Session ended and saved to history!');
+}
+
+// Display session history
+function displaySessionHistory() {
+    const container = document.getElementById('session-history-list');
+
+    if (sessionHistory.length === 0) {
+        container.innerHTML = `
+            <div class="info-message">
+                <p>No session history yet. Complete a session to see it here!</p>
+            </div>
+        `;
+        return;
+    }
+
+    let html = '';
+
+    sessionHistory.forEach((session, index) => {
+        const date = new Date(session.startTime).toLocaleDateString();
+        const time = new Date(session.startTime).toLocaleTimeString();
+        const duration = session.endTime ?
+            Math.round((new Date(session.endTime) - new Date(session.startTime)) / 1000 / 60) + ' minutes' :
+            'Ongoing';
+
+        const notesPreview = session.notes ?
+            session.notes.substring(0, 150) + (session.notes.length > 150 ? '...' : '') :
+            'No notes recorded';
+
+        html += `
+            <div class="session-history-item" onclick="viewSessionDetails(${index})">
+                <div class="session-history-header">
+                    <div class="session-history-title">${session.title}</div>
+                    <div class="session-history-date">${date} at ${time}</div>
+                </div>
+                <div class="session-history-summary">
+                    <strong>Duration:</strong> ${duration}<br>
+                    <strong>Combats:</strong> ${session.combats.length}<br>
+                    <strong>Notes:</strong> ${notesPreview}
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+// View session details
+function viewSessionDetails(index) {
+    const session = sessionHistory[index];
+    if (!session) return;
+
+    const date = new Date(session.startTime).toLocaleDateString();
+    const time = new Date(session.startTime).toLocaleTimeString();
+
+    alert(
+        `${session.title}\n\n` +
+        `Date: ${date} at ${time}\n` +
+        `Combats: ${session.combats.length}\n\n` +
+        `Notes:\n${session.notes || 'No notes recorded'}`
+    );
+}
