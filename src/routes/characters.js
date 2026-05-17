@@ -80,9 +80,12 @@ router.post('/', optionalAuth, (req, res) => {
             strength = 10, dexterity = 10, constitution = 10,
             intelligence = 10, wisdom = 10, charisma = 10,
             max_hp = 10, current_hp = 10,
-            order_chaos_value = 50, pattern_imprint = null,
-            logrus_imprint = null, blood_purity = 0,
-            trump_artist = 0, backstory = null,
+            order_chaos_value = 50,
+            pattern_imprint = null, pattern_type = null,
+            logrus_imprint = null, blood_purity = 'None',
+            trump_artist = 0, broken_imprint = 0, backstory = null,
+            amber_flaws = null, amber_traits = null,
+            shadow_origin_id = null,
             user_id = null
         } = req.body;
 
@@ -94,22 +97,38 @@ router.post('/', optionalAuth, (req, res) => {
         // If user is authenticated, use their user_id
         const finalUserId = req.user ? req.user.userId : user_id;
 
+        // Derive has_pattern / has_logrus booleans and mastery levels from wizard values
+        const hasPattern = pattern_imprint ? 1 : 0;
+        const hasLogrus  = logrus_imprint  ? 1 : 0;
+        const logrusLevel = { Basic: 1, Advanced: 2, Master: 3 }[logrus_imprint] ?? 0;
+
         const stmt = db.prepare(`
             INSERT INTO characters (
                 name, race, class, level,
                 strength, dexterity, constitution, intelligence, wisdom, charisma,
                 max_hit_points, current_hit_points,
-                order_chaos_balance, has_pattern_imprint, has_logrus_imprint,
-                blood_purity, has_trump_artistry, character_notes, user_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                order_chaos_balance,
+                has_pattern_imprint, pattern_type,
+                has_logrus_imprint, logrus_mastery_level,
+                blood_purity, has_trump_artistry, broken_imprint,
+                character_notes, amber_flaws, amber_traits,
+                shadow_origin_id, user_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         const result = stmt.run(
             name, race, class_type, level,
             strength, dexterity, constitution, intelligence, wisdom, charisma,
             max_hp, current_hp,
-            order_chaos_value, pattern_imprint, logrus_imprint,
-            blood_purity, trump_artist ? 1 : 0, backstory, finalUserId
+            order_chaos_value,
+            hasPattern, pattern_type,
+            hasLogrus, logrusLevel,
+            blood_purity, trump_artist ? 1 : 0, broken_imprint ? 1 : 0,
+            backstory,
+            amber_flaws ? JSON.stringify(amber_flaws) : null,
+            amber_traits ? JSON.stringify(amber_traits) : null,
+            shadow_origin_id || null,
+            finalUserId
         );
 
         const characterId = result.lastInsertRowid;
@@ -188,8 +207,10 @@ router.put('/:id', (req, res) => {
 
             // Amber-specific
             'shadow_origin_id', 'blood_purity', 'order_chaos_value', 'order_chaos_balance',
-            'pattern_imprint', 'has_pattern_imprint', 'logrus_imprint', 'has_logrus_imprint',
+            'pattern_imprint', 'has_pattern_imprint', 'pattern_type',
+            'logrus_imprint', 'has_logrus_imprint',
             'pattern_mastery_level', 'logrus_mastery_level', 'trump_artist', 'has_trump_artistry', 'trump_mastery_level',
+            'amber_flaws', 'amber_traits',
 
             // Other
             'feat_pool', 'total_feats_earned', 'experience_points', 'points_to_next_level',

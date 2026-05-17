@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
+const bcrypt = require('bcrypt');
 const path = require('path');
 require('dotenv').config();
 
@@ -15,6 +16,8 @@ const progressRoutes = require('./routes/progress');
 const claimsRoutes = require('./routes/claims');
 const authRoutes = require('./routes/auth');
 const journalRoutes = require('./routes/journal');
+const primalPatternsRoutes = require('./routes/primal-patterns');
+const adminRoutes = require('./routes/admin');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -31,6 +34,25 @@ app.use(express.static(path.join(__dirname, '../public')));
 // Initialize database connection
 getDatabase();
 
+// Seed admin user from ADMIN_PASSWORD env var
+async function seedAdminUser() {
+    const adminPassword = process.env.ADMIN_PASSWORD;
+    if (!adminPassword) {
+        console.log('ADMIN_PASSWORD not set — admin user not created');
+        return;
+    }
+    const db = getDatabase();
+    const existing = db.prepare('SELECT id FROM users WHERE username = ?').get('admin');
+    const hash = await bcrypt.hash(adminPassword, 10);
+    if (existing) {
+        db.prepare('UPDATE users SET password_hash = ? WHERE username = ?').run(hash, 'admin');
+    } else {
+        db.prepare(`INSERT INTO users (username, password_hash, is_dm) VALUES ('admin', ?, 0)`).run(hash);
+        console.log('Admin user created');
+    }
+}
+seedAdminUser();
+
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/characters', characterRoutes);
@@ -39,6 +61,8 @@ app.use('/api/sessions', sessionRoutes);
 app.use('/api/progress', progressRoutes);
 app.use('/api/claims', claimsRoutes);
 app.use('/api/journal', journalRoutes);
+app.use('/api/primal-patterns', primalPatternsRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
