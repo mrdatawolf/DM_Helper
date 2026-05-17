@@ -19,6 +19,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         currentUser = JSON.parse(userStr);
 
+        // Admin belongs in the admin panel, not here
+        if (currentUser.is_admin || currentUser.username === 'admin') {
+            window.location.href = '/admin.html';
+            return;
+        }
+
         // Display username (backup if navigation hasn't loaded yet)
         const usernameEl = document.getElementById('username-display');
         if (usernameEl) {
@@ -384,84 +390,870 @@ async function loadProgress() {
     }
 }
 
-// Open create character modal
-function openCreateCharacter() {
+// ═══════════════════════════════════════════════════════════════
+//  CHARACTER CREATION WIZARD
+// ═══════════════════════════════════════════════════════════════
+
+const STANDARD_ARRAY = [15, 14, 13, 12, 10, 8];
+const STAT_KEYS = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
+const STAT_FULL = { STR: 'Strength', DEX: 'Dexterity', CON: 'Constitution', INT: 'Intelligence', WIS: 'Wisdom', CHA: 'Charisma' };
+
+// 5e class data — hit die, soft-gate minimums, primary/secondary stats, saves
+const CLASSES_5E = [
+    {
+        id: 'Barbarian', name: 'Barbarian', hitDie: 12,
+        primary: ['STR'], secondary: ['CON'],
+        saves: ['STR', 'CON'],
+        minStats: { STR: 13 },
+        desc: 'Primal warriors who channel rage into devastating combat power.',
+        amberNote: null
+    },
+    {
+        id: 'Bard', name: 'Bard', hitDie: 8,
+        primary: ['CHA'], secondary: ['DEX'],
+        saves: ['DEX', 'CHA'],
+        minStats: { CHA: 13 },
+        desc: 'Versatile performers who weave magic through art, music, and words.',
+        amberNote: 'Common in shadows where culture thrives. Pattern walkers with CHA make exceptional Bards.'
+    },
+    {
+        id: 'Cleric', name: 'Cleric', hitDie: 8,
+        primary: ['WIS'], secondary: ['CON'],
+        saves: ['WIS', 'CHA'],
+        minStats: { WIS: 13 },
+        desc: 'Divine servants who draw power from devotion to a deity or cosmic force.',
+        amberNote: 'Pattern-imprinted characters often feel drawn to divine order. Uncommon among pure Logrus initiates.'
+    },
+    {
+        id: 'Druid', name: 'Druid', hitDie: 8,
+        primary: ['WIS'], secondary: ['CON'],
+        saves: ['INT', 'WIS'],
+        minStats: { WIS: 13 },
+        desc: 'Guardians of the natural world who command the forces of nature.',
+        amberNote: 'Shadow-walkers with deep roots in a single shadow sometimes emerge as Druids.'
+    },
+    {
+        id: 'Fighter', name: 'Fighter', hitDie: 10,
+        primary: ['STR', 'DEX'], secondary: ['CON'],
+        saves: ['STR', 'CON'],
+        minStats: { STR: 13, _or_: { DEX: 13 } },
+        desc: 'Masters of martial combat, skilled with all weapons and armour.',
+        amberNote: null
+    },
+    {
+        id: 'Monk', name: 'Monk', hitDie: 8,
+        primary: ['DEX', 'WIS'], secondary: [],
+        saves: ['STR', 'DEX'],
+        minStats: { DEX: 13, WIS: 13 },
+        desc: 'Disciplined martial artists who harness ki to perform extraordinary feats.',
+        amberNote: 'Rare in Amber proper — more common in Eastern-flavored shadows. Logrus initiates rarely pursue this path.'
+    },
+    {
+        id: 'Paladin', name: 'Paladin', hitDie: 10,
+        primary: ['STR', 'CHA'], secondary: ['CON'],
+        saves: ['WIS', 'CHA'],
+        minStats: { STR: 13, CHA: 13 },
+        desc: 'Holy warriors bound by sacred oaths who blend martial and divine power.',
+        amberNote: 'Strongly associated with Pattern-aligned characters. Logrus initiates who take this path carry an interesting tension.'
+    },
+    {
+        id: 'Ranger', name: 'Ranger', hitDie: 10,
+        primary: ['DEX', 'WIS'], secondary: ['STR'],
+        saves: ['STR', 'DEX'],
+        minStats: { DEX: 13, WIS: 13 },
+        desc: 'Skilled hunters and trackers who navigate the wilds of many shadows.',
+        amberNote: 'Shadow-walkers with Ranger training move between worlds with particular ease.'
+    },
+    {
+        id: 'Rogue', name: 'Rogue', hitDie: 8,
+        primary: ['DEX'], secondary: ['INT'],
+        saves: ['DEX', 'INT'],
+        minStats: { DEX: 13 },
+        desc: 'Cunning specialists in stealth, subterfuge, and precision strikes.',
+        amberNote: null
+    },
+    {
+        id: 'Sorcerer', name: 'Sorcerer', hitDie: 6,
+        primary: ['CHA'], secondary: ['CON'],
+        saves: ['CON', 'CHA'],
+        minStats: { CHA: 13 },
+        desc: 'Innate spellcasters whose magic flows from their bloodline or a wild event.',
+        amberNote: 'Half-blood or Pure-blood characters sometimes manifest Sorcerer traits as Amber power bleeds into instinct.'
+    },
+    {
+        id: 'Warlock', name: 'Warlock', hitDie: 8,
+        primary: ['CHA'], secondary: ['CON'],
+        saves: ['WIS', 'CHA'],
+        minStats: { CHA: 13 },
+        desc: 'Pact-bound spellcasters who draw power from a powerful patron.',
+        amberNote: 'Logrus Masters with CHA sometimes attract the attention of Chaos entities. Pattern walkers rarely make pacts.'
+    },
+    {
+        id: 'Wizard', name: 'Wizard', hitDie: 6,
+        primary: ['INT'], secondary: ['CON'],
+        saves: ['INT', 'WIS'],
+        minStats: { INT: 13 },
+        desc: 'Scholarly magic-users who master arcane arts through rigorous study.',
+        amberNote: 'Pattern-imprinted wizards are the archetypical Amber scholar. Logrus initiates rarely have the patience for formal study.'
+    }
+];
+
+const FLAW_TRAIT_PAIRS = {
+    pattern: [
+        {
+            id: 'mark',
+            flaw:  { name: 'Pattern Burned',     desc: "You can't disguise your nature from Order-sensitive beings or Amber-blooded. Disadvantage on deception when your nature is relevant." },
+            trait: { name: "Order's Eye",         desc: "You sense the Order/Chaos balance of any shadow you enter and know when it's being actively manipulated." }
+        },
+        {
+            id: 'debt',
+            flaw:  { name: 'Blood Debt (Order)',  desc: "An Amber royal or Order faction holds a legitimate claim on you. DM holds one narrative hook callable at any time." },
+            trait: { name: 'Amber Sight',         desc: "You can sense blood purity in others with a moment's focus. Royalty, half-bloods, and ordinary people read differently to you." }
+        },
+        {
+            id: 'sensitivity',
+            flaw:  { name: 'Pattern Seared',      desc: "Proximity to an active Pattern causes splitting headaches. CON save DC 13 or disadvantage on INT/WIS checks for the scene." },
+            trait: { name: 'Crystalline Mind',    desc: "Order-structure in your mind resists intrusion. +2 to Psyche defense, advantage on saves against illusion and mental manipulation." }
+        }
+    ],
+    logrus: [
+        {
+            id: 'mark',
+            flaw:  { name: 'Chaos Tainted',       desc: "A wrongness clings to you, detectable by Amber-blooded. Disadvantage on CHA checks in Amber or high-Order shadows." },
+            trait: { name: 'Chaos Sense',         desc: "You sense Logrus use nearby and detect shadow-walkers in your vicinity before they reveal themselves." }
+        },
+        {
+            id: 'debt',
+            flaw:  { name: 'Blood Debt (Chaos)',  desc: "A Logrus master or Chaos lord has a claim on you. DM holds one narrative hook callable at any time." },
+            trait: { name: 'Chaos Sight',         desc: "You can sense Logrus imprints in others — who has walked it, and roughly how deeply." }
+        },
+        {
+            id: 'sensitivity',
+            flaw:  { name: 'Logrus Touched',      desc: "Strong Order magic or Pattern proximity causes disorientation. WIS save DC 13 or disadvantage on actions when a Pattern is invoked nearby." },
+            trait: { name: 'Probability Touch',   desc: "Once per session, reroll any one die and take either result. Your chaos resonance nudges outcomes." }
+        }
+    ],
+    noImprint: {
+        pattern: { name: "Order's Whisper",  desc: "You sense Pattern influence in any shadow you enter and feel when Order/Chaos balance is actively shifting around you." },
+        logrus:  { name: 'Chaos Affinity',   desc: "You sense Logrus influence in shadows and feel probability shifts near you before others notice them." }
+    }
+};
+
+// Wizard state
+let wiz = {};
+
+function wizardReset() {
+    wiz = {
+        step: 1,
+        // Step 1
+        name: '', race: '', shadowId: null, backstory: '',
+        // Step 2
+        orderChaos: 50, bloodPurity: 'None', imprint: 'None',
+        brokenImprint: false,
+        noneBonus: null,
+        penaltyShift: '', penaltyJust: '',
+        // Step 3
+        assign: { STR: null, DEX: null, CON: null, INT: null, WIS: null, CHA: null },
+        selectedChipVal: null,
+        // Step 4
+        flawsChosen: [],          // array of pair IDs, max 2
+        noImprintFlavor: null,    // 'pattern' | 'logrus'
+        // Step 5
+        classType: '', level: 1, trumpArtist: false
+    };
+}
+
+// ── Modifier calculation ─────────────────────────────────────
+
+function calcAmberMods() {
+    const m = { STR: 0, DEX: 0, CON: 0, INT: 0, WIS: 0, CHA: 0 };
+
+    // Order/Chaos
+    if (wiz.orderChaos >= 75)      { m.INT += 1; m.WIS += 1; }
+    else if (wiz.orderChaos <= 25) { m.STR += 1; m.DEX += 1; }
+
+    // Imprint
+    switch (wiz.imprint) {
+        case 'None':
+            if (wiz.noneBonus) m[wiz.noneBonus] += 1;
+            break;
+        case 'FirstPattern':
+            m.WIS += 2; m.CON += 1;
+            break;
+        case 'CorwinPattern':
+            m.INT += 2; m.CHA += 1;
+            break;
+        case 'LogrusBasic':
+            m.CON += 1;
+            break;
+        case 'LogrusAdvanced':
+            m.CON += 1; m.STR += 1;
+            m.INT -= 1; m.WIS -= 1;
+            if (wiz.penaltyShift) { m.INT += 1; m[wiz.penaltyShift] -= 1; }
+            break;
+        case 'LogrusMaster':
+            m.CON += 1; m.STR += 1; m.CHA += 1;
+            m.INT -= 2; m.WIS -= 1;
+            if (wiz.penaltyShift) { m.INT += 1; m[wiz.penaltyShift] -= 1; }
+            break;
+    }
+
+    // Blood purity
+    if (wiz.bloodPurity === 'None') m.STR += 1;
+    else if (wiz.bloodPurity === 'Half') m.CHA += 1;
+    else if (wiz.bloodPurity === 'Pure') { m.WIS += 1; }
+
+    return m;
+}
+
+function getFinalStats() {
+    const mods = calcAmberMods();
+    const out = {};
+    for (const s of STAT_KEYS) out[s] = (wiz.assign[s] || 0) + (mods[s] || 0);
+    return out;
+}
+
+function isTrumpEligible(finals) {
+    return (finals.DEX + finals.WIS >= 30) || (finals.INT + finals.WIS >= 30);
+}
+
+// ── Class suggestions ────────────────────────────────────────
+
+// Returns set of class IDs the system recommends based on finals + imprint
+function getRecommendedClasses(finals) {
+    const { STR, DEX, INT, WIS, CHA } = finals;
+    const imp = wiz.imprint;
+    const rec = new Set();
+
+    if (imp === 'FirstPattern') {
+        if (WIS >= 13) { rec.add('Cleric'); rec.add('Druid'); }
+        if (INT >= 13) rec.add('Wizard');
+    }
+    if (imp === 'CorwinPattern') {
+        if (CHA >= 13) { rec.add('Bard'); rec.add('Sorcerer'); }
+        if (INT >= 13) rec.add('Wizard');
+    }
+    if (imp.startsWith('Logrus')) {
+        if (STR >= 13) rec.add('Barbarian');
+        rec.add('Fighter');
+        if (imp === 'LogrusMaster' && CHA >= 13) rec.add('Warlock');
+    }
+
+    // Stat-driven
+    if (DEX >= 14) { rec.add('Rogue'); rec.add('Ranger'); }
+    if (STR >= 14 && DEX < 14) rec.add('Fighter');
+    if (WIS >= 14 && !imp.startsWith('Logrus')) rec.add('Druid');
+    if (DEX >= 13 && WIS >= 13) rec.add('Monk');
+    if (CHA >= 14) rec.add('Sorcerer');
+    if (STR >= 13 && CHA >= 13) rec.add('Paladin');
+
+    return rec;
+}
+
+// Check whether finals meet a class's soft gate
+function classGateStatus(cls, finals) {
+    const min = cls.minStats;
+    if (!min) return { pass: true, warnings: [] };
+
+    // Special case: Fighter allows STR OR DEX
+    if (cls.id === 'Fighter') {
+        if (finals.STR >= 13 || finals.DEX >= 13) return { pass: true, warnings: [] };
+        return { pass: false, warnings: [`STR ${finals.STR} or DEX ${finals.DEX} (need 13 in one)`] };
+    }
+
+    const warnings = [];
+    for (const [stat, threshold] of Object.entries(min)) {
+        if (stat === '_or_') continue;
+        if (finals[stat] < threshold) {
+            warnings.push(`${stat} ${finals[stat]} (need ${threshold})`);
+        }
+    }
+    return { pass: warnings.length === 0, warnings };
+}
+
+// ── Wizard open / close ──────────────────────────────────────
+
+async function openCreateCharacter() {
+    wizardReset();
     const modal = document.getElementById('create-character-modal');
     modal.classList.add('show');
-
-    // Setup form submission
-    const form = document.getElementById('create-character-form');
-    form.onsubmit = handleCreateCharacter;
+    await wizardPopulateShadows();
+    wizardRenderStep();
 }
 
-// Close create character modal
 function closeCreateCharacter() {
-    const modal = document.getElementById('create-character-modal');
-    modal.classList.remove('show');
-    document.getElementById('create-character-form').reset();
+    document.getElementById('create-character-modal').classList.remove('show');
+    wizardReset();
 }
 
-// Handle character creation
-async function handleCreateCharacter(event) {
-    event.preventDefault();
+async function wizardPopulateShadows() {
+    const sel = document.getElementById('w-shadow');
+    if (sel.options.length > 1) return; // already loaded
+    try {
+        const res = await fetch('/api/shadows');
+        const shadows = await res.json();
+        shadows.forEach(s => {
+            const o = document.createElement('option');
+            o.value = s.id;
+            o.textContent = s.name;
+            sel.appendChild(o);
+        });
+    } catch {}
+}
 
-    const token = localStorage.getItem('token');
-    const submitButton = event.target.querySelector('button[type="submit"]');
-    submitButton.disabled = true;
-    submitButton.textContent = 'Creating...';
+// ── Navigation ───────────────────────────────────────────────
 
-    const characterData = {
-        name: document.getElementById('char-name').value,
-        race: document.getElementById('char-race').value,
-        class_type: document.getElementById('char-class').value,
-        level: parseInt(document.getElementById('char-level').value),
-        strength: parseInt(document.getElementById('char-str').value),
-        dexterity: parseInt(document.getElementById('char-dex').value),
-        constitution: parseInt(document.getElementById('char-con').value),
-        intelligence: parseInt(document.getElementById('char-int').value),
-        wisdom: parseInt(document.getElementById('char-wis').value),
-        charisma: parseInt(document.getElementById('char-cha').value),
-        order_chaos_value: parseInt(document.getElementById('char-order-chaos').value),
-        pattern_imprint: document.getElementById('char-pattern').value || null,
-        logrus_imprint: document.getElementById('char-logrus').value || null,
-        blood_purity: document.getElementById('char-blood').value,
-        trump_artist: parseInt(document.getElementById('char-trump').value),
-        backstory: document.getElementById('char-backstory').value || null,
-        user_id: currentUser.id
+function wizardNext() {
+    const err = wizardValidateStep(wiz.step);
+    if (err) { alert(err); return; }
+    wizardCollectStep(wiz.step);
+    wiz.step++;
+    wizardRenderStep();
+}
+
+function wizardBack() {
+    wiz.step--;
+    wizardRenderStep();
+}
+
+function wizardRenderStep() {
+    // Panels
+    document.querySelectorAll('.wizard-panel').forEach((p, i) => {
+        p.classList.toggle('active', i + 1 === wiz.step);
+    });
+    // Step indicators
+    document.querySelectorAll('.wstep').forEach(el => {
+        const n = parseInt(el.dataset.step);
+        el.classList.toggle('active', n === wiz.step);
+        el.classList.toggle('done',   n < wiz.step);
+    });
+    // Buttons
+    document.getElementById('wizard-back-btn').style.display = wiz.step === 1 ? 'none' : '';
+    const isLast = wiz.step === 6;
+    document.getElementById('wizard-next-btn').style.display   = isLast ? 'none' : '';
+    document.getElementById('wizard-submit-btn').style.display = isLast ? '' : 'none';
+    document.getElementById('wizard-step-counter').textContent = `Step ${wiz.step} of 6`;
+
+    // Step-specific rendering
+    if (wiz.step === 2) wizardRenderAmberMods();
+    if (wiz.step === 3) wizardRenderStats();
+    if (wiz.step === 4) wizardRenderFlaws();
+    if (wiz.step === 5) wizardRenderClass();
+    if (wiz.step === 6) wizardRenderReview();
+}
+
+// ── Validation ───────────────────────────────────────────────
+
+function wizardValidateStep(step) {
+    if (step === 1) {
+        if (!document.getElementById('w-name').value.trim()) return 'Character name is required.';
+        if (!document.getElementById('w-race').value.trim()) return 'Race / Species is required.';
+    }
+    if (step === 2) {
+        if (wiz.imprint === 'None' && !wiz.noneBonus) return 'Choose which stat receives your +1 bonus.';
+        if ((wiz.imprint === 'LogrusAdvanced' || wiz.imprint === 'LogrusMaster') && wiz.penaltyShift && !document.getElementById('w-penalty-just').value.trim()) {
+            return 'Please provide a justification for your penalty shift.';
+        }
+    }
+    if (step === 3) {
+        const unset = STAT_KEYS.filter(s => wiz.assign[s] === null);
+        if (unset.length > 0) return `Assign a value to all six stats. Missing: ${unset.join(', ')}.`;
+    }
+    if (step === 5) {
+        if (!wiz.classType) return 'Please select a class.';
+    }
+    return null;
+}
+
+// ── Collect from DOM into wiz state ─────────────────────────
+
+function wizardCollectStep(step) {
+    if (step === 1) {
+        wiz.name     = document.getElementById('w-name').value.trim();
+        wiz.race     = document.getElementById('w-race').value.trim();
+        wiz.shadowId = document.getElementById('w-shadow').value || null;
+        wiz.backstory= document.getElementById('w-backstory').value.trim();
+    }
+    if (step === 2) {
+        wiz.orderChaos  = parseInt(document.getElementById('w-order-chaos').value);
+        wiz.bloodPurity   = document.querySelector('input[name="w-blood"]:checked').value;
+        wiz.imprint       = document.querySelector('input[name="w-imprint"]:checked').value;
+        wiz.brokenImprint = document.getElementById('w-broken-imprint')?.checked || false;
+        const nb = document.querySelector('input[name="w-none-bonus"]:checked');
+        wiz.noneBonus   = nb ? nb.value : null;
+        const ps = document.querySelector('input[name="w-penalty-shift"]:checked');
+        wiz.penaltyShift = ps ? ps.value : '';
+        wiz.penaltyJust  = (document.getElementById('w-penalty-just') || {}).value || '';
+    }
+    if (step === 5) {
+        // wiz.classType is set live by selectClass()
+        wiz.level      = parseInt(document.getElementById('w-level').value) || 1;
+        wiz.trumpArtist = document.getElementById('w-trump-check')?.checked || false;
+    }
+}
+
+// ── Step 2: live amber display ───────────────────────────────
+
+function wizardOCUpdate() {
+    const val = parseInt(document.getElementById('w-order-chaos').value);
+    wiz.orderChaos = val;
+    let label = 'Balanced';
+    let hint  = '';
+    if (val >= 75)      { label = 'High Order';  hint = '+1 INT, +1 WIS'; }
+    else if (val <= 25) { label = 'High Chaos';  hint = '+1 STR, +1 DEX'; }
+    document.getElementById('oc-display').innerHTML =
+        `${val} — ${label} <span class="oc-mod-hint">${hint ? `(${hint})` : ''}</span>`;
+}
+
+function wizardImprintChange() {
+    const imprint = document.querySelector('input[name="w-imprint"]:checked')?.value || 'None';
+    wiz.imprint = imprint;
+
+    document.getElementById('none-imprint-bonus').style.display =
+        imprint === 'None' ? '' : 'none';
+
+    const showPenalty = imprint === 'LogrusAdvanced' || imprint === 'LogrusMaster';
+    document.getElementById('logrus-penalty-section').style.display = showPenalty ? '' : 'none';
+
+    if (showPenalty) {
+        const note = imprint === 'LogrusAdvanced'
+            ? 'Fixed penalties: −1 INT, −1 WIS. You may shift one −1 to a different stat.'
+            : 'Fixed penalties: −2 INT, −1 WIS. You may shift one −1 to a different stat.';
+        document.getElementById('logrus-penalty-note').textContent = note;
+    }
+
+    // Broken imprint: available for Pattern and Basic Logrus only
+    const brokenEligible = ['FirstPattern', 'CorwinPattern', 'LogrusBasic'].includes(imprint);
+    const brokenCb = document.getElementById('w-broken-imprint');
+    const brokenTxt = document.getElementById('broken-imprint-text');
+    brokenCb.disabled = !brokenEligible;
+    if (!brokenEligible) brokenCb.checked = false;
+    brokenTxt.className = brokenEligible ? 'broken-enabled' : 'broken-disabled';
+    wiz.brokenImprint = brokenCb.checked;
+
+    wizardAmberUpdate();
+}
+
+function wizardAmberUpdate() {
+    // Collect current values without navigating away
+    const nb = document.querySelector('input[name="w-none-bonus"]:checked');
+    wiz.noneBonus = nb ? nb.value : null;
+    const ps = document.querySelector('input[name="w-penalty-shift"]:checked');
+    wiz.penaltyShift = ps ? ps.value : '';
+
+    // Show/hide justification box
+    const justWrap = document.getElementById('penalty-justification-wrap');
+    if (justWrap) justWrap.style.display = wiz.penaltyShift ? '' : 'none';
+
+    wizardRenderAmberMods();
+}
+
+function wizardRenderAmberMods() {
+    // Sync imprint-dependent sub-panels on step 2 initial render
+    if (wiz.step === 2) {
+        const imprint = document.querySelector('input[name="w-imprint"]:checked')?.value || 'None';
+        wiz.imprint = imprint;
+        document.getElementById('none-imprint-bonus').style.display = imprint === 'None' ? '' : 'none';
+        const showPenalty = imprint === 'LogrusAdvanced' || imprint === 'LogrusMaster';
+        document.getElementById('logrus-penalty-section').style.display = showPenalty ? '' : 'none';
+        if (showPenalty) {
+            document.getElementById('logrus-penalty-note').textContent = imprint === 'LogrusAdvanced'
+                ? 'Fixed penalties: −1 INT, −1 WIS. You may shift one −1 to a different stat.'
+                : 'Fixed penalties: −2 INT, −1 WIS. You may shift one −1 to a different stat.';
+        }
+        // Sync penalty-justification wrap
+        const ps = document.querySelector('input[name="w-penalty-shift"]:checked');
+        wiz.penaltyShift = ps ? ps.value : '';
+        const justWrap = document.getElementById('penalty-justification-wrap');
+        if (justWrap) justWrap.style.display = wiz.penaltyShift ? '' : 'none';
+    }
+    // If we're already on step 3, refresh stat display too
+    if (wiz.step === 3) wizardRenderStats();
+}
+
+// ── Step 3: stat assignment ──────────────────────────────────
+
+function wizardRenderStats() {
+    const mods = calcAmberMods();
+
+    // Refresh chip states (used vs available)
+    const usedVals = Object.values(wiz.assign).filter(v => v !== null);
+    document.querySelectorAll('.chip').forEach(chip => {
+        const v = parseInt(chip.dataset.val);
+        const isUsed = usedVals.includes(v);
+        chip.classList.toggle('used', isUsed);
+        chip.classList.toggle('selected', wiz.selectedChipVal === v && !isUsed);
+        chip.disabled = isUsed;
+    });
+
+    // Refresh stat slot cards
+    for (const stat of STAT_KEYS) {
+        const base = wiz.assign[stat];
+        const mod  = mods[stat] || 0;
+        const card = document.querySelector(`.stat-slot-card[data-stat="${stat}"]`);
+
+        document.getElementById(`ssc-${stat}`).textContent = base !== null ? base : '—';
+
+        const modEl   = document.getElementById(`amod-${stat}`);
+        const finalEl = document.getElementById(`sfinal-${stat}`);
+
+        if (mod !== 0) {
+            modEl.textContent = mod > 0 ? `+${mod}` : `${mod}`;
+            modEl.className   = `ssc-amber-mod${mod < 0 ? ' neg' : ''}`;
+        } else {
+            modEl.textContent = '';
+        }
+
+        if (base !== null) {
+            finalEl.textContent = base + mod;
+        } else {
+            finalEl.textContent = '';
+        }
+
+        card.classList.toggle('has-value', base !== null);
+        card.classList.toggle('targeted', wiz.selectedChipVal !== null && base === null);
+    }
+}
+
+function selectChip(el) {
+    const val = parseInt(el.dataset.val);
+    if (el.classList.contains('used')) return;
+    wiz.selectedChipVal = wiz.selectedChipVal === val ? null : val;
+    wizardRenderStats();
+}
+
+function assignStat(stat) {
+    if (wiz.selectedChipVal === null) {
+        // Clicking an occupied slot without a chip selected: return value to pool
+        if (wiz.assign[stat] !== null) {
+            wiz.assign[stat] = null;
+            wizardRenderStats();
+        }
+        return;
+    }
+    // Assign the selected chip
+    // If slot already has a value, swap it back to pool first (find and free old chip)
+    wiz.assign[stat] = wiz.selectedChipVal;
+    wiz.selectedChipVal = null;
+    wizardRenderStats();
+}
+
+// ── Step 4: flaws & traits ───────────────────────────────────
+
+function wizardRenderFlaws() {
+    const intro = document.getElementById('flaws-intro');
+    const content = document.getElementById('flaws-content');
+    const imprint = wiz.imprint;
+    const isLogrus = imprint.startsWith('Logrus');
+    const isPattern = imprint === 'FirstPattern' || imprint === 'CorwinPattern';
+    const isNone = imprint === 'None';
+
+    if (isNone) {
+        intro.textContent = 'You have no imprint — the lack of alignment is your flaw. You receive one free Trait. Choose its flavor:';
+        content.innerHTML = `
+            <div style="display:flex;gap:12px;margin-bottom:16px;">
+                <label class="radio-card" style="flex:1">
+                    <input type="radio" name="w-noflavor" value="pattern" onchange="wizardFlavorChange()">
+                    <div class="rc-body">
+                        <strong>Pattern Flavor</strong>
+                        <small>${FLAW_TRAIT_PAIRS.noImprint.pattern.name} — ${FLAW_TRAIT_PAIRS.noImprint.pattern.desc}</small>
+                    </div>
+                </label>
+                <label class="radio-card" style="flex:1">
+                    <input type="radio" name="w-noflavor" value="logrus" onchange="wizardFlavorChange()">
+                    <div class="rc-body">
+                        <strong>Logrus Flavor</strong>
+                        <small>${FLAW_TRAIT_PAIRS.noImprint.logrus.name} — ${FLAW_TRAIT_PAIRS.noImprint.logrus.desc}</small>
+                    </div>
+                </label>
+            </div>
+            <p class="panel-note">You may also take up to 2 flaw/trait pairs below for additional benefits.</p>
+            ${renderFlawPairs('pattern')}
+        `;
+    } else {
+        const path = isLogrus ? 'logrus' : 'pattern';
+        intro.textContent = `You may take up to 2 flaw/trait pairs. Each flaw you accept grants its paired trait.`;
+        content.innerHTML = renderFlawPairs(path);
+    }
+}
+
+function renderFlawPairs(path) {
+    return FLAW_TRAIT_PAIRS[path].map(pair => `
+        <div class="flaw-trait-pair${wiz.flawsChosen.includes(pair.id) ? ' selected' : ''}" id="ftp-${pair.id}">
+            <label>
+                <input type="checkbox" value="${pair.id}"
+                    ${wiz.flawsChosen.includes(pair.id) ? 'checked' : ''}
+                    onchange="wizardFlawToggle('${pair.id}', this.checked, this)"
+                    style="margin-top:4px;flex-shrink:0">
+                <div class="ftp-content">
+                    <div class="ftp-flaw">
+                        <span class="flaw-label">Flaw</span>
+                        <strong>${pair.flaw.name}</strong>
+                        <small>${pair.flaw.desc}</small>
+                    </div>
+                    <div class="ftp-divider">⟶ grants ⟶</div>
+                    <div class="ftp-trait">
+                        <span class="trait-label">Trait</span>
+                        <strong>${pair.trait.name}</strong>
+                        <small>${pair.trait.desc}</small>
+                    </div>
+                </div>
+            </label>
+        </div>
+    `).join('');
+}
+
+function wizardFlawToggle(id, checked, el) {
+    if (checked) {
+        if (wiz.flawsChosen.length >= 2) {
+            alert('You may only take up to 2 flaw/trait pairs.');
+            if (el) el.checked = false;
+            return;
+        }
+        wiz.flawsChosen.push(id);
+    } else {
+        wiz.flawsChosen = wiz.flawsChosen.filter(f => f !== id);
+    }
+    document.querySelectorAll('.flaw-trait-pair').forEach(el => {
+        const id2 = el.id.replace('ftp-', '');
+        el.classList.toggle('selected', wiz.flawsChosen.includes(id2));
+    });
+}
+
+function wizardFlavorChange() {
+    const checked = document.querySelector('input[name="w-noflavor"]:checked');
+    wiz.noImprintFlavor = checked ? checked.value : null;
+}
+
+// ── Step 5: class & trump ────────────────────────────────────
+
+function selectClass(id) {
+    wiz.classType = wiz.classType === id ? '' : id;
+    document.querySelectorAll('.class-card').forEach(card => {
+        card.classList.toggle('selected', card.dataset.cls === wiz.classType);
+    });
+    const noteEl = document.getElementById('class-amber-note');
+    const cls = CLASSES_5E.find(c => c.id === wiz.classType);
+    noteEl.textContent = cls?.amberNote || '';
+    noteEl.style.display = cls?.amberNote ? '' : 'none';
+}
+
+function wizardRenderClass() {
+    const finals = getFinalStats();
+    const eligible = isTrumpEligible(finals);
+    // Preserve trump checkbox state across re-renders
+    const prevTrump = wiz.trumpArtist;
+    wiz.trumpArtist = false;
+
+    // Trump eligibility section
+    const trumpEl = document.getElementById('trump-eligibility');
+    if (eligible) {
+        trumpEl.className = 'trump-check eligible';
+        trumpEl.innerHTML = `
+            ✓ Trump Artist Eligible
+            <label style="margin-left:16px;font-weight:normal;font-size:0.88rem;">
+                <input type="checkbox" id="w-trump-check" ${prevTrump ? 'checked' : ''} onchange="wiz.trumpArtist=this.checked">
+                Yes, this character is a Trump Artist
+            </label>
+            <div style="font-size:0.8rem;font-weight:400;margin-top:4px;">
+                (DEX+WIS = ${finals.DEX + finals.WIS} or INT+WIS = ${finals.INT + finals.WIS} — threshold: 30)
+            </div>`;
+        wiz.trumpArtist = prevTrump;
+    } else {
+        trumpEl.className = 'trump-check ineligible';
+        trumpEl.innerHTML = `✗ Trump Artist not yet eligible
+            <div style="font-size:0.8rem;font-weight:400;margin-top:4px;">
+                Requires DEX+WIS ≥ 30 or INT+WIS ≥ 30.
+                Current: DEX+WIS = ${finals.DEX + finals.WIS}, INT+WIS = ${finals.INT + finals.WIS}.
+            </div>`;
+    }
+
+    // Class card grid
+    const recommended = getRecommendedClasses(finals);
+    const gridEl = document.getElementById('class-card-grid');
+    gridEl.innerHTML = CLASSES_5E.map(cls => {
+        const gate = classGateStatus(cls, finals);
+        const isRec = recommended.has(cls.id);
+        const isSelected = wiz.classType === cls.id;
+        const statTags = cls.primary.map(s =>
+            `<span class="cls-stat-tag primary">${s} ${finals[s]}</span>`
+        ).concat(cls.secondary.map(s =>
+            `<span class="cls-stat-tag secondary">${s} ${finals[s]}</span>`
+        )).join('');
+
+        return `
+        <div class="class-card${isSelected ? ' selected' : ''}${isRec ? ' recommended' : ''}${!gate.pass ? ' soft-warn' : ''}"
+             data-cls="${cls.id}" onclick="selectClass('${cls.id}')">
+            ${isRec ? '<span class="cls-badge rec-badge">★ Suggested</span>' : ''}
+            ${!gate.pass ? `<span class="cls-badge warn-badge">⚠ Low stats</span>` : ''}
+            <div class="cls-header">
+                <span class="cls-name">${cls.name}</span>
+                <span class="cls-hd" title="Hit Die">d${cls.hitDie}</span>
+            </div>
+            <div class="cls-stats">${statTags}</div>
+            <div class="cls-desc">${cls.desc}</div>
+            ${!gate.pass ? `<div class="cls-warn-msg">Suggested: ${gate.warnings.join(', ')}</div>` : ''}
+        </div>`;
+    }).join('');
+
+    // Amber lore note for currently selected class
+    const noteEl = document.getElementById('class-amber-note');
+    const selCls = CLASSES_5E.find(c => c.id === wiz.classType);
+    noteEl.textContent = selCls?.amberNote || '';
+    noteEl.style.display = selCls?.amberNote ? '' : 'none';
+}
+
+// ── Step 6: review ───────────────────────────────────────────
+
+function wizardRenderReview() {
+    wizardCollectStep(5); // pick up level/trump from DOM (classType already in wiz state)
+    const finals  = getFinalStats();
+    const mods    = calcAmberMods();
+    const clsData = CLASSES_5E.find(c => c.id === wiz.classType);
+    const imprintLabels = {
+        None: 'None', FirstPattern: 'First Pattern', CorwinPattern: "Corwin's Pattern",
+        LogrusBasic: 'Logrus — Basic', LogrusAdvanced: 'Logrus — Advanced', LogrusMaster: 'Logrus — Master'
+    };
+    const modStr = s => {
+        const m = mods[s];
+        if (!m) return '';
+        return m > 0 ? ` <span style="color:#27ae60">(+${m})</span>` : ` <span style="color:#e74c3c">(${m})</span>`;
+    };
+
+    // Build flaw/trait display
+    const path = wiz.imprint.startsWith('Logrus') ? 'logrus' : 'pattern';
+    const pairs = FLAW_TRAIT_PAIRS[path];
+    const flawLines = wiz.flawsChosen.map(id => {
+        const p = pairs.find(x => x.id === id);
+        return p ? `<div class="review-row"><span>⚠ ${p.flaw.name}</span><span style="color:#27ae60">⟶ ${p.trait.name}</span></div>` : '';
+    }).join('');
+
+    let freeTraitLine = '';
+    if (wiz.imprint === 'None' && wiz.noImprintFlavor) {
+        const ft = FLAW_TRAIT_PAIRS.noImprint[wiz.noImprintFlavor];
+        freeTraitLine = `<div class="review-row"><span>Free Trait</span><span style="color:#27ae60">${ft.name}</span></div>`;
+    }
+
+    document.getElementById('review-content').innerHTML = `
+        <div class="review-section">
+            <h4>Identity</h4>
+            <div class="review-row"><span>Name</span><span>${wiz.name}</span></div>
+            <div class="review-row"><span>Race</span><span>${wiz.race}</span></div>
+            <div class="review-row"><span>Class</span><span>${wiz.classType}${clsData ? ` (d${clsData.hitDie})` : ''} — Level ${wiz.level}</span></div>
+            <div class="review-row"><span>Trump Artist</span><span>${wiz.trumpArtist ? 'Yes' : 'No'}</span></div>
+            <div class="review-row"><span>Starting HP</span><span>${Math.max(1, (clsData?.hitDie || 8) + Math.floor((finals.CON - 10) / 2))} (d${clsData?.hitDie || 8} + CON mod)</span></div>
+        </div>
+        <div class="review-section">
+            <h4>Amber Attributes</h4>
+            <div class="review-row"><span>Order/Chaos Balance</span><span>${wiz.orderChaos}</span></div>
+            <div class="review-row"><span>Blood Purity</span><span>${wiz.bloodPurity}</span></div>
+            <div class="review-row"><span>Imprint</span><span>${imprintLabels[wiz.imprint]}${wiz.brokenImprint ? ' (Broken)' : ''}</span></div>
+            ${wiz.imprint === 'None' && wiz.noneBonus ? `<div class="review-row"><span>Free +1</span><span>${STAT_FULL[wiz.noneBonus]}</span></div>` : ''}
+            ${wiz.penaltyShift ? `<div class="review-row"><span>Penalty Shifted To</span><span>${STAT_FULL[wiz.penaltyShift]}</span></div>` : ''}
+        </div>
+        <div class="review-section">
+            <h4>Final Stats</h4>
+            <div class="review-stats">
+                ${STAT_KEYS.map(s => `
+                    <div class="review-stat">
+                        <div class="rs-name">${s}</div>
+                        <div class="rs-val">${finals[s]}${modStr(s)}</div>
+                    </div>`).join('')}
+            </div>
+        </div>
+        ${flawLines || freeTraitLine ? `
+        <div class="review-section">
+            <h4>Flaws &amp; Traits</h4>
+            ${flawLines}${freeTraitLine}
+        </div>` : ''}
+        ${wiz.backstory ? `
+        <div class="review-section">
+            <h4>Backstory</h4>
+            <div style="font-size:0.88rem;color:#555;line-height:1.5;">${wiz.backstory}</div>
+        </div>` : ''}
+    `;
+}
+
+// ── Submit ───────────────────────────────────────────────────
+
+async function wizardSubmit() {
+    const btn = document.getElementById('wizard-submit-btn');
+    btn.disabled = true;
+    btn.textContent = 'Creating…';
+
+    const token   = localStorage.getItem('token');
+    const finals  = getFinalStats();
+    const path    = wiz.imprint.startsWith('Logrus') ? 'logrus' : 'pattern';
+    const pairs   = FLAW_TRAIT_PAIRS[path];
+
+    // Build flaws/traits arrays
+    const flawsArr = wiz.flawsChosen.map(id => {
+        const p = pairs.find(x => x.id === id);
+        return p ? { id, flaw: p.flaw.name, trait: p.trait.name } : null;
+    }).filter(Boolean);
+
+    if (wiz.imprint === 'None' && wiz.noImprintFlavor) {
+        const ft = FLAW_TRAIT_PAIRS.noImprint[wiz.noImprintFlavor];
+        flawsArr.push({ id: 'free', flaw: null, trait: ft.name, flavor: wiz.noImprintFlavor });
+    }
+
+    const logrusImprint = { LogrusBasic: 'Basic', LogrusAdvanced: 'Advanced', LogrusMaster: 'Master' }[wiz.imprint] || null;
+    const isPattern = wiz.imprint === 'FirstPattern' || wiz.imprint === 'CorwinPattern';
+    const patternType = isPattern ? (wiz.imprint === 'FirstPattern' ? 'First Pattern' : 'Corwin Pattern') : null;
+
+    // HP: (class hit die avg) + CON mod — use d8 as safe default
+    const conMod  = Math.floor((finals.CON - 10) / 2);
+    const clsData = CLASSES_5E.find(c => c.id === wiz.classType);
+    const hitDie  = clsData ? clsData.hitDie : 8;
+    const maxHp   = Math.max(1, hitDie + conMod);
+
+    const payload = {
+        name:           wiz.name,
+        race:           wiz.race,
+        class_type:     wiz.classType,
+        level:          wiz.level,
+        strength:       finals.STR,
+        dexterity:      finals.DEX,
+        constitution:   finals.CON,
+        intelligence:   finals.INT,
+        wisdom:         finals.WIS,
+        charisma:       finals.CHA,
+        max_hp:         maxHp,
+        current_hp:     maxHp,
+        order_chaos_value: wiz.orderChaos,
+        blood_purity:   wiz.bloodPurity,
+        pattern_imprint: isPattern ? 1 : 0,
+        pattern_type:   patternType,
+        logrus_imprint: logrusImprint,
+        broken_imprint: wiz.brokenImprint ? 1 : 0,
+        trump_artist:   wiz.trumpArtist ? 1 : 0,
+        backstory:      wiz.backstory || null,
+        shadow_origin_id: wiz.shadowId || null,
+        amber_flaws:    flawsArr,
+        amber_traits:   flawsArr.map(f => f.trait),
+        user_id:        currentUser.id
     };
 
     try {
-        const response = await fetch('/api/characters', {
+        const res = await fetch('/api/characters', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify(characterData)
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify(payload)
         });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Failed to create character');
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Failed to create character');
         }
-
-        const newCharacter = await response.json();
-
-        // Close modal
+        const newChar = await res.json();
         closeCreateCharacter();
-
-        // Reload characters
         await loadCharacters();
-
-        // Show success message
-        alert(`Character "${newCharacter.name}" created successfully!`);
-
-    } catch (error) {
-        console.error('Error creating character:', error);
-        alert(`Failed to create character: ${error.message}`);
+        alert(`Character "${newChar.name}" created!`);
+    } catch (err) {
+        console.error(err);
+        alert(`Error: ${err.message}`);
     } finally {
-        submitButton.disabled = false;
-        submitButton.textContent = 'Create Character';
+        btn.disabled = false;
+        btn.textContent = 'Create Character';
     }
 }
 

@@ -23,8 +23,16 @@ async function checkAuthStatus() {
 
             if (response.ok) {
                 const data = await response.json();
-                // Update localStorage with fresh user data
+                // Update localStorage with fresh user data (now includes is_admin)
                 localStorage.setItem('user', JSON.stringify(data.user));
+                // Redirect admin away from non-admin pages
+                if (data.user.is_admin) {
+                    const path = window.location.pathname;
+                    if (path !== '/admin.html') {
+                        window.location.href = '/admin.html';
+                        return;
+                    }
+                }
                 updateNavForUser(data.user);
             } else {
                 // Token invalid - just show guest nav, don't clear storage

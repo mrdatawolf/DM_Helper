@@ -347,9 +347,14 @@
 
                     showSuccess('Login successful! Redirecting...');
 
-                    // Redirect to player dashboard
                     setTimeout(() => {
-                        window.location.href = '/player-dashboard.html';
+                        if (data.user.is_admin) {
+                            window.location.href = '/admin.html';
+                        } else if (data.user.is_dm) {
+                            window.location.href = '/dm-dashboard.html';
+                        } else {
+                            window.location.href = '/player-dashboard.html';
+                        }
                     }, 1000);
                 } else {
                     showError(data.error || 'Login failed');
@@ -435,10 +440,15 @@
                 })
                 .then(response => {
                     if (response.ok) {
-                        // Already logged in, redirect to dashboard
-                        window.location.href = '/player-dashboard.html';
+                        const user = JSON.parse(localStorage.getItem('user') || '{}');
+                        if (user.is_admin) {
+                            window.location.href = '/admin.html';
+                        } else if (user.is_dm) {
+                            window.location.href = '/dm-dashboard.html';
+                        } else {
+                            window.location.href = '/player-dashboard.html';
+                        }
                     } else {
-                        // Token invalid, clear it
                         localStorage.removeItem('token');
                         localStorage.removeItem('user');
                     }

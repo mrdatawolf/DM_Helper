@@ -14,7 +14,8 @@ const SALT_ROUNDS = 10;
 router.post('/register', async (req, res) => {
     try {
         const db = getDatabase();
-        const { username, password, email, is_dm } = req.body;
+        const { username, password, email } = req.body;
+        const is_dm = 0; // DM flag can only be granted by admin
 
         // Validate input
         if (!username || !password) {
@@ -68,7 +69,8 @@ router.post('/register', async (req, res) => {
                 id: user.id,
                 username: user.username,
                 email: email || null,
-                is_dm: user.is_dm
+                is_dm: user.is_dm,
+                is_admin: user.username === 'admin'
             },
             token
         });
@@ -105,6 +107,11 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ error: 'Invalid username or password' });
         }
 
+        // Block archived accounts
+        if (user.is_archived) {
+            return res.status(403).json({ error: 'This account has been deactivated. Please contact your DM.' });
+        }
+
         // Update last login
         db.prepare('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?').run(user.id);
 
@@ -124,7 +131,8 @@ router.post('/login', async (req, res) => {
                 id: user.id,
                 username: user.username,
                 email: user.email,
-                is_dm: user.is_dm
+                is_dm: user.is_dm,
+                is_admin: user.username === 'admin'
             },
             token
         });
@@ -162,7 +170,7 @@ router.get('/me', authenticate, (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        res.json({ user });
+        res.json({ user: { ...user, is_admin: user.username === 'admin' } });
 
     } catch (error) {
         console.error('Get user error:', error);

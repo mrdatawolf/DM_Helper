@@ -62,6 +62,11 @@
             margin-bottom: 10px;
         }
 
+        #guide-content h1, #guide-content h2,
+        #guide-content h3, #guide-content h4 {
+            scroll-margin-top: 80px;
+        }
+
         .guide-content code {
             background: var(--light);
             padding: 2px 6px;
@@ -194,6 +199,21 @@
                 // Render markdown to HTML
                 const html = marked.parse(markdown);
                 document.getElementById('guide-content').innerHTML = html;
+
+                // Stamp IDs on headings so TOC anchor links resolve.
+                // marked v5+ dropped automatic heading IDs; we replicate GFM slug rules:
+                //   lowercase → remove & → remove other punctuation → each space → dash
+                function headingSlug(text) {
+                    return text
+                        .toLowerCase()
+                        .replace(/&/g, '')
+                        .replace(/[^\w\s-]/g, '')
+                        .replace(/ /g, '-')
+                        .replace(/^-+|-+$/g, '');
+                }
+                document.querySelectorAll('#guide-content h1, #guide-content h2, #guide-content h3, #guide-content h4').forEach(h => {
+                    if (!h.id) h.id = headingSlug(h.textContent);
+                });
 
                 // Smooth scroll for anchor links
                 document.querySelectorAll('a[href^="#"]').forEach(anchor => {

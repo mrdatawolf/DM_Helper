@@ -600,3 +600,264 @@ header h1 {
     border: 2px solid var(--light);
     border-radius: 4px;
 }
+
+/* ── Primal Patterns Tab ── */
+
+.pattern-card-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 14px;
+    margin-bottom: 24px;
+}
+
+.pattern-card {
+    border: 2px solid var(--light);
+    border-radius: 10px;
+    padding: 16px 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: white;
+}
+
+.pattern-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.1);
+}
+
+.pattern-card.active {
+    border-color: var(--primary);
+    background: #eaf4fb;
+    box-shadow: 0 0 0 3px rgba(41,128,185,0.2);
+}
+
+.pattern-card-name {
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--dark);
+}
+
+.pattern-card-origin {
+    font-size: 0.8rem;
+    color: #666;
+    margin-top: 5px;
+}
+
+.pattern-card-animal {
+    font-size: 0.8rem;
+    color: var(--accent);
+    margin-top: 5px;
+    font-style: italic;
+}
+
+.spirit-animal-role-badge {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    background: var(--light);
+    color: #555;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-top: 6px;
+    letter-spacing: 0.3px;
+}
+
+.pattern-detail {
+    border: 1px solid var(--light);
+    border-radius: 10px;
+    padding: 20px;
+    background: #fafafa;
+    animation: fadeIn 0.2s ease;
+}
+
+.pattern-meta-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 12px;
+    background: white;
+    border: 1px solid var(--light);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 20px;
+}
+
+.pattern-meta-item label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    color: #888;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    display: block;
+    margin-bottom: 3px;
+}
+
+.pattern-meta-item .meta-value {
+    font-weight: 600;
+    color: var(--dark);
+    font-size: 0.92rem;
+}
+
+.section-panel {
+    background: white;
+    border: 1px solid var(--light);
+    border-radius: 8px;
+    margin-bottom: 10px;
+    overflow: hidden;
+}
+
+.section-panel.secrets-section {
+    border-color: #e2b4b4;
+    background: #fff9f9;
+}
+
+.section-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+}
+
+.section-panel-header:hover {
+    background: var(--light);
+}
+
+.secrets-section .section-panel-header {
+    background: #fff0f0;
+}
+
+.secrets-section .section-panel-header:hover {
+    background: #ffe4e4;
+}
+
+.section-key-badge {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    background: var(--light);
+    color: #666;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-left: 8px;
+    letter-spacing: 0.3px;
+}
+
+.secrets-section .section-key-badge {
+    background: #ffd7d7;
+    color: #c0392b;
+}
+
+.section-body {
+    padding: 16px;
+    border-top: 1px solid var(--light);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.section-col label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #888;
+    margin-bottom: 6px;
+    display: block;
+    letter-spacing: 0.3px;
+}
+
+.section-col textarea {
+    width: 100%;
+    min-height: 130px;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.88rem;
+    font-family: inherit;
+    resize: vertical;
+    line-height: 1.5;
+}
+
+.section-col textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(52,152,219,0.15);
+}
+
+.section-col.player-col label {
+    color: #27ae60;
+}
+
+.section-col.player-col textarea {
+    border-color: #a8d5b5;
+    background: #f5fff8;
+}
+
+.section-col.player-col textarea:focus {
+    border-color: #27ae60;
+    box-shadow: 0 0 0 2px rgba(39,174,96,0.15);
+}
+
+.section-actions {
+    padding: 10px 16px;
+    border-top: 1px solid var(--light);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    background: #fafafa;
+}
+
+.grant-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #e8f5e9;
+    color: #2e7d32;
+    border-radius: 12px;
+    padding: 3px 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.grant-chip:hover {
+    background: #c8e6c9;
+}
+
+.grant-chip.no-grants {
+    background: var(--light);
+    color: #999;
+    cursor: default;
+}
+
+.grant-chip.no-grants:hover {
+    background: var(--light);
+}
+
+.section-grant-list {
+    margin-left: auto;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.btn-sm {
+    padding: 5px 12px;
+    font-size: 0.82rem;
+}
+
+@media (max-width: 768px) {
+    .pattern-card-row {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .section-body {
+        grid-template-columns: 1fr;
+    }
+}

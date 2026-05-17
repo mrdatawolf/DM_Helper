@@ -240,121 +240,276 @@
         </main>
     </div>
 
-    <!-- Create Character Modal -->
+    <!-- Create Character Wizard Modal -->
     <div id="create-character-modal" class="modal">
-        <div class="modal-content large">
+        <div class="modal-content modal-wizard">
             <div class="modal-header">
                 <h2>Create New Character</h2>
                 <button class="close-btn" onclick="closeCreateCharacter()">&times;</button>
             </div>
-            <div class="modal-body">
-                <form id="create-character-form">
+
+            <!-- Step progress bar -->
+            <div class="wizard-steps" id="wizard-steps">
+                <div class="wstep active" data-step="1"><span class="wstep-num">1</span><span class="wstep-label">Identity</span></div>
+                <div class="wstep" data-step="2"><span class="wstep-num">2</span><span class="wstep-label">Amber Powers</span></div>
+                <div class="wstep" data-step="3"><span class="wstep-num">3</span><span class="wstep-label">Assign Stats</span></div>
+                <div class="wstep" data-step="4"><span class="wstep-num">4</span><span class="wstep-label">Flaws &amp; Traits</span></div>
+                <div class="wstep" data-step="5"><span class="wstep-num">5</span><span class="wstep-label">Class</span></div>
+                <div class="wstep" data-step="6"><span class="wstep-num">6</span><span class="wstep-label">Review</span></div>
+            </div>
+
+            <div class="modal-body wizard-body">
+
+                <!-- ── STEP 1: Identity ───────────────────────────────────── -->
+                <div class="wizard-panel active" id="wpanel-1">
+                    <h3 class="panel-title">Who are you?</h3>
                     <div class="form-grid">
                         <div class="form-group">
-                            <label for="char-name">Character Name *</label>
-                            <input type="text" id="char-name" required>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="char-race">Race *</label>
-                            <input type="text" id="char-race" required placeholder="e.g., Human, Elf, Dwarf">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="char-class">Class *</label>
-                            <input type="text" id="char-class" required placeholder="e.g., Wizard, Fighter, Rogue">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="char-level">Level *</label>
-                            <input type="number" id="char-level" value="1" min="1" max="20" required>
-                        </div>
-                    </div>
-
-                    <h3>Ability Scores</h3>
-                    <div class="form-grid abilities">
-                        <div class="form-group">
-                            <label for="char-str">Strength</label>
-                            <input type="number" id="char-str" value="10" min="1" max="30">
+                            <label for="w-name">Character Name *</label>
+                            <input type="text" id="w-name" placeholder="e.g., Aelindra Moonshadow">
                         </div>
                         <div class="form-group">
-                            <label for="char-dex">Dexterity</label>
-                            <input type="number" id="char-dex" value="10" min="1" max="30">
+                            <label for="w-race">Race / Species *</label>
+                            <input type="text" id="w-race" placeholder="e.g., Elevi, Human, Djunkai">
                         </div>
                         <div class="form-group">
-                            <label for="char-con">Constitution</label>
-                            <input type="number" id="char-con" value="10" min="1" max="30">
-                        </div>
-                        <div class="form-group">
-                            <label for="char-int">Intelligence</label>
-                            <input type="number" id="char-int" value="10" min="1" max="30">
-                        </div>
-                        <div class="form-group">
-                            <label for="char-wis">Wisdom</label>
-                            <input type="number" id="char-wis" value="10" min="1" max="30">
-                        </div>
-                        <div class="form-group">
-                            <label for="char-cha">Charisma</label>
-                            <input type="number" id="char-cha" value="10" min="1" max="30">
-                        </div>
-                    </div>
-
-                    <h3>Amber-Specific Attributes</h3>
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="char-order-chaos">Order/Chaos Balance (0-100)</label>
-                            <input type="number" id="char-order-chaos" value="50" min="0" max="100">
-                            <small>0 = Pure Chaos, 50 = Neutral, 100 = Pure Order</small>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="char-pattern">Pattern Imprint</label>
-                            <select id="char-pattern">
-                                <option value="">None</option>
-                                <option value="First Pattern">First Pattern</option>
-                                <option value="Corwin Pattern">Corwin Pattern</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="char-logrus">Logrus Imprint</label>
-                            <select id="char-logrus">
-                                <option value="">None</option>
-                                <option value="Basic">Basic</option>
-                                <option value="Advanced">Advanced</option>
-                                <option value="Master">Master</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="char-blood">Blood Purity</label>
-                            <select id="char-blood">
-                                <option value="None">None - No royal blood</option>
-                                <option value="Half">Half - Descendant of royalty</option>
-                                <option value="Pure">Pure - Direct royal lineage</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="char-trump">Trump Artist</label>
-                            <select id="char-trump">
-                                <option value="0">No</option>
-                                <option value="1">Yes</option>
+                            <label for="w-shadow">Starting Shadow</label>
+                            <select id="w-shadow">
+                                <option value="">Choose a shadow…</option>
                             </select>
                         </div>
                     </div>
-
-                    <h3>Background</h3>
                     <div class="form-group">
-                        <label for="char-backstory">Character Backstory</label>
-                        <textarea id="char-backstory" rows="4" placeholder="Tell us about your character..."></textarea>
+                        <label for="w-backstory">Backstory</label>
+                        <textarea id="w-backstory" rows="5" placeholder="Who is this character, where do they come from, what drives them?"></textarea>
+                    </div>
+                </div>
+
+                <!-- ── STEP 2: Amber Powers ──────────────────────────────── -->
+                <div class="wizard-panel" id="wpanel-2">
+                    <h3 class="panel-title">Amber Attributes</h3>
+                    <p class="panel-note">These choices apply stat modifiers automatically in the next step.</p>
+
+                    <!-- Order/Chaos -->
+                    <div class="amber-section">
+                        <label class="amber-section-label">Order / Chaos Balance</label>
+                        <div class="oc-slider-wrap">
+                            <span class="oc-label chaos">Chaos (0)</span>
+                            <input type="range" id="w-order-chaos" min="0" max="100" value="50" oninput="wizardOCUpdate()">
+                            <span class="oc-label order">Order (100)</span>
+                        </div>
+                        <div class="oc-value-display" id="oc-display">50 — Balanced <span class="oc-mod-hint" id="oc-mod-hint"></span></div>
                     </div>
 
-                    <div class="form-actions">
-                        <button type="button" class="btn-secondary" onclick="closeCreateCharacter()">Cancel</button>
-                        <button type="submit" class="btn-primary">Create Character</button>
+                    <!-- Blood Purity -->
+                    <div class="amber-section">
+                        <label class="amber-section-label">Blood Purity</label>
+                        <div class="radio-cards" id="blood-purity-cards">
+                            <label class="radio-card">
+                                <input type="radio" name="w-blood" value="None" checked onchange="wizardAmberUpdate()">
+                                <div class="rc-body"><strong>None</strong><small>No royal blood — life is harder, you are tougher. +1 STR</small></div>
+                            </label>
+                            <label class="radio-card">
+                                <input type="radio" name="w-blood" value="Half" onchange="wizardAmberUpdate()">
+                                <div class="rc-body"><strong>Half</strong><small>Descendant of royalty — some presence bleeds through. +1 CHA</small></div>
+                            </label>
+                            <label class="radio-card">
+                                <input type="radio" name="w-blood" value="Pure" onchange="wizardAmberUpdate()">
+                                <div class="rc-body"><strong>Pure</strong><small>Direct royal lineage — presence and wisdom from watching the movement of power. +1 WIS</small></div>
+                            </label>
+                        </div>
                     </div>
-                </form>
+
+                    <!-- Power Imprint (mutually exclusive) -->
+                    <div class="amber-section">
+                        <label class="amber-section-label">Power Imprint <span class="amber-note">(choose one path — cannot hold both at creation)</span></label>
+                        <div class="radio-cards" id="imprint-cards">
+                            <label class="radio-card">
+                                <input type="radio" name="w-imprint" value="None" checked onchange="wizardImprintChange()">
+                                <div class="rc-body"><strong>None</strong><small>No imprint yet — untapped potential. +1 to any stat of your choice, plus one free Trait.</small></div>
+                            </label>
+                            <label class="radio-card">
+                                <input type="radio" name="w-imprint" value="FirstPattern" onchange="wizardImprintChange()">
+                                <div class="rc-body"><strong>First Pattern</strong><small>Walked the original Pattern. +2 WIS, +1 CON</small></div>
+                            </label>
+                            <label class="radio-card">
+                                <input type="radio" name="w-imprint" value="CorwinPattern" onchange="wizardImprintChange()">
+                                <div class="rc-body"><strong>Corwin's Pattern</strong><small>Walked the new Pattern. +2 INT, +1 CHA</small></div>
+                            </label>
+                            <label class="radio-card">
+                                <input type="radio" name="w-imprint" value="LogrusBasic" onchange="wizardImprintChange()">
+                                <div class="rc-body"><strong>Logrus — Basic</strong><small>Survived the Logrus. +1 CON</small></div>
+                            </label>
+                            <label class="radio-card">
+                                <input type="radio" name="w-imprint" value="LogrusAdvanced" onchange="wizardImprintChange()">
+                                <div class="rc-body"><strong>Logrus — Advanced</strong><small>Deep Chaos initiation. +1 CON, +1 STR / −1 INT, −1 WIS (one penalty shiftable)</small></div>
+                            </label>
+                            <label class="radio-card">
+                                <input type="radio" name="w-imprint" value="LogrusMaster" onchange="wizardImprintChange()">
+                                <div class="rc-body"><strong>Logrus — Master</strong><small>Chaos mastery at great cost. +1 CON, +1 STR, +1 CHA / −2 INT, −1 WIS (one penalty shiftable)</small></div>
+                            </label>
+                        </div>
+
+                        <!-- None imprint: free stat bonus picker -->
+                        <div id="none-imprint-bonus" class="imprint-sub" style="display:none;">
+                            <label>Choose which stat receives +1:</label>
+                            <div class="stat-radio-row">
+                                <label><input type="radio" name="w-none-bonus" value="STR" onchange="wizardAmberUpdate()"> STR</label>
+                                <label><input type="radio" name="w-none-bonus" value="DEX" onchange="wizardAmberUpdate()"> DEX</label>
+                                <label><input type="radio" name="w-none-bonus" value="CON" onchange="wizardAmberUpdate()"> CON</label>
+                                <label><input type="radio" name="w-none-bonus" value="INT" onchange="wizardAmberUpdate()"> INT</label>
+                                <label><input type="radio" name="w-none-bonus" value="WIS" onchange="wizardAmberUpdate()"> WIS</label>
+                                <label><input type="radio" name="w-none-bonus" value="CHA" onchange="wizardAmberUpdate()"> CHA</label>
+                            </div>
+                        </div>
+
+                        <!-- Broken imprint option -->
+                        <div id="broken-imprint-section" class="imprint-sub">
+                            <label class="broken-imprint-label">
+                                <input type="checkbox" id="w-broken-imprint" disabled onchange="wizardAmberUpdate()">
+                                <span id="broken-imprint-text" class="broken-disabled">Broken Imprint — an imperfect walk; discuss consequences with your DM</span>
+                            </label>
+                        </div>
+
+                        <!-- Logrus Advanced/Master: penalty shift -->
+                        <div id="logrus-penalty-section" class="imprint-sub" style="display:none;">
+                            <p class="penalty-note" id="logrus-penalty-note"></p>
+                            <label>Optionally shift one penalty point to a different stat (requires justification):</label>
+                            <div class="stat-radio-row">
+                                <label><input type="radio" name="w-penalty-shift" value="" checked onchange="wizardAmberUpdate()"> Keep default</label>
+                                <label><input type="radio" name="w-penalty-shift" value="STR" onchange="wizardAmberUpdate()"> STR</label>
+                                <label><input type="radio" name="w-penalty-shift" value="DEX" onchange="wizardAmberUpdate()"> DEX</label>
+                                <label><input type="radio" name="w-penalty-shift" value="CON" onchange="wizardAmberUpdate()"> CON</label>
+                                <label><input type="radio" name="w-penalty-shift" value="CHA" onchange="wizardAmberUpdate()"> CHA</label>
+                            </div>
+                            <div id="penalty-justification-wrap" style="display:none;" class="form-group">
+                                <label for="w-penalty-just">Justification for shift *</label>
+                                <textarea id="w-penalty-just" rows="2" placeholder="Explain why this stat suffered instead…"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── STEP 3: Assign Stats ───────────────────────────────── -->
+                <div class="wizard-panel" id="wpanel-3">
+                    <h3 class="panel-title">Assign Standard Array</h3>
+                    <p class="panel-note">Click a value chip, then click the stat to assign it. Each value can only be used once.</p>
+
+                    <!-- Array chips -->
+                    <div class="array-chips" id="array-chips">
+                        <button class="chip" data-val="15" onclick="selectChip(this)">15</button>
+                        <button class="chip" data-val="14" onclick="selectChip(this)">14</button>
+                        <button class="chip" data-val="13" onclick="selectChip(this)">13</button>
+                        <button class="chip" data-val="12" onclick="selectChip(this)">12</button>
+                        <button class="chip" data-val="10" onclick="selectChip(this)">10</button>
+                        <button class="chip" data-val="8"  onclick="selectChip(this)">8</button>
+                    </div>
+
+                    <!-- Stat slots + modifier preview -->
+                    <div class="stat-assignment-grid">
+                        <div class="stat-slot-card" data-stat="STR" onclick="assignStat('STR')">
+                            <div class="ssc-name">STR</div>
+                            <div class="ssc-base" id="ssc-STR">—</div>
+                            <div class="ssc-mod-row">
+                                <span class="ssc-amber-mod" id="amod-STR"></span>
+                                <span class="ssc-final" id="sfinal-STR"></span>
+                            </div>
+                        </div>
+                        <div class="stat-slot-card" data-stat="DEX" onclick="assignStat('DEX')">
+                            <div class="ssc-name">DEX</div>
+                            <div class="ssc-base" id="ssc-DEX">—</div>
+                            <div class="ssc-mod-row">
+                                <span class="ssc-amber-mod" id="amod-DEX"></span>
+                                <span class="ssc-final" id="sfinal-DEX"></span>
+                            </div>
+                        </div>
+                        <div class="stat-slot-card" data-stat="CON" onclick="assignStat('CON')">
+                            <div class="ssc-name">CON</div>
+                            <div class="ssc-base" id="ssc-CON">—</div>
+                            <div class="ssc-mod-row">
+                                <span class="ssc-amber-mod" id="amod-CON"></span>
+                                <span class="ssc-final" id="sfinal-CON"></span>
+                            </div>
+                        </div>
+                        <div class="stat-slot-card" data-stat="INT" onclick="assignStat('INT')">
+                            <div class="ssc-name">INT</div>
+                            <div class="ssc-base" id="ssc-INT">—</div>
+                            <div class="ssc-mod-row">
+                                <span class="ssc-amber-mod" id="amod-INT"></span>
+                                <span class="ssc-final" id="sfinal-INT"></span>
+                            </div>
+                        </div>
+                        <div class="stat-slot-card" data-stat="WIS" onclick="assignStat('WIS')">
+                            <div class="ssc-name">WIS</div>
+                            <div class="ssc-base" id="ssc-WIS">—</div>
+                            <div class="ssc-mod-row">
+                                <span class="ssc-amber-mod" id="amod-WIS"></span>
+                                <span class="ssc-final" id="sfinal-WIS"></span>
+                            </div>
+                        </div>
+                        <div class="stat-slot-card" data-stat="CHA" onclick="assignStat('CHA')">
+                            <div class="ssc-name">CHA</div>
+                            <div class="ssc-base" id="ssc-CHA">—</div>
+                            <div class="ssc-mod-row">
+                                <span class="ssc-amber-mod" id="amod-CHA"></span>
+                                <span class="ssc-final" id="sfinal-CHA"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modifier-legend">
+                        <span class="legend-item"><span class="ssc-base sample">12</span> Base array value</span>
+                        <span class="legend-item"><span class="ssc-amber-mod sample">+2</span> Amber modifier</span>
+                        <span class="legend-item"><span class="ssc-final sample">14</span> Final score</span>
+                    </div>
+                </div>
+
+                <!-- ── STEP 4: Flaws & Traits ─────────────────────────────── -->
+                <div class="wizard-panel" id="wpanel-4">
+                    <h3 class="panel-title">Flaws &amp; Traits</h3>
+                    <div id="flaws-intro" class="panel-note"></div>
+                    <div id="flaws-content"></div>
+                </div>
+
+                <!-- ── STEP 5: Class ──────────────────────────────────────── -->
+                <div class="wizard-panel" id="wpanel-5">
+                    <h3 class="panel-title">Class</h3>
+
+                    <!-- Trump Artist eligibility -->
+                    <div id="trump-eligibility" class="trump-check"></div>
+
+                    <p class="panel-note" style="margin-top:14px;">
+                        ★ Suggested classes are highlighted based on your stats and imprint.
+                        ⚠ Low-stat warnings are advisory — you can still pick any class.
+                    </p>
+
+                    <!-- Class card grid (rendered by wizardRenderClass) -->
+                    <div id="class-card-grid" class="class-card-grid"></div>
+
+                    <!-- Amber lore note for selected class -->
+                    <div id="class-amber-note" class="class-amber-note" style="display:none;"></div>
+
+                    <div class="form-group" style="max-width:160px;margin-top:18px;">
+                        <label for="w-level">Starting Level</label>
+                        <input type="number" id="w-level" value="1" min="1" max="20">
+                    </div>
+                </div>
+
+                <!-- ── STEP 6: Review ─────────────────────────────────────── -->
+                <div class="wizard-panel" id="wpanel-6">
+                    <h3 class="panel-title">Review &amp; Create</h3>
+                    <div id="review-content" class="review-block"></div>
+                </div>
+
+            </div><!-- /wizard-body -->
+
+            <div class="wizard-footer">
+                <button id="wizard-back-btn" class="btn-secondary" onclick="wizardBack()">← Back</button>
+                <div class="wizard-footer-right">
+                    <span id="wizard-step-counter" class="step-counter">Step 1 of 6</span>
+                    <button id="wizard-next-btn" class="btn-primary" onclick="wizardNext()">Next →</button>
+                    <button id="wizard-submit-btn" class="btn-primary" onclick="wizardSubmit()" style="display:none;">Create Character</button>
+                </div>
             </div>
         </div>
     </div>

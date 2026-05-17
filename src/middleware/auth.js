@@ -12,7 +12,8 @@ function generateToken(user) {
         {
             userId: user.id,
             username: user.username,
-            isDM: user.is_dm
+            isDM: user.is_dm,
+            isAdmin: user.username === 'admin'
         },
         JWT_SECRET,
         { expiresIn: JWT_EXPIRES_IN }
@@ -59,7 +60,8 @@ function authenticate(req, res, next) {
     req.user = {
         userId: decoded.userId,
         username: decoded.username,
-        isDM: decoded.isDM
+        isDM: decoded.isDM,
+        isAdmin: decoded.isAdmin || false
     };
 
     next();
@@ -85,7 +87,8 @@ function optionalAuth(req, res, next) {
             req.user = {
                 userId: decoded.userId,
                 username: decoded.username,
-                isDM: decoded.isDM
+                isDM: decoded.isDM,
+                isAdmin: decoded.isAdmin || false
             };
         }
     }
@@ -118,12 +121,26 @@ function requireCharacterOwnership(req, res, next) {
     next();
 }
 
+/**
+ * Require admin (username === 'admin')
+ */
+function requireAdmin(req, res, next) {
+    if (!req.user) {
+        return res.status(401).json({ error: 'Authentication required' });
+    }
+    if (!req.user.isAdmin) {
+        return res.status(403).json({ error: 'Admin access required' });
+    }
+    next();
+}
+
 module.exports = {
     generateToken,
     verifyToken,
     authenticate,
     optionalAuth,
     requireDM,
+    requireAdmin,
     requireCharacterOwnership,
     JWT_SECRET,
     JWT_EXPIRES_IN

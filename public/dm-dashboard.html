@@ -29,6 +29,7 @@
             <button class="tab-btn" data-tab="progress">Progress Tracking</button>
             <button class="tab-btn" data-tab="claims">Claims Rankings</button>
             <button class="tab-btn" data-tab="journal">Journal</button>
+            <button class="tab-btn" data-tab="primal-patterns">Primal Patterns</button>
         </nav>
 
         <!-- Characters Tab -->
@@ -45,7 +46,7 @@
         <!-- Shadows Tab -->
         <div id="shadows-tab" class="tab-content">
             <div class="tab-header">
-                <h2>Shadows of the Multiverse</h2>
+                <h2>Known Shadows</h2>
                 <button class="btn-primary" onclick="showCreateShadowModal()">+ Create Shadow</button>
             </div>
             <div id="shadows-list" class="grid">
@@ -130,6 +131,20 @@
                 <!-- Journal entries will be loaded here -->
             </div>
         </div>
+
+        <!-- Primal Patterns Tab -->
+        <div id="primal-patterns-tab" class="tab-content">
+            <div class="tab-header">
+                <h2>Primal Patterns &amp; Spirit Animals</h2>
+                <button class="btn-primary" onclick="openCreatePatternModal()">+ New Pattern</button>
+            </div>
+            <div id="pattern-card-row" class="pattern-card-row">
+                <!-- Pattern selection cards loaded here -->
+            </div>
+            <div id="pattern-detail-view">
+                <!-- Detail panel loaded here when a pattern is selected -->
+            </div>
+        </div>
     </div>
 
     <!-- Modal Container -->
@@ -145,6 +160,16 @@
         </div>
     </div>
 
+    <script>
+        // Guard: only DM users may access this page
+        (function() {
+            const token = localStorage.getItem('token');
+            const user  = JSON.parse(localStorage.getItem('user') || '{}');
+            if (!token || (!user.is_dm && !user.is_admin)) {
+                window.location.href = '/player-login.html';
+            }
+        })();
+    </script>
     <script src="/js/app.js"></script>
 </body>
 </html>
