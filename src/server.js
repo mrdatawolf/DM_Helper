@@ -18,6 +18,8 @@ const authRoutes = require('./routes/auth');
 const journalRoutes = require('./routes/journal');
 const primalPatternsRoutes = require('./routes/primal-patterns');
 const adminRoutes = require('./routes/admin');
+const arcRoutes   = require('./routes/arcs');
+const beatRoutes  = require('./routes/beats');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -63,6 +65,8 @@ app.use('/api/claims', claimsRoutes);
 app.use('/api/journal', journalRoutes);
 app.use('/api/primal-patterns', primalPatternsRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/arcs',  arcRoutes);
+app.use('/api/beats', beatRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

@@ -29,6 +29,7 @@
             <button class="tab-btn" data-tab="progress">Progress Tracking</button>
             <button class="tab-btn" data-tab="claims">Claims Rankings</button>
             <button class="tab-btn" data-tab="journal">Journal</button>
+            <button class="tab-btn" data-tab="story-arcs">Story Arcs</button>
             <button class="tab-btn" data-tab="primal-patterns">Primal Patterns</button>
         </nav>
 
@@ -130,6 +131,21 @@
             <div id="journal-content">
                 <!-- Journal entries will be loaded here -->
             </div>
+        </div>
+
+        <!-- Story Arcs Tab -->
+        <div id="story-arcs-tab" class="tab-content">
+            <div class="tab-header">
+                <h2>Story Arcs</h2>
+            </div>
+            <!-- Grand Narrative (singleton, collapsible) -->
+            <div id="grand-narrative-section"></div>
+            <!-- Per-character arc rows -->
+            <div id="arc-rows-container"></div>
+            <!-- Arc detail panel (populated when an arc is selected) -->
+            <div id="arc-detail-view"></div>
+            <!-- Global beats pool -->
+            <div id="beats-pool-section"></div>
         </div>
 
         <!-- Primal Patterns Tab -->
