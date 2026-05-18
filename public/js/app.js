@@ -94,14 +94,14 @@ function renderCharacters() {
 
     container.innerHTML = characters.map(char => `
         <div class="card">
-            <h3>${char.name}</h3>
+            <h3>${escHtml(char.name)}</h3>
             <div class="card-row">
                 <span class="card-label">Player:</span>
-                <span class="card-value">${char.player_name || 'NPC'}</span>
+                <span class="card-value">${escHtml(char.player_name) || 'NPC'}</span>
             </div>
             <div class="card-row">
                 <span class="card-label">Race/Class:</span>
-                <span class="card-value">${char.race} ${char.class}</span>
+                <span class="card-value">${escHtml(char.race)} ${escHtml(char.class)}</span>
             </div>
             <div class="card-row">
                 <span class="card-label">Level:</span>
@@ -109,11 +109,11 @@ function renderCharacters() {
             </div>
             <div class="card-row">
                 <span class="card-label">Origin:</span>
-                <span class="card-value">${char.shadow_origin_name || 'Unknown'}</span>
+                <span class="card-value">${escHtml(char.shadow_origin_name) || 'Unknown'}</span>
             </div>
             <div class="card-row">
                 <span class="card-label">Current Location:</span>
-                <span class="card-value">${char.current_shadow_name || 'Unknown'}</span>
+                <span class="card-value">${escHtml(char.current_shadow_name) || 'Unknown'}</span>
             </div>
             <div class="stat-block">
                 <div class="stat">
@@ -167,11 +167,11 @@ function renderShadows() {
 
     container.innerHTML = shadows.map(shadow => `
         <div class="card">
-            <h3>${shadow.name}</h3>
-            <p>${shadow.description || 'No description'}</p>
+            <h3>${escHtml(shadow.name)}</h3>
+            <p>${escHtml(shadow.description) || 'No description'}</p>
             <div class="card-row">
                 <span class="card-label">Pattern Influence:</span>
-                <span class="badge badge-pattern">${shadow.pattern_influence}</span>
+                <span class="badge badge-pattern">${escHtml(shadow.pattern_influence)}</span>
             </div>
             <div class="card-row">
                 <span class="card-label">Order Level:</span>
@@ -187,7 +187,7 @@ function renderShadows() {
             <div class="progress-bar">
                 <div class="progress-fill" style="width: ${shadow.chaos_level}%; background: linear-gradient(90deg, #e74c3c, #c0392b)"></div>
             </div>
-            ${shadow.corruption_status ? `<p><strong>Corruption:</strong> ${shadow.corruption_status}</p>` : ''}
+            ${shadow.corruption_status ? `<p><strong>Corruption:</strong> ${escHtml(shadow.corruption_status)}</p>` : ''}
             <div style="margin-top: 15px;">
                 <button class="btn-secondary" onclick="editShadow(${shadow.id})">Edit</button>
                 <button class="btn-secondary btn-danger" onclick="deleteShadow(${shadow.id})">Delete</button>
@@ -218,7 +218,7 @@ function renderSessions() {
         <div class="session-card">
             <div class="session-header">
                 <div>
-                    <h3>Session ${session.session_number}: ${session.session_title || 'Untitled'}</h3>
+                    <h3>Session ${session.session_number}: ${escHtml(session.session_title) || 'Untitled'}</h3>
                     <p style="color: #666; margin-top: 5px;">${new Date(session.session_date).toLocaleDateString()}</p>
                 </div>
                 <div>
@@ -226,7 +226,7 @@ function renderSessions() {
                     <button class="btn-secondary btn-danger" onclick="deleteSession(${session.id})">Delete</button>
                 </div>
             </div>
-            ${session.dm_notes ? `<p><strong>DM Notes:</strong> ${session.dm_notes}</p>` : ''}
+            ${session.dm_notes ? `<p><strong>DM Notes:</strong> ${escHtml(session.dm_notes)}</p>` : ''}
         </div>
     `).join('');
 }
@@ -253,17 +253,17 @@ function renderProgress() {
 
     container.innerHTML = progress.map(entry => `
         <div class="progress-entry">
-            <h4>${entry.character_name} - Session ${entry.session_number}: ${entry.session_title || 'Untitled'}</h4>
-            <p><strong>Summary:</strong> ${entry.summary}</p>
+            <h4>${escHtml(entry.character_name)} - Session ${entry.session_number}: ${escHtml(entry.session_title) || 'Untitled'}</h4>
+            <p><strong>Summary:</strong> ${escHtml(entry.summary)}</p>
             <div class="progress-meta">
                 <span>📅 ${new Date(entry.session_date).toLocaleDateString()}</span>
-                <span>🗺️ ${entry.shadow_name || 'Unknown shadow'}</span>
+                <span>🗺️ ${escHtml(entry.shadow_name) || 'Unknown shadow'}</span>
                 ${entry.feats_earned > 0 ? `<span>⭐ ${entry.feats_earned} feat(s) earned</span>` : ''}
                 ${entry.experience_gained > 0 ? `<span>📈 ${entry.experience_gained} XP</span>` : ''}
                 ${entry.is_solo_session ? '<span>👤 Solo Session</span>' : '<span>👥 Group Session</span>'}
             </div>
-            ${entry.story_beats ? `<p><strong>Key Moments:</strong> ${entry.story_beats}</p>` : ''}
-            ${entry.npcs_met ? `<p><strong>NPCs Met:</strong> ${entry.npcs_met}</p>` : ''}
+            ${entry.story_beats ? `<p><strong>Key Moments:</strong> ${escHtml(entry.story_beats)}</p>` : ''}
+            ${entry.npcs_met ? `<p><strong>NPCs Met:</strong> ${escHtml(entry.npcs_met)}</p>` : ''}
             <div style="margin-top: 10px;">
                 <button class="btn-secondary" onclick="editProgress(${entry.id})">Edit</button>
                 <button class="btn-secondary btn-danger" onclick="deleteProgress(${entry.id})">Delete</button>
@@ -277,7 +277,7 @@ function updateProgressFilter() {
     if (!select) return;
 
     select.innerHTML = '<option value="">All Characters</option>' +
-        characters.map(char => `<option value="${char.id}">${char.name}</option>`).join('');
+        characters.map(char => `<option value="${char.id}">${escHtml(char.name)}</option>`).join('');
 }
 
 // Modal functions
@@ -293,7 +293,7 @@ function showModal(title, content) {
 
 // Create Character Modal
 function showCreateCharacterModal() {
-    const shadowOptions = shadows.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+    const shadowOptions = shadows.map(s => `<option value="${s.id}">${escHtml(s.name)}</option>`).join('');
 
     showModal('Create Character', `
         <form onsubmit="createCharacter(event)">
@@ -515,7 +515,7 @@ async function createSession(event) {
 function showAddProgressModal() {
     const charOptions = characters.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
     const sessionOptions = sessions.map(s => `<option value="${s.id}">Session ${s.session_number}: ${s.session_title || 'Untitled'}</option>`).join('');
-    const shadowOptions = shadows.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+    const shadowOptions = shadows.map(s => `<option value="${s.id}">${escHtml(s.name)}</option>`).join('');
 
     showModal('Add Progress Entry', `
         <form onsubmit="addProgress(event)">
@@ -667,7 +667,7 @@ function updateJournalFilter() {
     if (!select) return;
 
     select.innerHTML = '<option value="">All Characters</option>' +
-        characters.map(char => `<option value="${char.id}">${char.name}</option>`).join('');
+        characters.map(char => `<option value="${char.id}">${escHtml(char.name)}</option>`).join('');
 }
 
 // Load journal entries
@@ -732,9 +732,9 @@ function renderJournalEntries() {
                 <div class="journal-entry-card">
                     <div class="entry-header">
                         <div>
-                            <h3>${entry.title}</h3>
+                            <h3>${escHtml(entry.title)}</h3>
                             <span class="entry-meta">
-                                ${entry.character_name} • ${new Date(entry.created_at).toLocaleDateString()}
+                                ${escHtml(entry.character_name)} • ${new Date(entry.created_at).toLocaleDateString()}
                                 ${entry.is_public ? '<span class="public-badge">Public</span>' : '<span class="private-badge">Private</span>'}
                             </span>
                         </div>
@@ -744,10 +744,10 @@ function renderJournalEntries() {
                         </div>
                     </div>
                     <div class="entry-content">
-                        <p>${entry.content}</p>
+                        <p>${escHtml(entry.content)}</p>
                     </div>
                     <div class="entry-footer">
-                        <small>By ${entry.author_username}</small>
+                        <small>By ${escHtml(entry.author_username)}</small>
                     </div>
                 </div>
             `).join('')}
@@ -763,7 +763,7 @@ function openNewJournalEntry() {
                 <label for="journal-character">Character *</label>
                 <select id="journal-character" required>
                     <option value="">Select a character...</option>
-                    ${characters.map(char => `<option value="${char.id}">${char.name}</option>`).join('')}
+                    ${characters.map(char => `<option value="${char.id}">${escHtml(char.name)}</option>`).join('')}
                 </select>
             </div>
             <div class="form-group">
@@ -876,16 +876,16 @@ async function editJournalEntry(entryId) {
                 <label for="edit-journal-character">Character *</label>
                 <select id="edit-journal-character" required>
                     <option value="">Select a character...</option>
-                    ${characters.map(char => `<option value="${char.id}" ${char.id === entry.character_id ? 'selected' : ''}>${char.name}</option>`).join('')}
+                    ${characters.map(char => `<option value="${char.id}" ${char.id === entry.character_id ? 'selected' : ''}>${escHtml(char.name)}</option>`).join('')}
                 </select>
             </div>
             <div class="form-group">
                 <label for="edit-journal-title">Title *</label>
-                <input type="text" id="edit-journal-title" required placeholder="What happened?" value="${entry.title}">
+                <input type="text" id="edit-journal-title" required placeholder="What happened?" value="${escHtml(entry.title)}">
             </div>
             <div class="form-group">
                 <label for="edit-journal-content">Entry *</label>
-                <textarea id="edit-journal-content" rows="8" required>${entry.content}</textarea>
+                <textarea id="edit-journal-content" rows="8" required>${escHtml(entry.content)}</textarea>
             </div>
             <div class="form-group">
                 <label>
@@ -1044,7 +1044,7 @@ async function loadClaimsRankings() {
                 <div style="font-size: 14px; color: #666; margin-top: 5px;">Total Points Spent</div>
             </div>
             <div style="background: var(--light); padding: 15px; border-radius: 8px; text-align: center;">
-                <div style="font-size: 32px; font-weight: bold; color: var(--primary);">${mostCompetitiveAttr || 'N/A'}</div>
+                <div style="font-size: 32px; font-weight: bold; color: var(--primary);">${escHtml(mostCompetitiveAttr) || 'N/A'}</div>
                 <div style="font-size: 14px; color: #666; margin-top: 5px;">Most Competitive (${mostCompetitiveCount} claims)</div>
             </div>
         `;
@@ -1056,7 +1056,7 @@ async function loadClaimsRankings() {
             section.style.cssText = 'background: white; padding: 20px; border-radius: 8px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);';
 
             let tableHTML = `
-                <h3 style="margin-top: 0; color: var(--primary); border-bottom: 2px solid var(--primary); padding-bottom: 10px;">${attributeName}</h3>
+                <h3 style="margin-top: 0; color: var(--primary); border-bottom: 2px solid var(--primary); padding-bottom: 10px;">${escHtml(attributeName)}</h3>
                 <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
                     <thead>
                         <tr style="background: var(--light);">
@@ -1085,11 +1085,11 @@ async function loadClaimsRankings() {
                     <tr style="border-bottom: 1px solid #eee;">
                         <td style="padding: 12px;"><span style="${rankBadgeStyle}">#${char.rank_position}</span></td>
                         <td style="padding: 12px;">
-                            <strong>${char.character_name}</strong>
+                            <strong>${escHtml(char.character_name)}</strong>
                             ${char.is_best ? '<span style="display: inline-block; background: #4CAF50; color: white; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-left: 10px;">🏆 BEST</span>' : ''}
                         </td>
                         <td style="padding: 12px;"><span style="font-size: 18px; font-weight: bold; color: var(--primary);">${char.points_spent}</span> points</td>
-                        <td style="padding: 12px;"><span style="font-style: italic; color: #666; font-size: 14px;">${char.justification || 'No justification provided'}</span></td>
+                        <td style="padding: 12px;"><span style="font-style: italic; color: #666; font-size: 14px;">${escHtml(char.justification) || 'No justification provided'}</span></td>
                         <td style="padding: 12px;">
                             ${char.is_best ?
                                 '<span style="color: #4CAF50; font-weight: bold;">Gets +2 total bonus</span>' :
