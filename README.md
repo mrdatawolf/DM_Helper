@@ -1,5 +1,9 @@
 # DM Helper — Amber Campaign Manager
 
+<p align="center">
+  <img src="public/logo.png" alt="The Shattering of the Liminal" width="300">
+</p>
+
 A custom campaign management system for running a D&D 5e campaign set in the **Chronicles of Amber** multiverse. Built for async play with separate DM, Player, and Admin interfaces.
 
 ---
@@ -15,7 +19,7 @@ A custom campaign management system for running a D&D 5e campaign set in the **C
 | Planes of existence | **Shadows** — infinite reflections between Amber (Order) and the Courts of Chaos; Shadow Walking replaces plane travel |
 | Standard races and origins | **Blood Purity** — royal bloodlines grant stat bonuses; Pure grants +1 WIS, Half grants +1 CHA |
 | Class abilities only | **Power Imprints** — walking the Pattern or Logrus grants reality-warping abilities on top of class features |
-| No cosmic allegiance | **The Three Powers** — First Pattern (Amber), Logrus (Courts of Chaos), Corwin's Pattern; each imprints differently |
+| No cosmic allegiance | **The Three Powers** — Pattern (Amber), Logrus (Courts of Chaos), Corwin's Pattern; each imprints differently |
 | Magic is learned or innate | **Broken Imprints** — walking an imperfect Pattern or Logrus is possible, with real thematic consequences worked out with the DM |
 | Party always plays together | **Async Play** — characters adventure separately, in parallel timelines; solo sessions are normal |
 | Trump cards are exotic items | **Trump Artistry** — characters with a higher Power Imprint may become Trump Artists, creating cards for communication and teleportation |
@@ -34,7 +38,7 @@ A custom campaign management system for running a D&D 5e campaign set in the **C
 - **Character Creation Wizard** — Guided 6-step flow: Identity, Amber Powers (Blood Purity + Power Imprint), Stat Assignment, Flaws & Traits, Class, Review
 - **Attribute Claims System** — Amber-style ranking with actual vs. perceived standings differing per character
 - **Primal Patterns System** — DM creates pattern lore with per-section content; grants individual sections to players; secrets sections never exposed to players
-- **Shadow Tracking** — 11 named shadows across First Pattern, Corwin Pattern, Logrus, and Nexus influence types
+- **Shadow Tracking** — 11 named shadows across Pattern, Argent Refrain, Logrus, and Nexus influence types
 - **Session & Progress Tracking** — Per-character async storyline tracking across solo and group sessions
 - **Feat System** — Custom leveling mechanic (feats earned per session, level, or breakthrough moment)
 - **Global Navigation** — Role-based nav bar (Guest / Player / DM) across all pages; admin sees no nav, only the management panel
@@ -200,7 +204,7 @@ Based on Roger Zelazny's *Chronicles of Amber* series. Characters are inhabitant
 
 | Force | Location | Nature |
 |-------|----------|--------|
-| First Pattern | Amber (Kolvir) | Pure Order; source of stability |
+| Pattern | Amber (Kolvir) | Pure Order; source of stability |
 | Logrus | Courts of Chaos | Pure Chaos; seeks to unmake Order |
 | Corwin's Pattern | Deidre and its reflections | A third way — neither fully accepts it |
 
@@ -208,16 +212,16 @@ Based on Roger Zelazny's *Chronicles of Amber* series. Characters are inhabitant
 
 | Shadow | Pattern | Notes |
 |--------|---------|-------|
-| Amber (Kolvir) | First Pattern | Seat of Order |
+| Amber (Kolvir) | Pattern | Seat of Order |
 | The Courts of Chaos | Logrus | Seat of Chaos |
-| Rebma | First Pattern | Underwater mirror, reversed Pattern |
-| Tir-na Nog'th | First Pattern | Sky city (full moon), shows futures |
-| Deidre | Corwin Pattern | Noir Amber reflection |
-| The Depths | Corwin Pattern | Deidre's liquid-shadow mirror |
-| The Neon Spire | Corwin Pattern | Deidre's ghost city (new moon) |
+| Rebma | Pattern | Underwater mirror, reversed Pattern |
+| Tir-na Nog'th | Pattern | Sky city (full moon), shows futures |
+| Deidre | Argent Refrain | Noir Amber reflection |
+| The Depths | Argent Refrain | Deidre's liquid-shadow mirror |
+| The Neon Spire | Argent Refrain | Deidre's ghost city (new moon) |
 | The Soul Realm | Mixed (corrupted) | Starting shadow; elven magic draws Order from living beings |
-| Billabong's Veil | Corwin Pattern | Starting shadow; marsupial society with bio-magic |
-| Shadow Earth | First Pattern | Earth-like shadow |
+| Billabong's Veil | Argent Refrain | Starting shadow; marsupial society with bio-magic |
+| Shadow Earth | Pattern | Earth-like shadow |
 | Keep of the Four Worlds | Nexus | Four-reality convergence; power rivaling Pattern or Logrus |
 
 ---

@@ -8,32 +8,60 @@
     <link rel="stylesheet" href="/css/navigation.css">
     <style>
         body {
-            background: var(--light);
+            background: #000;
+            color: #dde1e7;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60vmin;
+            height: 60vmin;
+            background-image: url('/logo.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            opacity: 0.07;
+            z-index: 0;
+            pointer-events: none;
         }
 
         .guide-container {
             max-width: 900px;
             margin: 0 auto;
             padding: 40px 20px;
-            background: white;
+            background: transparent;
+            position: relative;
+            z-index: 1;
         }
 
         .guide-header {
-            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
             color: white;
             padding: 30px;
-            margin: -40px -20px 40px -20px;
+            margin-bottom: 40px;
             text-align: center;
         }
 
         .guide-header h1 {
             margin: 0 0 10px 0;
             font-size: 2.5rem;
+            background: linear-gradient(135deg, #3498db 0%, #8e44ad 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
 
         .guide-header p {
             margin: 0;
-            opacity: 0.9;
+            opacity: 0.75;
             font-size: 1.1rem;
         }
 
@@ -43,21 +71,21 @@
         }
 
         .guide-content h2 {
-            color: var(--primary);
+            color: #5dade2;
             margin-top: 40px;
             margin-bottom: 20px;
             padding-bottom: 10px;
-            border-bottom: 2px solid var(--light);
+            border-bottom: 1px solid rgba(93, 173, 226, 0.25);
         }
 
         .guide-content h3 {
-            color: var(--secondary);
+            color: #a29bfe;
             margin-top: 30px;
             margin-bottom: 15px;
         }
 
         .guide-content h4 {
-            color: var(--accent);
+            color: #74b9ff;
             margin-top: 20px;
             margin-bottom: 10px;
         }
@@ -68,14 +96,15 @@
         }
 
         .guide-content code {
-            background: var(--light);
+            background: rgba(255, 255, 255, 0.07);
             padding: 2px 6px;
             border-radius: 4px;
             font-size: 0.95rem;
+            color: #81ecec;
         }
 
         .guide-content pre {
-            background: var(--light);
+            background: rgba(255, 255, 255, 0.05);
             padding: 15px;
             border-radius: 8px;
             overflow-x: auto;
@@ -100,19 +129,19 @@
             border-left: 4px solid var(--accent);
             padding-left: 20px;
             margin: 20px 0;
-            color: #666;
+            color: #a0aab4;
             font-style: italic;
         }
 
         .guide-content a {
-            color: var(--accent);
+            color: #5dade2;
             text-decoration: none;
             border-bottom: 1px solid transparent;
             transition: border-color 0.3s ease;
         }
 
         .guide-content a:hover {
-            border-bottom-color: var(--accent);
+            border-bottom-color: #5dade2;
         }
 
         .guide-content table {
@@ -124,13 +153,13 @@
         .guide-content th, .guide-content td {
             padding: 12px;
             text-align: left;
-            border-bottom: 1px solid var(--light);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         }
 
         .guide-content th {
-            background: var(--light);
+            background: rgba(255, 255, 255, 0.06);
             font-weight: 600;
-            color: var(--primary);
+            color: #5dade2;
         }
 
         .back-button {
@@ -151,7 +180,9 @@
         }
 
         .toc {
-            background: var(--light);
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
             padding: 20px;
             border-radius: 8px;
             margin: 30px 0;
@@ -159,7 +190,7 @@
 
         .toc h3 {
             margin-top: 0;
-            color: var(--primary);
+            color: #5dade2;
         }
 
         .toc ul {
@@ -176,8 +207,8 @@
 
     <div class="guide-container">
         <div class="guide-header">
-            <h1>📖 Player's Guide</h1>
-            <p>Amber Campaign - Chronicles of the Patterns</p>
+            <h1>Player's Guide</h1>
+            <p>Amber Campaign - The Shattering of the Liminal</p>
         </div>
 
         <div id="guide-content" class="guide-content">
