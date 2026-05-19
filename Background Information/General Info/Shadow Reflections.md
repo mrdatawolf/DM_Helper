@@ -2,18 +2,18 @@
 
 ## Overview
 
-Just as Amber has its reflections in Rebma and Tir-na Nog'th, so too does Deidre - the first shadow of Corwin's Pattern. These reflections follow similar metaphysical principles but are colored by Corwin's Pattern rather than the First Pattern.
+Just as Amber has its reflections in Rebma and Tir-na Nog'th, so too does Deidre - the first shadow of Corwin's Pattern. These reflections follow similar metaphysical principles but are colored by Corwin's Pattern rather than the Pattern.
 
-## The First Pattern Reflections
+## The Pattern Reflections
 
 ### Amber (Kolvir)
 - **Order Level**: 100/100
-- **Pattern Influence**: First Pattern
+- **Influence**: Pattern
 - The eternal city, seat of the true Pattern
 
 ### Rebma
 - **Order Level**: 98/100
-- **Pattern Influence**: First Pattern
+- **Influence**: Pattern
 - The underwater mirror of Amber, approached by descending Faiella-bionin's grand staircase
 - Everything is reversed, the Pattern runs backward
 - Ruled by Queen Moire
@@ -21,7 +21,7 @@ Just as Amber has its reflections in Rebma and Tir-na Nog'th, so too does Deidre
 
 ### Tir-na Nog'th
 - **Order Level**: 92/100
-- **Pattern Influence**: First Pattern
+- **Influence**: Pattern
 - The ghost city in the sky, appearing only on nights of the full moon
 - Reached by climbing an invisible stairway above the clouds
 - Everything exists in shades of silver and shadow
@@ -29,11 +29,11 @@ Just as Amber has its reflections in Rebma and Tir-na Nog'th, so too does Deidre
 - Prophecy and memory intertwined
 - **Corruption**: Temporal instability - prophetic visions may bleed between timelines
 
-## The Corwin Pattern Reflections
+## The Argent Refrain Reflections
 
 ### Deidre
 - **Order Level**: 95/100
-- **Pattern Influence**: Corwin Pattern
+- **Influence**: Argent Refrain
 - The first shadow of Corwin's Pattern, named in memory of his sister
 - **Aesthetic**: Noir-tinged reflection of Amber
 - Eternal twilight casts long shadows across art deco spires
@@ -44,7 +44,7 @@ Just as Amber has its reflections in Rebma and Tir-na Nog'th, so too does Deidre
 
 ### The Depths
 - **Order Level**: 90/100
-- **Pattern Influence**: Corwin Pattern
+- **Influence**: Argent Refrain
 - Deidre's reflection beneath dark waters
 - **Not** underwater like Rebma, but submerged in a sea of liquid shadow
 - Accessed through mirrors when rain falls in Deidre
@@ -54,7 +54,7 @@ Just as Amber has its reflections in Rebma and Tir-na Nog'th, so too does Deidre
 
 ### The Neon Spire
 - **Order Level**: 88/100
-- **Pattern Influence**: Corwin Pattern
+- **Influence**: Argent Refrain
 - Deidre's ghost twin, manifesting during the **new moon** (opposite of Tir-na Nog'th's full moon)
 - Appears as an inverted reflection in Deidre's perpetual rain puddles
 - Where Tir-na Nog'th is silver and ethereal, The Neon Spire is electric and vivid
@@ -65,7 +65,7 @@ Just as Amber has its reflections in Rebma and Tir-na Nog'th, so too does Deidre
 
 ## Metaphysical Patterns
 
-### The First Pattern (Dworkin's Creation)
+### The Pattern (Dworkin's Creation)
 - **Reflections**: Reversed (Rebma) and Future-showing (Tir-na Nog'th)
 - **Timing**: Full moon for Tir-na Nog'th
 - **Aesthetic**: Silver, crystalline, classical
@@ -88,8 +88,8 @@ Just as Amber has its reflections in Rebma and Tir-na Nog'th, so too does Deidre
 4. **Mirrors**: The Depths can be accessed through mirrors in Deidre during rain - suggesting a symbolic connection between reflection (mirrors) and the rain-slicked noir aesthetic
 
 5. **Moon Phases**:
-   - Full moon = Tir-na Nog'th (First Pattern, future-seeing)
-   - New moon = The Neon Spire (Corwin Pattern, choice-seeing)
+   - Full moon = Tir-na Nog'th (Pattern, future-seeing)
+   - New moon = The Neon Spire (Argent Refrain, choice-seeing)
    - This opposition may be significant
 
 ## Story Hooks

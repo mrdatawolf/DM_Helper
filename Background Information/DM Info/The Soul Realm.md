@@ -11,7 +11,7 @@ Things that might be explored with the Soul Realm:
 
 The Original Pattern is using it’s power to hide where the corruption to the new pattern is coming from.  This is why Kolvir doesn’t even know the Soul Realm is a problem.  It’s been hidden since nearly the beginning.  And the Logrus believes it was cheated when Corwin made a second pattern and want to swallow it to “restore the balance”.
 
-The soul realm and the being in it are of Kolvir fully.  Except the wizards.  Their blood allows them to cast spells because they are injected into the shadow by the first Pattern with the help of the Logrus. They have somehow created dual beings of their two powers. Currently the wizards only know how to draw order out of beings but they could also draw power from the chaos of the beings thereby becoming much more powerful and potentially restoring balance.
+The soul realm and the being in it are of Kolvir fully.  Except the wizards.  Their blood allows them to cast spells because they are injected into the shadow by the Pattern with the help of the Logrus. They have somehow created dual beings of their two powers. Currently the wizards only know how to draw order out of beings but they could also draw power from the chaos of the beings thereby becoming much more powerful and potentially restoring balance.
 
 The Kolvir Pattern will make an offer to the players at some point to help it solidify it’s control of it’s shadows.  What will this mean for the wizards?
 
