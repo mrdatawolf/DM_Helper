@@ -259,6 +259,39 @@ header h1 {
     color: #c0392b;
 }
 
+.badge-argent {
+    background: #f0f0f8;
+    color: #5a5a9a;
+}
+
+.badge-starting {
+    background: #eaf4ea;
+    color: #2e7d32;
+}
+
+.balance-bar {
+    flex: 1;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.balance-bar-dream {
+    background: linear-gradient(90deg,
+        #3d7ab5 var(--o,  5%),
+        #080818 var(--o,  5%),
+        #e8e4ff var(--mid, 50%),
+        #080818 var(--c,  95%),
+        #b03030 var(--c,  95%)
+    );
+    animation: dream-shimmer 10s ease-in-out infinite;
+}
+
+@keyframes dream-shimmer {
+    0%, 100% { filter: brightness(0.5) saturate(0.8); }
+    50%       { filter: brightness(1.0) saturate(1.2); }
+}
+
 .progress-bar {
     width: 100%;
     height: 20px;
@@ -1088,6 +1121,29 @@ header h1 {
     box-sizing: border-box;
 }
 .arc-field:focus { outline: none; border-color: var(--accent); }
+
+.arc-theme-field {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid #e0d5be;
+    border-radius: 6px;
+    font-size: 0.97rem;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-style: italic;
+    color: #555;
+    background: #fdf9f2;
+    resize: vertical;
+    min-height: 42px;
+    box-sizing: border-box;
+    margin-bottom: 20px;
+    line-height: 1.5;
+}
+.arc-theme-field:focus {
+    outline: none;
+    border-color: #c9b87a;
+    background: #fefcf5;
+}
+.arc-theme-field::placeholder { color: #c5b89a; font-style: italic; }
 
 .arc-empty {
     text-align: center;

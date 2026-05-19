@@ -62,7 +62,7 @@ router.get('/', (req, res) => {
 router.post('/', (req, res) => {
     try {
         const db = getDatabase();
-        const { character_id, title, description, status = 'planned', dm_notes } = req.body;
+        const { character_id, title, theme, description, status = 'planned', dm_notes } = req.body;
         if (!title) return res.status(400).json({ error: 'Title is required' });
 
         const maxOrder = db.prepare(
@@ -70,9 +70,9 @@ router.post('/', (req, res) => {
         ).get(character_id || null).m;
 
         const result = db.prepare(`
-            INSERT INTO story_arcs (character_id, title, description, status, dm_notes, order_index)
-            VALUES (?, ?, ?, ?, ?, ?)
-        `).run(character_id || null, title, description || null, status, dm_notes || null, maxOrder + 1);
+            INSERT INTO story_arcs (character_id, title, theme, description, status, dm_notes, order_index)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).run(character_id || null, title, theme || null, description || null, status, dm_notes || null, maxOrder + 1);
 
         const arc = db.prepare(`
             SELECT a.*, c.name AS character_name
@@ -122,15 +122,15 @@ router.put('/:id', (req, res) => {
         if (!db.prepare('SELECT id FROM story_arcs WHERE id = ?').get(req.params.id)) {
             return res.status(404).json({ error: 'Arc not found' });
         }
-        const { character_id, title, description, status, dm_notes, order_index } = req.body;
+        const { character_id, title, theme, description, status, dm_notes, order_index } = req.body;
         db.prepare(`
             UPDATE story_arcs
-            SET character_id = ?, title = ?, description = ?, status = ?, dm_notes = ?,
+            SET character_id = ?, title = ?, theme = ?, description = ?, status = ?, dm_notes = ?,
                 order_index  = COALESCE(?, order_index),
                 updated_at   = CURRENT_TIMESTAMP
             WHERE id = ?
         `).run(
-            character_id || null, title, description || null,
+            character_id || null, title, theme ?? null, description || null,
             status, dm_notes || null, order_index ?? null,
             req.params.id
         );

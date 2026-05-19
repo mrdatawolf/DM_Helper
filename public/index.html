@@ -3,27 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Amber Campaign - Chronicles of the Patterns</title>
+    <title>Amber Campaign - The Shattering of the Liminal</title>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="/css/navigation.css">
     <style>
         body {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            background: #000;
             min-height: 100vh;
             margin: 0;
             color: white;
+            position: relative;
         }
 
-        /* Adjust nav colors for dark background */
-        .main-nav {
-            background: rgba(44, 62, 80, 0.95);
-            backdrop-filter: blur(10px);
+        body::before {
+            content: '';
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 70vmin;
+            height: 70vmin;
+            background-image: url('/logo.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            opacity: 0.12;
+            z-index: 0;
+            pointer-events: none;
         }
 
-        .landing-header {
+.landing-header {
             text-align: center;
             padding: 60px 20px 40px 20px;
-            background: rgba(0, 0, 0, 0.2);
+            position: relative;
+            z-index: 1;
         }
 
         .landing-header h1 {
@@ -60,13 +73,15 @@
             max-width: 1200px;
             margin: 0 auto;
             width: 100%;
+            position: relative;
+            z-index: 1;
         }
 
         .portal-cards {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 30px;
-            width: 100%;
+            grid-template-columns: repeat(2, 240px);
+            gap: 120px;
+            justify-content: center;
             margin-bottom: 40px;
         }
 
@@ -75,7 +90,7 @@
             backdrop-filter: blur(10px);
             border: 2px solid rgba(255, 255, 255, 0.1);
             border-radius: 16px;
-            padding: 40px 30px;
+            padding: 28px 20px;
             text-align: center;
             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             cursor: pointer;
@@ -106,24 +121,24 @@
         }
 
         .portal-icon {
-            font-size: 4rem;
-            margin-bottom: 20px;
+            font-size: 2.2rem;
+            margin-bottom: 12px;
             display: block;
             filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
         }
 
         .portal-card h2 {
-            font-size: 2rem;
-            margin: 0 0 15px 0;
+            font-size: 1.3rem;
+            margin: 0 0 10px 0;
             color: #ecf0f1;
             position: relative;
         }
 
         .portal-card p {
             color: #bdc3c7;
-            margin: 0 0 25px 0;
-            font-size: 1rem;
-            line-height: 1.6;
+            margin: 0 0 18px 0;
+            font-size: 0.85rem;
+            line-height: 1.5;
             position: relative;
         }
 
@@ -256,6 +271,8 @@
             padding: 20px;
             color: #7f8c8d;
             font-size: 0.9rem;
+            position: relative;
+            z-index: 1;
         }
 
         @keyframes float {
@@ -289,7 +306,8 @@
             }
 
             .portal-cards {
-                grid-template-columns: 1fr;
+                grid-template-columns: 240px;
+                gap: 30px;
             }
 
             .feature-list {
@@ -304,7 +322,7 @@
     <script src="/js/navigation.js"></script>
 
     <div class="landing-header">
-        <h1>⚔️ Chronicles of the Patterns ⚔️</h1>
+        <h1>The Shattering of the Liminal</h1>
         <p class="subtitle">Amber Campaign Management System</p>
         <p class="tagline">Where D&D 5e meets the infinite possibilities of the Amber multiverse</p>
     </div>
@@ -327,7 +345,7 @@
         </div>
 
         <div class="info-section">
-            <h3>✨ What is Chronicles of the Patterns?</h3>
+            <h3>✨ What is The Shattering of the Liminal?</h3>
             <p style="text-align: center; color: #ecf0f1; margin-bottom: 25px;">
                 A unique blend of D&D 5e mechanics with the rich multiverse of Roger Zelazny's Chronicles of Amber.
                 This campaign management system helps you navigate a world where reality itself can be shaped by those with the right blood.
@@ -393,7 +411,7 @@
     </div>
 
     <div class="footer">
-        <p>Chronicles of the Patterns Campaign System • Inspired by D&D 5e & Amber RPG</p>
+        <p>The Shattering of the Liminal Campaign System • Inspired by D&D 5e & Amber RPG</p>
     </div>
 </body>
 </html>

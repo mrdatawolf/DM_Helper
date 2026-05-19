@@ -5,9 +5,10 @@ CREATE TABLE IF NOT EXISTS shadows (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
     description TEXT,
-    order_level INTEGER DEFAULT 50, -- 0-100, 0=pure chaos, 100=pure order
-    chaos_level INTEGER DEFAULT 50, -- 0-100, inverse relationship with order
-    pattern_influence TEXT CHECK(pattern_influence IN ('First Pattern', 'Corwin Pattern', 'Logrus', 'Mixed', 'None', 'Nexus')),
+    order_level INTEGER DEFAULT 50,
+    chaos_level INTEGER DEFAULT 50,
+    dream_level INTEGER DEFAULT 0,
+    pattern_influence TEXT CHECK(pattern_influence IN ('Pattern', 'Argent Refrain', 'Logrus', 'Mixed', 'None', 'Nexus')),
     corruption_status TEXT,
     is_starting_shadow BOOLEAN DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

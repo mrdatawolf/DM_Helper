@@ -295,7 +295,7 @@ Shadows are not separate dimensions - they're **reflections** of the primal forc
 
 ### The Three Powers
 
-**The First Pattern (Amber)**
+**The Pattern (Amber)**
 - The original Pattern created by Dworkin
 - Source of Order in the multiverse
 - Grants reality-warping power to those who walk it
@@ -317,11 +317,11 @@ Shadows are not separate dimensions - they're **reflections** of the primal forc
 
 Major shadows have **reflections** - mirror versions that reveal truths:
 
-**For Amber (First Pattern):**
+**For Amber (Pattern):**
 - **Rebma**: Underwater mirror, Pattern runs backward
 - **Tir-na Nog'th**: Sky city (full moon), shows possible futures
 
-**For Deidre (Corwin Pattern):**
+**For Deidre (Argent Refrain):**
 - **The Depths**: Liquid shadow mirror, reveals hidden truths
 - **The Neon Spire**: Rain reflection (new moon), shows choices
 
@@ -334,7 +334,7 @@ These reflection cities are dangerous, prophetic, and revealing. See [Shadow Ref
 You may begin your character in one of these shadows. Each has detailed information in the campaign documents:
 
 ### The Soul Realm
-**Pattern Influence**: Mixed (corrupted by First Pattern + Logrus)
+**Influence**: Mixed (corrupted by Pattern + Logrus)
 **Order/Chaos**: 60/40 (leaning Order, but unstable)
 
 An elven shadow where magic is performed by drawing Order from living beings, creating dangerous chaos imbalance. Features unique races (Elevi, Glimmerwings, Moonstalkers) and powerful creatures (Shadow Eaters, Eggari).
@@ -344,7 +344,7 @@ An elven shadow where magic is performed by drawing Order from living beings, cr
 ---
 
 ### Billabong's Veil
-**Pattern Influence**: Corwin Pattern
+**Influence**: Argent Refrain
 **Order/Chaos**: 55/45 (slightly ordered)
 
 A marsupial shadow where the Djunkai people rejected technology after the Mallee Wraith AI disaster. Features bio-magic, ultrasonic healing, and unique marsupial creatures.
@@ -358,7 +358,7 @@ A marsupial shadow where the Djunkai people rejected technology after the Mallee
 For details on shadow reflections (Rebma, Tir-na Nog'th, The Depths, The Neon Spire) and the mirror cities of both Patterns, see: [Shadow Reflections](Background%20Information/General%20Info/Shadow%20Reflections.md)
 
 **Major Shadows:**
-- **Amber (Kolvir)** - The eternal city, seat of the First Pattern
+- **Amber (Kolvir)** - The eternal city, seat of the Pattern
 - **Deidre** - Noir reflection of Amber, Corwin's first shadow
 - **Rebma** - Underwater mirror of Amber
 - **Tir-na Nog'th** - Ghost city in the sky (full moon)
@@ -411,7 +411,7 @@ You see:
 - Trump card creation and use
 - Shadow walking techniques
 - Reality manipulation
-- The Three-Way War (First Pattern vs Corwin Pattern vs Logrus)
+- The Three-Way War (Pattern vs Argent Refrain vs Logrus)
 - True nature of the Shadow Eaters
 - Corruption in the Soul Realm
 - The Mallee Wraith legacy in Billabong's Veil

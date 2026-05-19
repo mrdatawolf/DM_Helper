@@ -534,7 +534,7 @@ const FLAW_TRAIT_PAIRS = {
         }
     ],
     noImprint: {
-        pattern: { name: "Order's Whisper",  desc: "You sense Pattern influence in any shadow you enter and feel when Order/Chaos balance is actively shifting around you." },
+        pattern: { name: "Order's Whisper",  desc: "You sense Influence in any shadow you enter and feel when Order/Chaos balance is actively shifting around you." },
         logrus:  { name: 'Chaos Affinity',   desc: "You sense Logrus influence in shadows and feel probability shifts near you before others notice them." }
     }
 };
@@ -1111,7 +1111,7 @@ function wizardRenderReview() {
     const mods    = calcAmberMods();
     const clsData = CLASSES_5E.find(c => c.id === wiz.classType);
     const imprintLabels = {
-        None: 'None', FirstPattern: 'First Pattern', CorwinPattern: "Corwin's Pattern",
+        None: 'None', FirstPattern: 'Pattern', CorwinPattern: 'The Argent Refrain',
         LogrusBasic: 'Logrus — Basic', LogrusAdvanced: 'Logrus — Advanced', LogrusMaster: 'Logrus — Master'
     };
     const modStr = s => {
@@ -1199,7 +1199,7 @@ async function wizardSubmit() {
 
     const logrusImprint = { LogrusBasic: 'Basic', LogrusAdvanced: 'Advanced', LogrusMaster: 'Master' }[wiz.imprint] || null;
     const isPattern = wiz.imprint === 'FirstPattern' || wiz.imprint === 'CorwinPattern';
-    const patternType = isPattern ? (wiz.imprint === 'FirstPattern' ? 'First Pattern' : 'Corwin Pattern') : null;
+    const patternType = isPattern ? (wiz.imprint === 'FirstPattern' ? 'Pattern' : 'Argent Refrain') : null;
 
     // HP: (class hit die avg) + CON mod — use d8 as safe default
     const conMod  = Math.floor((finals.CON - 10) / 2);
