@@ -15,6 +15,7 @@ let sectionGrantsCache = {};
 let storyArcs = [];
 let activeArcId = null;
 let beats = [];
+let npcs  = [];
 let grandNarrative = {};
 
 // Initialize app
@@ -68,8 +69,63 @@ async function loadAllData() {
         loadCharacters(),
         loadShadows(),
         loadSessions(),
-        loadProgress()
+        loadProgress(),
+        loadBeats(),
+        loadNpcs(),
+        prefetchArcs()
     ]);
+}
+
+async function loadBeats() {
+    try {
+        const r = await fetch(`${API_BASE}/beats`);
+        beats = await r.json();
+    } catch (e) { console.error('Error loading beats:', e); }
+}
+
+async function loadNpcs() {
+    try {
+        const r = await fetch(`${API_BASE}/npcs`);
+        npcs = await r.json();
+    } catch (e) { console.error('Error loading npcs:', e); }
+}
+
+async function prefetchArcs() {
+    try {
+        const r = await fetch(`${API_BASE}/arcs`);
+        storyArcs = await r.json();
+    } catch (e) { console.error('Error prefetching arcs:', e); }
+}
+
+function buildChapterPicker(selectedIds = new Set()) {
+    if (!storyArcs.length) return '<em style="color:#999">No arcs yet — create arcs and chapters first.</em>';
+
+    const byChar = {};
+    for (const arc of storyArcs) {
+        if (!(arc.chapters || []).length) continue;
+        const key = arc.character_name || 'World / General';
+        if (!byChar[key]) byChar[key] = [];
+        byChar[key].push(arc);
+    }
+    if (!Object.keys(byChar).length) return '<em style="color:#999">No chapters yet — add chapters to arcs first.</em>';
+
+    return Object.entries(byChar).map(([charName, arcs]) => `
+        <div style="margin-bottom:10px">
+            <div style="font-weight:600;color:#5a4a2a;margin-bottom:4px">${escHtml(charName)}</div>
+            ${arcs.map(arc => `
+                <div style="margin-left:12px;margin-bottom:4px">
+                    <div style="font-style:italic;color:#888;font-size:0.85em;margin-bottom:2px">${escHtml(arc.title)}</div>
+                    ${(arc.chapters || []).map(ch => `
+                        <label style="display:flex;align-items:center;gap:6px;margin-left:12px;font-size:0.9em;cursor:pointer;padding:2px 0">
+                            <input type="checkbox" class="chapter-check" value="${ch.id}"${selectedIds.has(ch.id) ? ' checked' : ''}>
+                            <span>${escHtml(ch.title)}</span>
+                            <span style="color:#aaa;font-size:0.8em">(${ch.status})</span>
+                        </label>
+                    `).join('')}
+                </div>
+            `).join('')}
+        </div>
+    `).join('');
 }
 
 // Characters
@@ -129,11 +185,9 @@ function renderCharacters() {
                     <div class="stat-value">${char.feat_pool}</div>
                 </div>
             </div>
-            <div class="card-row">
-                <span class="card-label">Order/Chaos:</span>
-                <div class="progress-bar" style="flex: 1; margin-left: 10px;">
-                    <div class="progress-fill" style="width: ${char.order_chaos_balance}%; background: ${char.order_chaos_balance > 50 ? 'linear-gradient(90deg, #3498db, #2980b9)' : 'linear-gradient(90deg, #e74c3c, #c0392b)'}"></div>
-                </div>
+            <div class="card-row" style="align-items:center">
+                <span class="card-label" style="white-space:nowrap;margin-right:8px">Order/Chaos:</span>
+                <div class="balance-bar" style="background:linear-gradient(90deg,#3498db ${char.order_chaos_balance}%,#e74c3c ${char.order_chaos_balance}%)"></div>
             </div>
             ${char.has_pattern_imprint ? '<span class="badge badge-pattern">Pattern</span>' : ''}
             ${char.has_logrus_imprint ? '<span class="badge badge-logrus">Logrus</span>' : ''}
@@ -170,24 +224,15 @@ function renderShadows() {
             <h3>${escHtml(shadow.name)}</h3>
             <p>${escHtml(shadow.description) || 'No description'}</p>
             <div class="card-row">
-                <span class="card-label">Pattern Influence:</span>
-                <span class="badge badge-pattern">${escHtml(shadow.pattern_influence)}</span>
+                <span class="card-label">Influence:</span>
+                <span class="badge ${patternInfluenceBadge(shadow.pattern_influence)}">${escHtml(patternInfluenceLabel(shadow.pattern_influence))}</span>
             </div>
-            <div class="card-row">
-                <span class="card-label">Order Level:</span>
-                <span class="card-value">${shadow.order_level}/100</span>
-            </div>
-            <div class="progress-bar">
-                <div class="progress-fill" style="width: ${shadow.order_level}%; background: linear-gradient(90deg, #3498db, #2980b9)"></div>
-            </div>
-            <div class="card-row">
-                <span class="card-label">Chaos Level:</span>
-                <span class="card-value">${shadow.chaos_level}/100</span>
-            </div>
-            <div class="progress-bar">
-                <div class="progress-fill" style="width: ${shadow.chaos_level}%; background: linear-gradient(90deg, #e74c3c, #c0392b)"></div>
+            <div class="card-row" style="align-items:center">
+                <span class="card-label" style="white-space:nowrap;margin-right:8px">${shadowBarLabel(shadow)}</span>
+                <div class="${shadowBarClass(shadow)}" style="${shadowBalanceBar(shadow)}"></div>
             </div>
             ${shadow.corruption_status ? `<p><strong>Corruption:</strong> ${escHtml(shadow.corruption_status)}</p>` : ''}
+            ${shadow.is_starting_shadow ? '<span class="badge badge-starting">Starting World</span>' : ''}
             <div style="margin-top: 15px;">
                 <button class="btn-secondary" onclick="editShadow(${shadow.id})">Edit</button>
                 <button class="btn-secondary btn-danger" onclick="deleteShadow(${shadow.id})">Delete</button>
@@ -214,21 +259,39 @@ function renderSessions() {
         return;
     }
 
-    container.innerHTML = sessions.map(session => `
+    const statusColors = { planned:'#8a7a5a', 'in-progress':'#2980b9', completed:'#27ae60' };
+    container.innerHTML = sessions.map(session => {
+        const sc = session.session_characters || [];
+        const charBadges = sc.map(c =>
+            `<span class="badge" style="font-size:0.75em;margin-right:3px;background:${c.attendance==='absent'?'#fde':'#f5efe0'};color:${c.attendance==='absent'?'#a33':'#555'}">${escHtml(c.character_name)}</span>`
+        ).join('');
+        const statusLabel = { planned:'Planned', 'in-progress':'In Progress', completed:'Completed' }[session.session_status] || '';
+        const statusColor = statusColors[session.session_status] || '#888';
+        const chapterLine = (session.session_chapters || []).length
+            ? (session.session_chapters).map(sc =>
+                `<span style="color:#888;font-size:0.82em">${escHtml(sc.character_name || '—')} › ${escHtml(sc.arc_title)} › ${escHtml(sc.chapter_title)}</span>`
+              ).join('<br>')
+            : '';
+        return `
         <div class="session-card">
             <div class="session-header">
                 <div>
                     <h3>Session ${session.session_number}: ${escHtml(session.session_title) || 'Untitled'}</h3>
-                    <p style="color: #666; margin-top: 5px;">${new Date(session.session_date).toLocaleDateString()}</p>
+                    <p style="color:#666;margin-top:3px;font-size:0.9em">
+                        ${new Date(session.session_date).toLocaleDateString()}
+                        &nbsp;·&nbsp;<span style="color:${statusColor};font-weight:600">${statusLabel}</span>
+                    </p>
+                    ${chapterLine ? `<p style="margin-top:2px">${chapterLine}</p>` : ''}
                 </div>
                 <div>
                     <button class="btn-secondary" onclick="editSession(${session.id})">Edit</button>
                     <button class="btn-secondary btn-danger" onclick="deleteSession(${session.id})">Delete</button>
                 </div>
             </div>
-            ${session.dm_notes ? `<p><strong>DM Notes:</strong> ${escHtml(session.dm_notes)}</p>` : ''}
-        </div>
-    `).join('');
+            ${charBadges ? `<div style="margin-top:8px">${charBadges}</div>` : ''}
+            ${session.opening_notes ? `<p style="margin-top:8px;color:#555;font-size:0.9em"><strong>Opening:</strong> ${escHtml(session.opening_notes)}</p>` : ''}
+        </div>`;
+    }).join('');
 }
 
 // Progress
@@ -413,15 +476,20 @@ function showCreateShadowModal() {
                     <label>Chaos Level (0-100)</label>
                     <input type="number" name="chaos_level" value="50" min="0" max="100">
                 </div>
+                <div class="form-group">
+                    <label>Dream Level (0-100)</label>
+                    <input type="number" name="dream_level" value="0" min="0" max="100">
+                </div>
             </div>
             <div class="form-group">
-                <label>Pattern Influence</label>
+                <label>Influence</label>
                 <select name="pattern_influence">
                     <option value="None">None</option>
-                    <option value="First Pattern">First Pattern</option>
-                    <option value="Corwin Pattern">Corwin's Pattern</option>
+                    <option value="Pattern">Pattern</option>
+                    <option value="Argent Refrain">The Argent Refrain</option>
                     <option value="Logrus">Logrus</option>
                     <option value="Mixed">Mixed</option>
+                    <option value="Nexus">Nexus</option>
                 </select>
             </div>
             <div class="form-group">
@@ -459,28 +527,55 @@ async function createShadow(event) {
 
 // Create Session Modal
 function showCreateSessionModal() {
-    const nextSessionNumber = sessions.length > 0 ? Math.max(...sessions.map(s => s.session_number)) + 1 : 1;
-    const today = new Date().toISOString().split('T')[0];
+    const nextNum = sessions.length > 0 ? Math.max(...sessions.map(s => s.session_number)) + 1 : 1;
+    const today   = new Date().toISOString().split('T')[0];
+
+    const charChecks = characters.map(c =>
+        `<label style="display:block;margin-bottom:4px;cursor:pointer">
+            <input type="checkbox" class="char-check" value="${c.id}">
+            ${escHtml(c.name)}${c.player_name ? ` <span style="color:#999;font-size:0.85em">(${escHtml(c.player_name)})</span>` : ''}
+         </label>`
+    ).join('');
 
     showModal('Create Session', `
         <form onsubmit="createSession(event)">
             <div class="form-row">
                 <div class="form-group">
-                    <label>Session Number *</label>
-                    <input type="number" name="session_number" value="${nextSessionNumber}" required>
+                    <label>Session # *</label>
+                    <input type="number" name="session_number" value="${nextNum}" required>
                 </div>
                 <div class="form-group">
-                    <label>Session Date *</label>
+                    <label>Date *</label>
                     <input type="date" name="session_date" value="${today}" required>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select name="session_status">
+                        <option value="planned" selected>Planned</option>
+                        <option value="in-progress">In Progress</option>
+                        <option value="completed">Completed</option>
+                    </select>
                 </div>
             </div>
             <div class="form-group">
-                <label>Session Title</label>
-                <input type="text" name="session_title">
+                <label>Title</label>
+                <input type="text" name="session_title" placeholder="Session title…">
             </div>
+            <details style="margin-bottom:14px">
+                <summary style="cursor:pointer;font-weight:600;margin-bottom:8px">Expected Characters</summary>
+                <div style="max-height:130px;overflow-y:auto;border:1px solid #e0d5be;border-radius:6px;padding:8px 12px;background:#fdf9f2">
+                    ${charChecks || '<em style="color:#999">No characters yet</em>'}
+                </div>
+            </details>
+            <details open style="margin-bottom:14px">
+                <summary style="cursor:pointer;font-weight:600;margin-bottom:8px">Active Chapters This Session</summary>
+                <div style="max-height:220px;overflow-y:auto;border:1px solid #e0d5be;border-radius:6px;padding:10px 14px;background:#fdf9f2">
+                    ${buildChapterPicker()}
+                </div>
+            </details>
             <div class="form-group">
-                <label>DM Notes</label>
-                <textarea name="dm_notes"></textarea>
+                <label>Opening Notes <span style="color:#999;font-size:0.85em">(pre-session setup, hooks…)</span></label>
+                <textarea name="opening_notes" rows="3"></textarea>
             </div>
             <button type="submit" class="btn-primary">Create Session</button>
         </form>
@@ -489,25 +584,22 @@ function showCreateSessionModal() {
 
 async function createSession(event) {
     event.preventDefault();
-    const formData = new FormData(event.target);
-    const data = Object.fromEntries(formData);
+    const form = event.target;
+    const data = Object.fromEntries(new FormData(form));
+    data.character_ids = [...form.querySelectorAll('.char-check:checked')].map(el => +el.value);
+    data.chapter_ids   = [...form.querySelectorAll('.chapter-check:checked')].map(el => +el.value);
 
     try {
-        const response = await fetch(`${API_BASE}/sessions`, {
+        const res = await fetch(`${API_BASE}/sessions`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-
-        if (response.ok) {
-            closeModal();
-            await loadSessions();
-        } else {
-            alert('Error creating session');
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        alert('Error creating session');
+        if (!res.ok) throw new Error((await res.json()).error || 'Error creating session');
+        closeModal();
+        await loadSessions();
+    } catch (err) {
+        alert(`Failed to create session: ${err.message}`);
     }
 }
 
@@ -974,20 +1066,398 @@ async function deleteJournalEntry(entryId) {
 }
 
 // Placeholder functions for view/edit (to be implemented)
-function viewCharacter(id) {
-    alert('View character details - to be implemented');
+async function viewCharacter(id) {
+    try {
+        const response = await fetch(`${API_BASE}/characters/${id}`);
+        if (!response.ok) throw new Error('Failed to load character');
+        const c = await response.json();
+
+        const modifierStr = v => { const m = Math.floor((v - 10) / 2); return (m >= 0 ? '+' : '') + m; };
+        const statBlock = ['strength','dexterity','constitution','intelligence','wisdom','charisma']
+            .map(s => `<div class="stat"><div class="stat-label">${s.slice(0,3).toUpperCase()}</div><div class="stat-value">${c[s]}</div><div class="stat-label">${modifierStr(c[s])}</div></div>`)
+            .join('');
+
+        const badges = [
+            c.has_pattern_imprint ? '<span class="badge badge-pattern">Pattern</span>' : '',
+            c.has_logrus_imprint  ? '<span class="badge badge-logrus">Logrus</span>' : '',
+            c.has_trump_artistry  ? '<span class="badge">Trump Artist</span>' : '',
+        ].filter(Boolean).join(' ');
+
+        const gearRows = (c.gear || []).length
+            ? (c.gear || []).map(g => `<tr><td>${escHtml(g.item_name)}</td><td>${escHtml(g.item_type || '—')}</td><td>${g.is_equipped ? 'Yes' : 'No'}</td><td>${escHtml(g.description || '—')}</td></tr>`).join('')
+            : '<tr><td colspan="4" style="color:#999;font-style:italic">No gear recorded</td></tr>';
+
+        const powerRows = (c.powers || []).length
+            ? (c.powers || []).map(p => `<tr><td>${escHtml(p.power_name)}</td><td>${escHtml(p.power_type || '—')}</td><td>${escHtml(p.description || '—')}</td></tr>`).join('')
+            : '<tr><td colspan="3" style="color:#999;font-style:italic">No powers recorded</td></tr>';
+
+        const progressRows = (c.recent_progress || []).length
+            ? (c.recent_progress || []).map(p => `<tr><td>${escHtml(p.session_title || '—')}</td><td>${escHtml(p.shadow_name || '—')}</td><td>${escHtml(p.description || '—')}</td></tr>`).join('')
+            : '<tr><td colspan="3" style="color:#999;font-style:italic">No progress recorded</td></tr>';
+
+        const html = `
+            <div style="margin-bottom:12px">
+                <span style="color:#888;font-size:0.9em">${escHtml(c.race)} ${escHtml(c.class)} — Level ${c.level}</span>
+                ${c.player_name ? `<span style="margin-left:12px;color:#888;font-size:0.9em">Player: <strong>${escHtml(c.player_name)}</strong></span>` : ''}
+                <div style="margin-top:6px">${badges}</div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+                <div class="card-row"><span class="card-label">Origin:</span><span class="card-value">${escHtml(c.shadow_origin_name || 'Unknown')}</span></div>
+                <div class="card-row"><span class="card-label">Current Location:</span><span class="card-value">${escHtml(c.current_shadow_name || 'Unknown')}</span></div>
+                <div class="card-row"><span class="card-label">Blood Purity:</span><span class="card-value">${escHtml(c.blood_purity || 'Unknown')}</span></div>
+                <div class="card-row"><span class="card-label">Order/Chaos:</span><span class="card-value">${c.order_chaos_balance}/100</span></div>
+                <div class="card-row"><span class="card-label">HP:</span><span class="card-value">${c.current_hit_points} / ${c.max_hit_points}</span></div>
+                <div class="card-row"><span class="card-label">AC / Speed:</span><span class="card-value">${c.armor_class} / ${c.speed} ft</span></div>
+                <div class="card-row"><span class="card-label">Feat Pool:</span><span class="card-value">${c.feat_pool} (earned: ${c.total_feats_earned})</span></div>
+                <div class="card-row"><span class="card-label">XP:</span><span class="card-value">${c.experience_points} (next: ${c.points_to_next_level})</span></div>
+            </div>
+
+            <div class="stat-block" style="margin-bottom:16px">${statBlock}</div>
+
+            ${c.character_notes ? `<div style="margin-bottom:16px"><strong>Notes:</strong><p style="margin:6px 0 0;color:#555">${escHtml(c.character_notes)}</p></div>` : ''}
+
+            <details open style="margin-bottom:12px">
+                <summary style="cursor:pointer;font-weight:600;margin-bottom:6px">Gear (${(c.gear||[]).length})</summary>
+                <table style="width:100%;border-collapse:collapse;font-size:0.9em">
+                    <thead><tr style="background:#f5efe0"><th style="text-align:left;padding:4px 8px">Item</th><th style="text-align:left;padding:4px 8px">Type</th><th style="text-align:left;padding:4px 8px">Equipped</th><th style="text-align:left;padding:4px 8px">Notes</th></tr></thead>
+                    <tbody>${gearRows}</tbody>
+                </table>
+            </details>
+
+            <details open style="margin-bottom:12px">
+                <summary style="cursor:pointer;font-weight:600;margin-bottom:6px">Powers & Abilities (${(c.powers||[]).length})</summary>
+                <table style="width:100%;border-collapse:collapse;font-size:0.9em">
+                    <thead><tr style="background:#f5efe0"><th style="text-align:left;padding:4px 8px">Power</th><th style="text-align:left;padding:4px 8px">Type</th><th style="text-align:left;padding:4px 8px">Description</th></tr></thead>
+                    <tbody>${powerRows}</tbody>
+                </table>
+            </details>
+
+            <details style="margin-bottom:4px">
+                <summary style="cursor:pointer;font-weight:600;margin-bottom:6px">Recent Progress</summary>
+                <table style="width:100%;border-collapse:collapse;font-size:0.9em">
+                    <thead><tr style="background:#f5efe0"><th style="text-align:left;padding:4px 8px">Session</th><th style="text-align:left;padding:4px 8px">Shadow</th><th style="text-align:left;padding:4px 8px">Description</th></tr></thead>
+                    <tbody>${progressRows}</tbody>
+                </table>
+            </details>
+        `;
+
+        showModal(c.name, html);
+    } catch (err) {
+        alert(`Failed to load character: ${err.message}`);
+    }
 }
 
 function editCharacter(id) {
     alert('Edit character - to be implemented');
 }
 
-function editShadow(id) {
-    alert('Edit shadow - to be implemented');
+async function editShadow(id) {
+    try {
+        const response = await fetch(`${API_BASE}/shadows/${id}`);
+        if (!response.ok) throw new Error('Failed to load shadow');
+        const s = await response.json();
+
+        const influenceOptions = ['None','Pattern','Argent Refrain','Logrus','Mixed','Nexus']
+            .map(v => `<option value="${v}"${s.pattern_influence === v ? ' selected' : ''}>${v === 'Argent Refrain' ? 'The Argent Refrain' : v}</option>`)
+            .join('');
+
+        showModal(`Edit: ${escHtml(s.name)}`, `
+            <form onsubmit="handleEditShadow(event, ${id})">
+                <div class="form-group">
+                    <label>Shadow Name *</label>
+                    <input type="text" name="name" value="${escHtml(s.name)}" required>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea name="description">${escHtml(s.description || '')}</textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Order Level (0-100)</label>
+                        <input type="number" name="order_level" value="${s.order_level}" min="0" max="100">
+                    </div>
+                    <div class="form-group">
+                        <label>Chaos Level (0-100)</label>
+                        <input type="number" name="chaos_level" value="${s.chaos_level}" min="0" max="100">
+                    </div>
+                    <div class="form-group">
+                        <label>Dream Level (0-100)</label>
+                        <input type="number" name="dream_level" value="${s.dream_level || 0}" min="0" max="100">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Influence</label>
+                    <select name="pattern_influence">${influenceOptions}</select>
+                </div>
+                <div class="form-group">
+                    <label>Corruption Status</label>
+                    <textarea name="corruption_status">${escHtml(s.corruption_status || '')}</textarea>
+                </div>
+                <input type="hidden" name="is_starting_shadow" id="is_starting_shadow_val" value="${s.is_starting_shadow ? '1' : '0'}">
+                <div class="form-group">
+                    <button type="button" id="btn-starting-world"
+                        class="${s.is_starting_shadow ? 'btn-primary' : 'btn-secondary'}"
+                        onclick="toggleStartingWorld()">
+                        Starting World${s.is_starting_shadow ? ' ✓' : ''}
+                    </button>
+                </div>
+                <button type="submit" class="btn-primary">Save Changes</button>
+            </form>
+        `);
+    } catch (err) {
+        alert(`Failed to load shadow: ${err.message}`);
+    }
 }
 
-function editSession(id) {
-    alert('Edit session - to be implemented');
+function toggleStartingWorld() {
+    const hidden = document.getElementById('is_starting_shadow_val');
+    const btn = document.getElementById('btn-starting-world');
+    const active = hidden.value === '1';
+    hidden.value = active ? '0' : '1';
+    btn.className = active ? 'btn-secondary' : 'btn-primary';
+    btn.textContent = active ? 'Starting World' : 'Starting World ✓';
+}
+
+async function handleEditShadow(event, id) {
+    event.preventDefault();
+    const formData = new FormData(event.target);
+    const data = Object.fromEntries(formData);
+    data.is_starting_shadow = parseInt(data.is_starting_shadow) || 0;
+
+    try {
+        const response = await fetch(`${API_BASE}/shadows/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        if (!response.ok) throw new Error('Failed to save shadow');
+        closeModal();
+        await loadShadows();
+    } catch (err) {
+        alert(`Failed to save shadow: ${err.message}`);
+    }
+}
+
+async function editSession(id) {
+    try {
+        const res = await fetch(`${API_BASE}/sessions/${id}`);
+        if (!res.ok) throw new Error('Failed to load session');
+        const s = await res.json();
+
+        const linkedChapterIds = new Set((s.session_chapters || []).map(c => c.chapter_id));
+
+        const linkedCharIds = new Set((s.session_characters || []).map(c => c.id));
+        const attendanceMap  = Object.fromEntries((s.session_characters || []).map(c => [c.id, c.attendance]));
+        const attendanceColors = { expected:'#8a7a5a', attended:'#27ae60', absent:'#e74c3c' };
+        const charRows = characters.map(c => {
+            const linked = linkedCharIds.has(c.id);
+            const att    = attendanceMap[c.id] || 'expected';
+            const color  = attendanceColors[att] || '#888';
+            return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                <span style="flex:1">${escHtml(c.name)}${c.player_name ? ` <span style="color:#999;font-size:0.85em">(${escHtml(c.player_name)})</span>` : ''}</span>
+                ${linked
+                    ? `<select onchange="updateSessionCharAttendance(${id},${c.id},this.value)" style="font-size:0.85em;color:${color}">
+                          ${['expected','attended','absent'].map(a => `<option value="${a}"${att===a?' selected':''}>${a}</option>`).join('')}
+                       </select>
+                       <button type="button" class="btn-secondary btn-sm btn-danger" onclick="removeSessionChar(${id},${c.id},this)">×</button>`
+                    : `<button type="button" class="btn-secondary btn-sm" onclick="addSessionChar(${id},${c.id},this)">+ Add</button>`
+                }
+            </div>`;
+        }).join('');
+
+        const linkedBeatIds = new Set((s.beats || []).map(b => b.id));
+        const beatRows = (s.beats || []).map(b =>
+            `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                <span style="flex:1;font-size:0.9em">${escHtml(b.title)}</span>
+                <button type="button" class="btn-secondary btn-sm btn-danger" onclick="removeSessionBeat(${id},${b.id},this)">×</button>
+             </div>`
+        ).join('') || '<em style="color:#999;font-size:0.9em">No beats linked</em>';
+
+        const unlinkedBeats = beats.filter(b => !linkedBeatIds.has(b.id));
+        const beatSelect = unlinkedBeats.length
+            ? `<div style="display:flex;gap:8px;margin-top:8px">
+                   <select id="beat-add-select-${id}" style="flex:1">
+                       ${unlinkedBeats.map(b => `<option value="${b.id}">${escHtml(b.title)}</option>`).join('')}
+                   </select>
+                   <button type="button" class="btn-secondary btn-sm" onclick="addSessionBeat(${id})">+ Add</button>
+               </div>`
+            : '<em style="color:#999;font-size:0.9em;margin-top:6px;display:block">All beats linked</em>';
+
+        const linkedNpcIds = new Set((s.npcs || []).map(n => n.id));
+        const npcRows = (s.npcs || []).map(n =>
+            `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                <span style="flex:1;font-size:0.9em"><strong>${escHtml(n.name)}</strong>${n.creature_type ? ` — ${escHtml(n.creature_type)}` : ''}${n.context ? ` <span style="color:#999">(${escHtml(n.context)})</span>` : ''}</span>
+                <button type="button" class="btn-secondary btn-sm btn-danger" onclick="removeSessionNpc(${id},${n.id},this)">×</button>
+             </div>`
+        ).join('') || '<em style="color:#999;font-size:0.9em">No NPCs linked</em>';
+
+        const unlinkedNpcs = npcs.filter(n => !linkedNpcIds.has(n.id));
+        const npcSelect = unlinkedNpcs.length
+            ? `<div style="display:flex;gap:8px;margin-top:8px">
+                   <select id="npc-add-select-${id}" style="flex:1">
+                       ${unlinkedNpcs.map(n => `<option value="${n.id}">${escHtml(n.name)}${n.creature_type ? ` (${escHtml(n.creature_type)})` : ''}</option>`).join('')}
+                   </select>
+                   <button type="button" class="btn-secondary btn-sm" onclick="addSessionNpc(${id})">+ Add</button>
+               </div>`
+            : '<em style="color:#999;font-size:0.9em;margin-top:6px;display:block">No NPCs in system yet</em>';
+
+        const statusSel = ['planned','in-progress','completed'].map(v =>
+            `<option value="${v}"${s.session_status===v?' selected':''}>${{planned:'Planned','in-progress':'In Progress',completed:'Completed'}[v]}</option>`
+        ).join('');
+
+        showModal(`Edit Session ${s.session_number}`, `
+            <form onsubmit="handleEditSession(event,${id})">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Session #</label>
+                        <input type="number" name="session_number" value="${s.session_number}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Date</label>
+                        <input type="date" name="session_date" value="${s.session_date}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select name="session_status">${statusSel}</select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Title</label>
+                    <input type="text" name="session_title" value="${escHtml(s.session_title || '')}">
+                </div>
+                <details open style="margin-bottom:14px">
+                    <summary style="cursor:pointer;font-weight:600;margin-bottom:8px">Session Notes</summary>
+                    <div class="form-group">
+                        <label>Opening <span style="color:#999;font-size:0.85em">(pre-session hooks, setup)</span></label>
+                        <textarea name="opening_notes" rows="3">${escHtml(s.opening_notes || '')}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Mid-Session <span style="color:#999;font-size:0.85em">(as the session unfolds)</span></label>
+                        <textarea name="mid_notes" rows="3">${escHtml(s.mid_notes || '')}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Closing <span style="color:#999;font-size:0.85em">(what happened, cliffhangers)</span></label>
+                        <textarea name="closing_notes" rows="3">${escHtml(s.closing_notes || '')}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>DM Scratch Pad</label>
+                        <textarea name="dm_notes" rows="2">${escHtml(s.dm_notes || '')}</textarea>
+                    </div>
+                </details>
+
+                <button type="submit" class="btn-primary" style="margin-bottom:20px">Save Changes</button>
+            </form>
+
+            <details open style="margin-bottom:14px">
+                <summary style="cursor:pointer;font-weight:600;margin-bottom:8px">Active Chapters This Session</summary>
+                <div style="max-height:220px;overflow-y:auto;border:1px solid #e0d5be;border-radius:6px;padding:10px 14px;background:#fdf9f2;margin-bottom:8px">
+                    ${buildChapterPicker(linkedChapterIds)}
+                </div>
+                <button type="button" class="btn-secondary btn-sm" onclick="saveSessionChapters(${id}, this)">Save Chapter Links</button>
+            </details>
+
+            <details open style="margin-bottom:14px">
+                <summary style="cursor:pointer;font-weight:600;margin-bottom:8px">Characters</summary>
+                <div id="session-chars-${id}">${charRows}</div>
+            </details>
+
+            <details style="margin-bottom:14px">
+                <summary style="cursor:pointer;font-weight:600;margin-bottom:8px">Story Beats</summary>
+                <div id="session-beats-${id}">${beatRows}</div>
+                ${beatSelect}
+            </details>
+
+            <details style="margin-bottom:4px">
+                <summary style="cursor:pointer;font-weight:600;margin-bottom:8px">NPCs & Monsters</summary>
+                <div id="session-npcs-${id}">${npcRows}</div>
+                ${npcSelect}
+            </details>
+        `);
+    } catch (err) {
+        alert(`Failed to load session: ${err.message}`);
+    }
+}
+
+async function handleEditSession(event, id) {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.target));
+    try {
+        const res = await fetch(`${API_BASE}/sessions/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        if (!res.ok) throw new Error((await res.json()).error || 'Save failed');
+        await loadSessions();
+    } catch (err) {
+        alert(`Failed to save session: ${err.message}`);
+    }
+}
+
+async function saveSessionChapters(sessionId, btn) {
+    const section = btn.closest('details');
+    const checked = new Set([...section.querySelectorAll('.chapter-check:checked')].map(el => +el.value));
+    const unchecked = [...section.querySelectorAll('.chapter-check:not(:checked)')].map(el => +el.value);
+
+    await Promise.all([
+        ...checked  ? [...checked].map(cid  => fetch(`${API_BASE}/sessions/${sessionId}/chapters`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({chapter_id:cid}) })) : [],
+        ...unchecked.map(cid => fetch(`${API_BASE}/sessions/${sessionId}/chapters/${cid}`, { method:'DELETE' }))
+    ]);
+    await loadSessions();
+    btn.textContent = 'Saved ✓';
+    setTimeout(() => { btn.textContent = 'Save Chapter Links'; }, 2000);
+}
+
+async function addSessionChar(sessionId, charId, btn) {
+    await fetch(`${API_BASE}/sessions/${sessionId}/characters`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ character_id: charId })
+    });
+    editSession(sessionId);
+}
+
+async function removeSessionChar(sessionId, charId, btn) {
+    await fetch(`${API_BASE}/sessions/${sessionId}/characters/${charId}`, { method: 'DELETE' });
+    editSession(sessionId);
+}
+
+async function updateSessionCharAttendance(sessionId, charId, attendance) {
+    await fetch(`${API_BASE}/sessions/${sessionId}/characters/${charId}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ attendance })
+    });
+    await loadSessions();
+}
+
+async function addSessionBeat(sessionId) {
+    const sel = document.getElementById(`beat-add-select-${sessionId}`);
+    if (!sel) return;
+    await fetch(`${API_BASE}/sessions/${sessionId}/beats`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ beat_id: +sel.value })
+    });
+    editSession(sessionId);
+}
+
+async function removeSessionBeat(sessionId, beatId, btn) {
+    await fetch(`${API_BASE}/sessions/${sessionId}/beats/${beatId}`, { method: 'DELETE' });
+    editSession(sessionId);
+}
+
+async function addSessionNpc(sessionId) {
+    const sel = document.getElementById(`npc-add-select-${sessionId}`);
+    if (!sel) return;
+    await fetch(`${API_BASE}/sessions/${sessionId}/npcs`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ npc_id: +sel.value })
+    });
+    editSession(sessionId);
+}
+
+async function removeSessionNpc(sessionId, npcId, btn) {
+    await fetch(`${API_BASE}/sessions/${sessionId}/npcs/${npcId}`, { method: 'DELETE' });
+    editSession(sessionId);
 }
 
 function editProgress(id) {
@@ -1131,6 +1601,42 @@ async function loadClaimsRankings() {
 }
 
 // ========== PRIMAL PATTERNS FUNCTIONS ==========
+
+function patternInfluenceLabel(val) {
+    if (val === 'First Pattern') return 'Pattern';
+    if (val === 'Corwin Pattern') return 'Argent Refrain';
+    return val || '';
+}
+
+function shadowBarLabel(shadow) {
+    return (shadow.dream_level || 0) > 0 ? 'Order/Dream/Chaos:' : 'Order/Chaos:';
+}
+
+function shadowBalanceBar(shadow) {
+    const o = shadow.order_level || 0;
+    const d = shadow.dream_level || 0;
+    const c = shadow.chaos_level || 0;
+
+    if (d > 0) {
+        const total = o + d + c || 100;
+        const op  = (o / total * 100).toFixed(1);
+        const mid = ((o + d / 2) / total * 100).toFixed(1);
+        const cp  = ((o + d) / total * 100).toFixed(1);
+        return `--o:${op}%;--mid:${mid}%;--c:${cp}%`;
+    }
+    return `background:linear-gradient(90deg,#3498db ${o}%,#e74c3c ${o}%)`;
+}
+
+function shadowBarClass(shadow) {
+    return (shadow.dream_level || 0) > 0 ? 'balance-bar balance-bar-dream' : 'balance-bar';
+}
+
+function patternInfluenceBadge(val) {
+    const label = patternInfluenceLabel(val);
+    if (label === 'Logrus') return 'badge-logrus';
+    if (label === 'Argent Refrain') return 'badge-argent';
+    return 'badge-pattern';
+}
 
 function escHtml(str) {
     if (!str) return '';
@@ -1808,6 +2314,10 @@ function renderArcDetail(arc) {
             <button class="btn-danger btn-sm"    onclick="deleteArc(${arc.id})">Delete</button>
         </div>
 
+        <textarea class="arc-theme-field" rows="2"
+            onblur="saveArcField(${arc.id}, 'theme', this.value)"
+            placeholder="A poetic tagline for this arc…">${escHtml(arc.theme || '')}</textarea>
+
         <div class="arc-detail-body">
             <div>
                 <div class="arc-section">
@@ -1850,6 +2360,7 @@ function renderChapterItem(arcId, ch, index) {
                     `<option value="${s}"${ch.status===s?' selected':''}>${CHAPTER_STATUS_LABELS[s]}</option>`
                 ).join('')}
             </select>
+            <button class="btn-secondary btn-sm" onclick="openEditChapterModal(${arcId}, ${ch.id})" title="Edit chapter">✎</button>
             <button class="beat-del" onclick="deleteChapter(${arcId}, ${ch.id})" title="Delete">&times;</button>
         </div>
         ${ch.description ? `<div class="chapter-desc">${escHtml(ch.description)}</div>` : ''}
@@ -1884,6 +2395,11 @@ function openCreateArcModal(presetCharId) {
                 style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;box-sizing:border-box;">
         </div>
         <div class="form-group">
+            <label>Theme <span style="font-weight:400;font-size:0.8rem;color:#aaa;">(poetic tagline)</span></label>
+            <textarea id="arc-theme" rows="2" placeholder="A poetic one-line hook for this arc…"
+                style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;box-sizing:border-box;font-style:italic;"></textarea>
+        </div>
+        <div class="form-group">
             <label>Status</label>
             <select id="arc-status" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;">
                 <option value="planned">Planned</option>
@@ -1909,6 +2425,7 @@ function openCreateArcModal(presetCharId) {
 async function handleCreateArc() {
     const character_id = document.getElementById('arc-char-id').value || null;
     const title        = document.getElementById('arc-title').value.trim();
+    const theme        = document.getElementById('arc-theme').value.trim();
     const status       = document.getElementById('arc-status').value;
     const description  = document.getElementById('arc-desc').value.trim();
     const dm_notes     = document.getElementById('arc-notes').value.trim();
@@ -1919,7 +2436,7 @@ async function handleCreateArc() {
         const res = await fetch('/api/arcs', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ character_id, title, status, description, dm_notes })
+            body: JSON.stringify({ character_id, title, theme, status, description, dm_notes })
         });
         if (!res.ok) throw new Error((await res.json()).error || 'Create failed');
         const newArc = await res.json();
@@ -1951,6 +2468,12 @@ async function openEditArcModal(arcId) {
                 style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;box-sizing:border-box;">
         </div>
         <div class="form-group">
+            <label>Theme <span style="font-weight:400;font-size:0.8rem;color:#aaa;">(poetic tagline)</span></label>
+            <textarea id="arc-edit-theme" rows="2"
+                style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;box-sizing:border-box;font-style:italic;"
+                placeholder="A poetic one-line hook for this arc…">${escHtml(arc.theme || '')}</textarea>
+        </div>
+        <div class="form-group">
             <label>Status</label>
             <select id="arc-edit-status" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;">
                 ${['planned','active','dormant','completed'].map(s =>
@@ -1974,6 +2497,7 @@ async function openEditArcModal(arcId) {
 async function handleEditArc(arcId) {
     const character_id = document.getElementById('arc-edit-char').value || null;
     const title        = document.getElementById('arc-edit-title').value.trim();
+    const theme        = document.getElementById('arc-edit-theme').value.trim();
     const status       = document.getElementById('arc-edit-status').value;
     const description  = document.getElementById('arc-edit-desc').value.trim();
     const dm_notes     = document.getElementById('arc-edit-notes').value.trim();
@@ -1984,7 +2508,7 @@ async function handleEditArc(arcId) {
         const res = await fetch(`/api/arcs/${arcId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ character_id, title, status, description, dm_notes })
+            body: JSON.stringify({ character_id, title, theme, status, description, dm_notes })
         });
         if (!res.ok) throw new Error((await res.json()).error || 'Update failed');
         closeModal();
@@ -2003,7 +2527,7 @@ async function updateArcStatus(arcId, status) {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ character_id: arc.character_id, title: arc.title,
-                description: arc.description, dm_notes: arc.dm_notes, status })
+                theme: arc.theme, description: arc.description, dm_notes: arc.dm_notes, status })
         });
         await loadStoryArcs();
         selectArc(arcId);
@@ -2020,7 +2544,7 @@ async function saveArcField(arcId, field, value) {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ character_id: arc.character_id, title: arc.title,
-                description: arc.description, dm_notes: arc.dm_notes, status: arc.status, [field]: value })
+                theme: arc.theme, description: arc.description, dm_notes: arc.dm_notes, status: arc.status, [field]: value })
         });
         await loadStoryArcs();
     } catch (err) {
@@ -2109,6 +2633,68 @@ async function deleteChapter(arcId, chapterId) {
         selectArc(arcId);
     } catch (err) {
         alert('Failed to delete chapter: ' + err.message);
+    }
+}
+
+async function openEditChapterModal(arcId, chapterId) {
+    try {
+        const res = await fetch(`/api/arcs/${arcId}`);
+        const arc = await res.json();
+        const ch  = arc.chapters.find(c => c.id === chapterId);
+        if (!ch) return;
+
+        showModal('Edit Chapter', `
+            <div class="form-group">
+                <label>Title *</label>
+                <input type="text" id="ch-edit-title" value="${escHtml(ch.title)}"
+                    style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;box-sizing:border-box;">
+            </div>
+            <div class="form-group">
+                <label>Status</label>
+                <select id="ch-edit-status" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;">
+                    ${Object.entries(CHAPTER_STATUS_LABELS).map(([s, l]) =>
+                        `<option value="${s}"${ch.status === s ? ' selected' : ''}>${l}</option>`
+                    ).join('')}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea id="ch-edit-desc" rows="3"
+                    style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;box-sizing:border-box;"
+                    placeholder="What happens in this chapter?">${escHtml(ch.description || '')}</textarea>
+            </div>
+            <div class="form-group">
+                <label>DM Notes</label>
+                <textarea id="ch-edit-notes" rows="3"
+                    style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;box-sizing:border-box;"
+                    placeholder="Hidden context, triggers, foreshadowing…">${escHtml(ch.dm_notes || '')}</textarea>
+            </div>
+            <button class="btn-primary" onclick="handleEditChapter(${arcId}, ${chapterId})"
+                style="width:100%;margin-top:8px;">Save Changes</button>
+        `);
+    } catch (err) {
+        alert('Failed to load chapter: ' + err.message);
+    }
+}
+
+async function handleEditChapter(arcId, chapterId) {
+    const title       = document.getElementById('ch-edit-title')?.value.trim();
+    const status      = document.getElementById('ch-edit-status')?.value;
+    const description = document.getElementById('ch-edit-desc')?.value.trim();
+    const dm_notes    = document.getElementById('ch-edit-notes')?.value.trim();
+    if (!title) { alert('Title is required'); return; }
+    try {
+        const res = await fetch(`/api/arcs/${arcId}/chapters/${chapterId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, status, description, dm_notes })
+        });
+        if (!res.ok) throw new Error('Save failed');
+        closeModal();
+        await loadStoryArcs();
+        selectArc(arcId);
+    } catch (err) {
+        alert('Failed to save chapter: ' + err.message);
     }
 }
 

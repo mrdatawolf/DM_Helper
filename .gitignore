@@ -4,3 +4,6 @@ node_modules/
 *.db-journal
 .DS_Store
 npm-debug.log*
+/Samples
+/Background Information
+/Background Information

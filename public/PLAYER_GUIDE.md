@@ -20,13 +20,13 @@ This campaign is set in the **Chronicles of Amber** multiverse, where:
 - **Amber** is the one true world founded by Order, seat of the original Pattern
 - **The Courts of Chaos** opposes Amber, home to the Logrus — a primal power that predates or mirrors the Pattern
 - **Shadows** are infinite reflections between these primal forces (think parallel dimensions with flavor)
-- **Corwin's Pattern** — a second Pattern created by Prince Corwin, creating a three-way cosmic struggle
+- **The Argent Refrain** — a second Pattern created by Prince Corwin, creating a three-way cosmic struggle
 - Magic, reality, and perception are deeply intertwined
 
 You are not playing members of the Amber royal family (unless arranged with the DM), but rather inhabitants of the Shadow realms who may become entangled in the cosmic struggle between the Patterns and the Logrus.
 
 ### Key Differences from Traditional D&D
-- **Shadows instead of Planes**: Each "world" is a shadow of Amber, the Courts, or Corwin's Pattern
+- **Shadows instead of Planes**: Each "world" is a shadow shaped by the three cosmic forces — Order (Pattern), Chaos (Logrus), or Dream (Argent Refrain)
 - **Order vs Chaos**: Replaces alignment; a measurable force affecting magic and reality
 - **Pattern & Logrus Powers**: Walking a Pattern or Logrus grants reality-warping abilities
 - **Asynchronous Play**: Characters may adventure separately, in parallel timelines
@@ -79,8 +79,8 @@ Which primal force (if any) has marked you. You can hold only one imprint at cre
 | Imprint | Stat Bonuses | Penalties | Notes |
 |---|---|---|---|
 | None | +1 to any stat you choose | — | Also grants one free Trait from Step 4 |
-| First Pattern | +2 WIS, +1 CON | — | Walked Amber's original Pattern |
-| Corwin's Pattern | +2 INT, +1 CHA | — | Walked the new Pattern in shadow |
+| Pattern | +2 WIS, +1 CON | — | Walked Amber's original Pattern |
+| The Argent Refrain | +2 INT, +1 CHA | — | Walked the new Pattern in shadow |
 | Logrus — Basic | +1 CON | — | Survived the initial Logrus walk |
 | Logrus — Advanced | +1 CON, +1 STR | −1 INT, −1 WIS | Deep Chaos initiation; one penalty can be shifted |
 | Logrus — Master | +1 CON, +1 STR, +1 CHA | −2 INT, −1 WIS | Chaos mastery at great mental cost; one penalty shiftable |
@@ -317,7 +317,7 @@ You can allocate more points to an attribute at any time if you can justify it:
 
 **Good Justifications:**
 - "After training with the Shadow Eaters, I've learned to manipulate Chaos directly" (+2 to Sorcery)
-- "Walking Corwin's Pattern has fundamentally changed my understanding of reality" (+3 to Pattern Mastery)
+- "Walking the Argent Refrain has fundamentally changed my understanding of reality" (+3 to Pattern Mastery)
 - "I spent three months studying ancient Elevi texts in the Soul Realm archives" (+2 to Scholarship)
 
 **Bad Justifications:**
@@ -391,7 +391,7 @@ Shadows are not separate dimensions — they're **reflections** of the primal fo
 
 ### The Three Powers
 
-**The First Pattern (Amber)**
+**The Pattern (Amber)**
 - The original Pattern created by Dworkin Barimen
 - Source of Order in the multiverse
 - Grants reality-warping power to those who walk it
@@ -401,20 +401,21 @@ Shadows are not separate dimensions — they're **reflections** of the primal fo
 - Source of Chaos in the multiverse
 - Grants reach-through-shadow abilities and probability manipulation
 
-**Corwin's Pattern**
+**The Argent Refrain** *(also called the Silver Road)*
 - A second Pattern, created by Prince Corwin using his own blood
-- Neither the original Pattern nor the Logrus fully accepts it
-- Creates its own shadows; offers a "third way" between Order and Chaos
+- Not a third point on the Order/Chaos line — a perpendicular axis: Dream
+- Its shadows are shaped by memory, story, and emotion rather than physical law
+- Initiates navigate by what feels true; they are dreamers, not navigators
 
 ### Shadow Reflections
 
 Major shadows have **reflections** — mirror versions that reveal truths:
 
-**For Amber (First Pattern):**
+**For Amber (Pattern):**
 - **Rebma**: Underwater mirror, Pattern runs backward
 - **Tir-na Nog'th**: Sky city (full moon), shows possible futures
 
-**For Deidre (Corwin Pattern):**
+**For Deidre (Argent Refrain):**
 - **The Depths**: Liquid shadow mirror, reveals hidden truths
 - **The Neon Spire**: Rain reflection (new moon), shows choices
 
@@ -427,9 +428,10 @@ These reflection cities are dangerous, prophetic, and revealing.
 The cosmos is held together by primal forces older than memory. The Patterns and the Logrus each have a **primal animal** bound to them — a being of mythic significance that represents, embodies, or gave rise to that power.
 
 **What is known to most shadow-dwellers:**
-- The Unicorn is sacred to Amber and to the First Pattern
+- The Unicorn is sacred to Amber and to the Pattern
 - The Serpent is the father of the Logrus and the Courts
-- Corwin's Pattern is new — and something about it is unresolved
+- The Argent Refrain is new — and something about it is unresolved
+- The three powers are not at war; they are in tension — a cosmic rebalancing none of them chose
 
 **What your character knows** depends on what the DM reveals. As you explore the world, learn its secrets, and earn the trust of those who hold ancient knowledge, the DM may **unlock lore** on your character sheet — visible in your Player Dashboard under your character's knowledge.
 
@@ -444,7 +446,7 @@ You will only ever see what your character has *actually learned*. There is more
 You and the DM work together to establish where your character is from. Some options are below; each has detailed information in the campaign documents.
 
 ### The Soul Realm
-**Pattern Influence**: Mixed (corrupted by First Pattern + Logrus)
+**Influence**: Mixed (corrupted by Pattern + Logrus)
 **Order/Chaos**: 60/40 (leaning Order, but unstable)
 
 An elven shadow where magic is performed by drawing Order from living beings, creating a dangerous chaos imbalance. Features unique races (Elevi, Glimmerwings, Moonstalkers) and powerful creatures (Shadow Eaters, Eggari).
@@ -454,7 +456,7 @@ An elven shadow where magic is performed by drawing Order from living beings, cr
 ---
 
 ### Billabong's Veil
-**Pattern Influence**: Corwin Pattern
+**Influence**: Argent Refrain
 **Order/Chaos**: 55/45 (slightly ordered)
 
 A marsupial shadow where the Djunkai people rejected technology after the Mallee Wraith AI disaster. Features bio-magic, ultrasonic healing, and unique marsupial creatures.
@@ -468,7 +470,7 @@ A marsupial shadow where the Djunkai people rejected technology after the Mallee
 For details on shadow reflections (Rebma, Tir-na Nog'th, The Depths, The Neon Spire) see: [Shadow Reflections](Background%20Information/General%20Info/Shadow%20Reflections.md)
 
 **Major Shadows:**
-- **Amber (Kolvir)** — The eternal city, seat of the First Pattern
+- **Amber (Kolvir)** — The eternal city, seat of the Pattern
 - **Deidre** — Noir reflection of Amber, Corwin's first shadow
 - **Rebma** — Underwater mirror of Amber
 - **Tir-na Nog'th** — Ghost city in the sky above Kolvir (full moon)
@@ -525,7 +527,7 @@ You see:
 - Trump card creation and use
 - Shadow walking techniques
 - Reality manipulation
-- The Three-Way War (First Pattern vs Corwin Pattern vs Logrus)
+- The Three-Axis Tension (Order vs Dream vs Chaos — not a war, a rebalancing)
 - True nature of the Shadow Eaters
 - Corruption in the Soul Realm
 - The Mallee Wraith legacy in Billabong's Veil

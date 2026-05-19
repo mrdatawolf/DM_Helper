@@ -54,6 +54,7 @@ router.post('/', (req, res) => {
             description = '',
             order_level = 50,
             chaos_level = 50,
+            dream_level = 0,
             pattern_influence = 'None',
             corruption_status = '',
             is_starting_shadow = 0
@@ -64,11 +65,11 @@ router.post('/', (req, res) => {
         }
 
         const stmt = db.prepare(`
-            INSERT INTO shadows (name, description, order_level, chaos_level, pattern_influence, corruption_status, is_starting_shadow)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO shadows (name, description, order_level, chaos_level, dream_level, pattern_influence, corruption_status, is_starting_shadow)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
-        const result = stmt.run(name, description, order_level, chaos_level, pattern_influence, corruption_status, is_starting_shadow ? 1 : 0);
+        const result = stmt.run(name, description, order_level, chaos_level, dream_level, pattern_influence, corruption_status, is_starting_shadow ? 1 : 0);
         const newShadow = db.prepare('SELECT * FROM shadows WHERE id = ?').get(result.lastInsertRowid);
 
         res.status(201).json(newShadow);
@@ -91,7 +92,7 @@ router.put('/:id', (req, res) => {
         const updateFields = [];
         const values = [];
 
-        const allowedFields = ['name', 'description', 'order_level', 'chaos_level', 'pattern_influence', 'corruption_status', 'is_starting_shadow'];
+        const allowedFields = ['name', 'description', 'order_level', 'chaos_level', 'dream_level', 'pattern_influence', 'corruption_status', 'is_starting_shadow'];
 
         for (const field of allowedFields) {
             if (req.body.hasOwnProperty(field)) {

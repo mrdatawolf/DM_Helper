@@ -4,7 +4,7 @@ require('dotenv').config();
 const dbPath = process.env.DB_PATH || './dm_helper.db';
 const db = new Database(dbPath);
 
-console.log('Adding Nexus pattern influence and Keep of the Four Worlds shadow...');
+console.log('Adding Nexus Influence and Keep of the Four Worlds shadow...');
 
 try {
     // Disable foreign keys temporarily
@@ -24,7 +24,7 @@ try {
             description TEXT,
             order_level INTEGER DEFAULT 50,
             chaos_level INTEGER DEFAULT 50,
-            pattern_influence TEXT CHECK(pattern_influence IN ('First Pattern', 'Corwin Pattern', 'Logrus', 'Mixed', 'None', 'Nexus')),
+            pattern_influence TEXT CHECK(pattern_influence IN ('Pattern', 'Argent Refrain', 'Logrus', 'Mixed', 'None', 'Nexus')),
             corruption_status TEXT,
             is_starting_shadow BOOLEAN DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -69,7 +69,7 @@ try {
     // Re-enable foreign keys
     db.exec('PRAGMA foreign_keys = ON');
 
-    console.log('✓ Successfully added Nexus pattern influence type');
+    console.log('✓ Successfully added Nexus Influence type');
     console.log('✓ Successfully added Keep of the Four Worlds shadow');
     console.log('\nThe Keep of the Four Worlds is now available in the database!');
 
