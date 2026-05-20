@@ -7,6 +7,129 @@
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="/css/navigation.css">
     <link rel="stylesheet" href="/css/player-dashboard.css">
+    <style>
+        .btn-create-locked {
+            opacity: 0.45;
+            cursor: not-allowed;
+            filter: grayscale(60%);
+        }
+        .shadows-lore-note {
+            font-style: italic;
+            color: #7f8c8d;
+            margin: 0 0 20px;
+            padding: 12px 16px;
+            border-left: 3px solid #8e44ad;
+            background: rgba(142, 68, 173, 0.04);
+            border-radius: 0 6px 6px 0;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+        .shadow-player-card {
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid rgba(0,0,0,0.08);
+            border-left-width: 4px;
+            background: #fff;
+        }
+        .shadow-player-card h3 { margin: 0 0 6px; font-size: 1.15rem; }
+        .shadow-player-card .shadow-desc {
+            color: #555; font-size: 0.9rem; margin: 0 0 12px; line-height: 1.5;
+        }
+        .shadow-depth-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            background: rgba(0,0,0,0.07);
+            color: #333;
+        }
+        .shadow-depth-flavor {
+            font-size: 0.82rem;
+            font-style: italic;
+            color: #888;
+            margin: 4px 0 10px;
+        }
+        .shadow-meta {
+            font-size: 0.82rem;
+            color: #999;
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+        .shadow-influence-tag {
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: rgba(0,0,0,0.06);
+        }
+
+        /* ── Wizard info icons ── */
+        .info-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background: rgba(93,173,226,0.12);
+            border: 1px solid rgba(93,173,226,0.4);
+            color: #5dade2;
+            font-size: 0.65rem;
+            font-weight: 700;
+            font-style: italic;
+            cursor: help;
+            position: relative;
+            vertical-align: middle;
+            margin-left: 6px;
+            flex-shrink: 0;
+            user-select: none;
+            line-height: 1;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .info-icon:hover {
+            background: rgba(93,173,226,0.25);
+            border-color: rgba(93,173,226,0.7);
+        }
+        .info-tooltip {
+            display: none;
+            position: absolute;
+            top: calc(100% + 7px);
+            left: 50%;
+            transform: translateX(-50%);
+            width: 270px;
+            background: #12122a;
+            border: 1px solid rgba(93,173,226,0.35);
+            border-radius: 8px;
+            padding: 10px 13px;
+            font-size: 0.81rem;
+            color: #b8c4d0;
+            line-height: 1.55;
+            z-index: 9999;
+            pointer-events: none;
+            font-weight: 400;
+            font-style: normal;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+            text-align: left;
+            white-space: normal;
+        }
+        .info-icon:hover .info-tooltip {
+            display: block;
+        }
+        /* Align tooltip to the right so it doesn't overflow left edge */
+        .info-icon.tip-right .info-tooltip {
+            left: 0;
+            transform: none;
+        }
+        /* Tooltip opens upward (for bottom-of-panel items) */
+        .info-icon.tip-up .info-tooltip {
+            top: auto;
+            bottom: calc(100% + 7px);
+        }
+    </style>
 </head>
 <body>
     <!-- Navigation will be injected here -->
@@ -29,6 +152,7 @@
             <button class="tab-btn" data-tab="sessions">Sessions</button>
             <button class="tab-btn" data-tab="claims">Claims & Rankings</button>
             <button class="tab-btn" data-tab="dice">Dice Roller</button>
+            <button class="tab-btn" data-tab="shadows">Known Shadows</button>
             <button class="tab-btn" data-tab="progress">Progress Timeline</button>
         </nav>
 
@@ -37,9 +161,12 @@
             <div id="characters-tab" class="tab-content active">
                 <div class="tab-header">
                     <h2>My Characters</h2>
-                    <button class="btn-primary" onclick="openCreateCharacter()">
-                        + Create New Character
-                    </button>
+                    <div style="display:flex;gap:10px;align-items:center">
+                        <button id="guide-reminder-btn" class="btn-secondary" onclick="showGuideReminder()">📖 New? Read the Guide</button>
+                        <button id="create-character-btn" class="btn-primary btn-create-locked" onclick="openCreateCharacter()" disabled>
+                            + Create New Character
+                        </button>
+                    </div>
                 </div>
 
                 <div id="characters-list" class="characters-grid">
@@ -91,7 +218,7 @@
                                     World of Darkness (d10)
                                 </button>
                                 <button class="dice-system-btn" data-system="d6" onclick="selectDiceSystem('d6')">
-                                    Car Wars (d6)
+                                    Car Wars (2d6)
                                 </button>
                             </div>
                         </div>
@@ -145,6 +272,19 @@
                                 <!-- Will be populated dynamically -->
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Shadows Tab -->
+            <div id="shadows-tab" class="tab-content">
+                <div class="tab-header">
+                    <h2>Known Shadows</h2>
+                </div>
+                <p class="shadows-lore-note">These are worlds your character has inhabited long enough for their essence to leave a mark — more than a passing glimpse through the Pattern. Each one lives in your blood now.</p>
+                <div id="player-shadows-list" class="characters-grid">
+                    <div class="info-message">
+                        <p>Select a character from "My Characters" to see the shadows they have felt.</p>
                     </div>
                 </div>
             </div>
@@ -240,6 +380,38 @@
         </main>
     </div>
 
+    <!-- Guide Reminder Modal -->
+    <div id="guide-reminder-modal" class="modal">
+        <div class="modal-content" style="max-width:520px">
+            <div class="modal-header">
+                <h2>Before You Create a Character</h2>
+            </div>
+            <div class="modal-body" style="padding:24px 28px">
+                <p style="margin:0 0 14px;line-height:1.7">
+                    This campaign runs in the <strong>Chronicles of Amber</strong> multiverse — a world
+                    that plays very differently from standard D&amp;D. Character creation here involves
+                    systems you won't find in the Player's Handbook:
+                </p>
+                <ul style="margin:0 0 18px;padding-left:22px;line-height:2">
+                    <li><strong>Blood Purity</strong> — royal bloodlines and their mechanical effects</li>
+                    <li><strong>Power Imprints</strong> — walking the Pattern, Logrus, or Argent Refrain</li>
+                    <li><strong>Order / Chaos Balance</strong> — a sliding scale that shapes your magic</li>
+                    <li><strong>Attribute Claims</strong> — Amber's diceless ranking system</li>
+                </ul>
+                <p style="margin:0 0 24px;line-height:1.7;font-style:italic;color:#666">
+                    Your DM strongly recommends reading the Player's Guide before making any choices here.
+                    You can always come back to this once you've had a look.
+                </p>
+                <div style="display:flex;gap:12px;justify-content:flex-end;flex-wrap:wrap">
+                    <button class="btn-secondary" onclick="acknowledgeGuide(false)">I Understand — Continue</button>
+                    <a href="/guide.html" class="btn-primary" onclick="acknowledgeGuide(true)" style="text-decoration:none;padding:10px 20px;border-radius:6px;font-weight:600">
+                        Take Me to the Guide
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Create Character Wizard Modal -->
     <div id="create-character-modal" class="modal">
         <div class="modal-content modal-wizard">
@@ -273,7 +445,7 @@
                             <input type="text" id="w-race" placeholder="e.g., Elevi, Human, Djunkai">
                         </div>
                         <div class="form-group">
-                            <label for="w-shadow">Starting Shadow</label>
+                            <label for="w-shadow">Starting Shadow <span class="info-icon tip-right">i<span class="info-tooltip">A Shadow is one of the infinite parallel worlds that exist between Amber and the Courts of Chaos. Amber is the one true city at the center of all reality; everything else is a reflection — a shadow — cast by it. Your starting shadow is the world your character grew up in or last called home before their story began.</span></span></label>
                             <select id="w-shadow">
                                 <option value="">Choose a shadow…</option>
                             </select>
@@ -292,7 +464,7 @@
 
                     <!-- Order/Chaos -->
                     <div class="amber-section">
-                        <label class="amber-section-label">Order / Chaos Balance</label>
+                        <label class="amber-section-label">Order / Chaos Balance <span class="info-icon">i<span class="info-tooltip">All existence lies on a spectrum between absolute Order (the Pattern of Amber — structure, law, stable reality) and absolute Chaos (the Logrus — entropy, raw potential, change). Your position shapes how the multiverse reacts to your presence. Strong Order makes you a stabilizing force; strong Chaos makes you a catalyst. At the extremes, some actions and shadow-walking become easier or harder.</span></span></label>
                         <div class="oc-slider-wrap">
                             <span class="oc-label chaos">Chaos (0)</span>
                             <input type="range" id="w-order-chaos" min="0" max="100" value="50" oninput="wizardOCUpdate()">
@@ -303,7 +475,7 @@
 
                     <!-- Blood Purity -->
                     <div class="amber-section">
-                        <label class="amber-section-label">Blood Purity</label>
+                        <label class="amber-section-label">Blood Purity <span class="info-icon">i<span class="info-tooltip">Royal Amber blood carries the Pattern as a birthright. Pure-bloods grow up surrounded by the movement of metaphysical power, cultivating deep wisdom (+1 WIS). Half-bloods carry the social weight of lineage, sharpening their presence (+1 CHA). Those with no royal blood have survived purely on strength — hardship and self-reliance forge toughness (+1 STR).</span></span></label>
                         <div class="radio-cards" id="blood-purity-cards">
                             <label class="radio-card">
                                 <input type="radio" name="w-blood" value="None" checked onchange="wizardAmberUpdate()">
@@ -322,7 +494,7 @@
 
                     <!-- Power Imprint (mutually exclusive) -->
                     <div class="amber-section">
-                        <label class="amber-section-label">Power Imprint <span class="amber-note">(choose one path — cannot hold both at creation)</span></label>
+                        <label class="amber-section-label">Power Imprint <span class="amber-note">(choose one path — cannot hold both at creation)</span> <span class="info-icon">i<span class="info-tooltip">An imprint is the mark burned into your soul by walking one of the great cosmic Powers. The Pattern sharpens mind and broadens perception (WIS, INT). The Logrus physically remolds the body to endure Chaos (CON, STR), but its entropy erodes careful reasoning (−INT, −WIS). You can only hold one imprint at creation — the two Powers are antithetical and their coexistence would be catastrophic.</span></span></label>
                         <div class="radio-cards" id="imprint-cards">
                             <label class="radio-card">
                                 <input type="radio" name="w-imprint" value="None" checked onchange="wizardImprintChange()">
@@ -330,11 +502,11 @@
                             </label>
                             <label class="radio-card">
                                 <input type="radio" name="w-imprint" value="FirstPattern" onchange="wizardImprintChange()">
-                                <div class="rc-body"><strong>Pattern</strong><small>Walked the original Pattern. +2 WIS, +1 CON</small></div>
+                                <div class="rc-body"><strong>Pattern</strong><small>Walked the Pattern. +2 WIS, +1 CON</small></div>
                             </label>
                             <label class="radio-card">
                                 <input type="radio" name="w-imprint" value="CorwinPattern" onchange="wizardImprintChange()">
-                                <div class="rc-body"><strong>Corwin's Pattern</strong><small>Walked the new Pattern. +2 INT, +1 CHA</small></div>
+                                <div class="rc-body"><strong>Argent Refrain</strong><small>Flowed thru the new Refrains. +2 INT, +1 CHA</small></div>
                             </label>
                             <label class="radio-card">
                                 <input type="radio" name="w-imprint" value="LogrusBasic" onchange="wizardImprintChange()">
@@ -367,7 +539,7 @@
                         <div id="broken-imprint-section" class="imprint-sub">
                             <label class="broken-imprint-label">
                                 <input type="checkbox" id="w-broken-imprint" disabled onchange="wizardAmberUpdate()">
-                                <span id="broken-imprint-text" class="broken-disabled">Broken Imprint — an imperfect walk; discuss consequences with your DM</span>
+                                <span id="broken-imprint-text" class="broken-disabled">Broken Imprint — an imperfect walk; discuss consequences with your DM</span> <span class="info-icon tip-up">i<span class="info-tooltip">A broken imprint means the walk was imperfect — the Power took hold but left a crack in the soul. You gain partial access to the imprint's abilities, but also suffer strange side effects: compulsions, metaphysical scars, or unpredictable manifestations. The exact nature is a story collaboration with your DM.</span></span>
                             </label>
                         </div>
 
@@ -392,7 +564,7 @@
 
                 <!-- ── STEP 3: Assign Stats ───────────────────────────────── -->
                 <div class="wizard-panel" id="wpanel-3">
-                    <h3 class="panel-title">Assign Standard Array</h3>
+                    <h3 class="panel-title">Assign Standard Array <span class="info-icon">i<span class="info-tooltip">The standard array [15, 14, 13, 12, 10, 8] is distributed across your six stats. These are your base values before Amber modifiers are applied. Consider where you already have bonuses from Step 2 — stacking modifiers on a high base creates powerful scores. Your highest number should probably go to the stat most important to your intended class.</span></span></h3>
                     <p class="panel-note">Click a value chip, then click the stat to assign it. Each value can only be used once.</p>
 
                     <!-- Array chips -->
@@ -408,7 +580,7 @@
                     <!-- Stat slots + modifier preview -->
                     <div class="stat-assignment-grid">
                         <div class="stat-slot-card" data-stat="STR" onclick="assignStat('STR')">
-                            <div class="ssc-name">STR</div>
+                            <div class="ssc-name">STR <span class="info-icon tip-up" onclick="event.stopPropagation()">i<span class="info-tooltip">Strength: raw physical power. Governs melee attacks, carrying capacity, and feats of brute force. Boosted by non-royal blood (hardship builds muscle) and Logrus imprints (Chaos physically remolds its initiates).</span></span></div>
                             <div class="ssc-base" id="ssc-STR">—</div>
                             <div class="ssc-mod-row">
                                 <span class="ssc-amber-mod" id="amod-STR"></span>
@@ -416,7 +588,7 @@
                             </div>
                         </div>
                         <div class="stat-slot-card" data-stat="DEX" onclick="assignStat('DEX')">
-                            <div class="ssc-name">DEX</div>
+                            <div class="ssc-name">DEX <span class="info-icon tip-up" onclick="event.stopPropagation()">i<span class="info-tooltip">Dexterity: agility, precision, and reflexes. Governs ranged attacks, stealth, and initiative. No Amber source directly modifies DEX at creation — it comes entirely from your base array assignment.</span></span></div>
                             <div class="ssc-base" id="ssc-DEX">—</div>
                             <div class="ssc-mod-row">
                                 <span class="ssc-amber-mod" id="amod-DEX"></span>
@@ -424,7 +596,7 @@
                             </div>
                         </div>
                         <div class="stat-slot-card" data-stat="CON" onclick="assignStat('CON')">
-                            <div class="ssc-name">CON</div>
+                            <div class="ssc-name">CON <span class="info-icon tip-up" onclick="event.stopPropagation()">i<span class="info-tooltip">Constitution: endurance and vitality. Governs hit points and resistance to exhaustion or poison. Every Logrus initiation demands physical endurance to survive contact with Chaos (+1 CON at every Logrus tier). Even the ordeal of the original Pattern takes a physical toll (+1 CON).</span></span></div>
                             <div class="ssc-base" id="ssc-CON">—</div>
                             <div class="ssc-mod-row">
                                 <span class="ssc-amber-mod" id="amod-CON"></span>
@@ -432,7 +604,7 @@
                             </div>
                         </div>
                         <div class="stat-slot-card" data-stat="INT" onclick="assignStat('INT')">
-                            <div class="ssc-name">INT</div>
+                            <div class="ssc-name">INT <span class="info-icon tip-up" onclick="event.stopPropagation()">i<span class="info-tooltip">Intelligence: reasoning, memory, and arcane aptitude. Flowing thru the Argent Refrain (newer, more flexible) sharpens analytical thought (+2 INT). The Logrus, by contrast, corrodes the capacity for precise reasoning over time (−1 INT at Advanced, −2 INT at Master).</span></span></div>
                             <div class="ssc-base" id="ssc-INT">—</div>
                             <div class="ssc-mod-row">
                                 <span class="ssc-amber-mod" id="amod-INT"></span>
@@ -440,7 +612,7 @@
                             </div>
                         </div>
                         <div class="stat-slot-card" data-stat="WIS" onclick="assignStat('WIS')">
-                            <div class="ssc-name">WIS</div>
+                            <div class="ssc-name">WIS <span class="info-icon tip-up" onclick="event.stopPropagation()">i<span class="info-tooltip">Wisdom: perception and intuition. Pure royal blood, forged by watching Pattern-born power move through reality across generations, cultivates profound insight (+1 WIS). Walking the original First Pattern also grants deep understanding of existence (+2 WIS).</span></span></div>
                             <div class="ssc-base" id="ssc-WIS">—</div>
                             <div class="ssc-mod-row">
                                 <span class="ssc-amber-mod" id="amod-WIS"></span>
@@ -448,7 +620,7 @@
                             </div>
                         </div>
                         <div class="stat-slot-card" data-stat="CHA" onclick="assignStat('CHA')">
-                            <div class="ssc-name">CHA</div>
+                            <div class="ssc-name">CHA <span class="info-icon tip-up" onclick="event.stopPropagation()">i<span class="info-tooltip">Charisma: presence and force of personality. Half-blood royalty carries a natural magnetism (+1 CHA). The Argent Refrain, more dynamic and personal than the original, enhances personal presence (+1 CHA). Mastery of the Logrus also grants a dark, compelling authority (+1 CHA for Master).</span></span></div>
                             <div class="ssc-base" id="ssc-CHA">—</div>
                             <div class="ssc-mod-row">
                                 <span class="ssc-amber-mod" id="amod-CHA"></span>
@@ -466,14 +638,14 @@
 
                 <!-- ── STEP 4: Flaws & Traits ─────────────────────────────── -->
                 <div class="wizard-panel" id="wpanel-4">
-                    <h3 class="panel-title">Flaws &amp; Traits</h3>
+                    <h3 class="panel-title">Flaws &amp; Traits <span class="info-icon">i<span class="info-tooltip">Traits are innate advantages — gifts, trained abilities, or metaphysical boons your character carries. Flaws are meaningful weaknesses that create drama and give the DM story hooks to pull on. Characters without a Power Imprint receive a free Trait, representing raw potential finding its own direction. Some flaws grant bonus Trait points as compensation for taking them.</span></span></h3>
                     <div id="flaws-intro" class="panel-note"></div>
                     <div id="flaws-content"></div>
                 </div>
 
                 <!-- ── STEP 5: Class ──────────────────────────────────────── -->
                 <div class="wizard-panel" id="wpanel-5">
-                    <h3 class="panel-title">Class</h3>
+                    <h3 class="panel-title">Class <span class="info-icon">i<span class="info-tooltip">Your class defines your combat role, skill focus, and special abilities — filtered through the world of Amber. Suggested classes are highlighted based on your current stats and imprint. You can still choose any class; suggestions are advisory, not restrictive. The Trump Artist is a unique Amber class with specific eligibility requirements tied to blood and INT — check the note above the grid.</span></span></h3>
 
                     <!-- Trump Artist eligibility -->
                     <div id="trump-eligibility" class="trump-check"></div>

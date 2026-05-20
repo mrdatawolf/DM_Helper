@@ -4,6 +4,8 @@ const API_BASE = '/api';
 // State
 let characters = [];
 let shadows = [];
+let shadowActiveFilter = 'All';
+let shadowSearchQuery  = '';
 let sessions = [];
 let progress = [];
 let journalEntries = [];
@@ -214,18 +216,35 @@ async function loadShadows() {
 
 function renderShadows() {
     const container = document.getElementById('shadows-list');
-    if (shadows.length === 0) {
-        container.innerHTML = '<div class="empty-state"><h3>No shadows yet</h3></div>';
+
+    let filtered = shadows;
+    if (shadowActiveFilter !== 'All') {
+        filtered = filtered.filter(s => {
+            const label = patternInfluenceLabel(s.pattern_influence) || s.pattern_influence || 'None';
+            return shadowActiveFilter === 'None'
+                ? (!s.pattern_influence || s.pattern_influence === 'None')
+                : label === shadowActiveFilter || s.pattern_influence === shadowActiveFilter;
+        });
+    }
+    if (shadowSearchQuery) {
+        filtered = filtered.filter(s => (s.name || '').toLowerCase().includes(shadowSearchQuery));
+    }
+
+    if (filtered.length === 0) {
+        container.innerHTML = `<div class="empty-state"><h3>${shadows.length === 0 ? 'No shadows yet' : 'No shadows match'}</h3></div>`;
         return;
     }
 
-    container.innerHTML = shadows.map(shadow => `
-        <div class="card">
+    container.innerHTML = filtered.map(shadow => {
+        const infLabel = patternInfluenceLabel(shadow.pattern_influence) || shadow.pattern_influence || 'None';
+        const cardStyle = shadowInfluenceCardStyle(shadow.pattern_influence);
+        return `
+        <div class="card" style="${cardStyle}">
             <h3>${escHtml(shadow.name)}</h3>
             <p>${escHtml(shadow.description) || 'No description'}</p>
             <div class="card-row">
                 <span class="card-label">Influence:</span>
-                <span class="badge ${patternInfluenceBadge(shadow.pattern_influence)}">${escHtml(patternInfluenceLabel(shadow.pattern_influence))}</span>
+                <strong style="font-size:0.9rem">${escHtml(infLabel)}</strong>
             </div>
             <div class="card-row" style="align-items:center">
                 <span class="card-label" style="white-space:nowrap;margin-right:8px">${shadowBarLabel(shadow)}</span>
@@ -233,12 +252,38 @@ function renderShadows() {
             </div>
             ${shadow.corruption_status ? `<p><strong>Corruption:</strong> ${escHtml(shadow.corruption_status)}</p>` : ''}
             ${shadow.is_starting_shadow ? '<span class="badge badge-starting">Starting World</span>' : ''}
-            <div style="margin-top: 15px;">
+            <div style="margin-top:15px">
                 <button class="btn-secondary" onclick="editShadow(${shadow.id})">Edit</button>
                 <button class="btn-secondary btn-danger" onclick="deleteShadow(${shadow.id})">Delete</button>
             </div>
-        </div>
-    `).join('');
+        </div>`;
+    }).join('');
+}
+
+function setShadowFilter(filter, btn) {
+    shadowActiveFilter = filter;
+    document.querySelectorAll('.shadow-filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderShadows();
+}
+
+function filterShadows() {
+    shadowSearchQuery = (document.getElementById('shadow-search').value || '').toLowerCase();
+    renderShadows();
+}
+
+function shadowInfluenceCardStyle(val) {
+    const label = patternInfluenceLabel(val) || val || 'None';
+    const map = {
+        'Pattern':        ['rgba(22,160,133,0.13)',  'rgba(22,160,133,0.5)'],
+        'Argent Refrain': ['rgba(90,90,154,0.13)',   'rgba(90,90,154,0.5)'],
+        'Logrus':         ['rgba(192,57,43,0.13)',   'rgba(192,57,43,0.5)'],
+        'Nexus':          ['rgba(184,134,11,0.13)',  'rgba(184,134,11,0.5)'],
+        'Mixed':          ['rgba(142,68,173,0.13)',  'rgba(142,68,173,0.5)'],
+    };
+    const colors = map[label];
+    if (!colors) return '';
+    return `background:${colors[0]};border-left:4px solid ${colors[1]};`;
 }
 
 // Sessions
