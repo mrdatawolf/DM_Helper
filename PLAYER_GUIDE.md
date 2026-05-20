@@ -19,7 +19,7 @@ This campaign is set in the **Chronicles of Amber** multiverse, where:
 - **Amber** is the one true world, seat of the original Pattern
 - **The Courts of Chaos** oppose Amber, home to the Logrus
 - **Shadows** are infinite reflections of these primal forces
-- **Corwin's Pattern** - a second Pattern created by Prince Corwin, now locked in a three-way power struggle
+- **The Argent Refrain** - a second Pattern created by Prince Corwin, now locked in a three-way power struggle
 - Magic, reality, and perception are deeply intertwined
 
 You are not playing members of the Amber royal family (unless arranged with the DM), but rather inhabitants of the Shadow realms who may become entangled in the cosmic struggle between the Patterns and the Logrus.
@@ -189,7 +189,7 @@ You can allocate more points to an attribute at any time if you can justify it:
 
 **Good Justifications:**
 - "After training with the Shadow Eaters, I've learned to manipulate Chaos directly" (+2 to Sorcery)
-- "Walking Corwin's Pattern has fundamentally changed my understanding of reality" (+3 to Pattern Mastery)
+- "Flowing thru the Argent Refrain has fundamentally changed my understanding of reality" (+3 to Pattern Mastery)
 - "I spent three months studying ancient Elevi texts in the Soul Realm archives" (+2 to Scholarship)
 
 **Bad Justifications:**
@@ -307,7 +307,7 @@ Shadows are not separate dimensions - they're **reflections** of the primal forc
 - Grants shape-shifting and probability manipulation
 - Seeks to expand chaos throughout shadows
 
-**Corwin's Pattern**
+**The Argent Refrain**
 - A second Pattern created by Prince Corwin
 - Neither Pattern nor Logrus fully accepts it
 - Creates its own shadows

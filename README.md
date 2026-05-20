@@ -19,7 +19,7 @@ A custom campaign management system for running a D&D 5e campaign set in the **C
 | Planes of existence | **Shadows** — infinite reflections between Amber (Order) and the Courts of Chaos; Shadow Walking replaces plane travel |
 | Standard races and origins | **Blood Purity** — royal bloodlines grant stat bonuses; Pure grants +1 WIS, Half grants +1 CHA |
 | Class abilities only | **Power Imprints** — walking the Pattern or Logrus grants reality-warping abilities on top of class features |
-| No cosmic allegiance | **The Three Powers** — Pattern (Amber), Logrus (Courts of Chaos), Corwin's Pattern; each imprints differently |
+| No cosmic allegiance | **The Three Powers** — Pattern (Amber), Logrus (Courts of Chaos), Argent Refrain (The Dreaming); each imprints differently |
 | Magic is learned or innate | **Broken Imprints** — walking an imperfect Pattern or Logrus is possible, with real thematic consequences worked out with the DM |
 | Party always plays together | **Async Play** — characters adventure separately, in parallel timelines; solo sessions are normal |
 | Trump cards are exotic items | **Trump Artistry** — characters with a higher Power Imprint may become Trump Artists, creating cards for communication and teleportation |
@@ -206,7 +206,7 @@ Based on Roger Zelazny's *Chronicles of Amber* series. Characters are inhabitant
 |-------|----------|--------|
 | Pattern | Amber (Kolvir) | Pure Order; source of stability |
 | Logrus | Courts of Chaos | Pure Chaos; seeks to unmake Order |
-| Corwin's Pattern | Deidre and its reflections | A third way — neither fully accepts it |
+| Argent Refrain | Deidre and its reflections | A third way — neither fully accepts it |
 
 ### Shadows in the Database
 
