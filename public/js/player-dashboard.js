@@ -503,6 +503,57 @@ const CLASSES_5E = [
     }
 ];
 
+const IMPRINT_LORE = {
+    None: { title: null, narrative: null },
+    FirstPattern: {
+        title: 'The Pattern',
+        narrative: `Before you stands something that has always existed, older than the oldest name spoken in any shadow. It does not call to you. It does not need to. You are here because some part of you has always known this moment would come — and because the blood in your veins carries a memory that predates your birth.\n\nTo walk the Pattern is to be unmade and remade in the same breath. Every step strips away what you pretend to be and leaves only what you are. It does not grant power. It reveals it. What you carry out of it is not a gift — it is a truth you can no longer unknow.\n\nThose who walk the Pattern do not become something new. They become, fully and finally, themselves.`
+    },
+    CorwinPattern: {
+        title: 'The Argent Refrain',
+        narrative: null // placeholder — to be written later
+    },
+    LogrusBasic: {
+        title: 'The Logrus',
+        narrative: `You did not find the Logrus. The Logrus found you.\n\nIt has been there at the edges of your sight — in the moment a pattern of leaves felt like a warning, in the pull you felt toward doors that should have meant nothing, in the dreams that left you certain something vast had been watching you sleep. You dismissed it. You moved on. It waited.\n\nTo walk the Logrus is not a test of who you are. It is a test of whether you can survive what it makes of you. It does not reveal you. It reaches inside you and pulls. What comes out the other side is changed — not broken, not lost, but fundamentally rewritten in a language only Chaos can read.\n\nThe Logrus does not choose the worthy. It chooses the ones it wants. The difference matters more than you know.`
+    },
+    LogrusAdvanced: {
+        title: 'The Logrus',
+        narrative: null // inherits from LogrusBasic at runtime
+    },
+    LogrusMaster: {
+        title: 'The Logrus',
+        narrative: null // inherits from LogrusBasic at runtime
+    }
+};
+
+const WIZARD_STEP_INFO = {
+    1: {
+        title: 'Who Are You?',
+        body: `<p>A name is not merely a label — in the Amber multiverse, it is a declaration. The Pattern responds to those who know themselves. Shadow bends around identity as much as will.</p><p>Your origin shadow is not just backstory. It determines what you consider normal, what unnerves you, and how much of the infinite multiverse already feels like home.</p>`
+    },
+    2: {
+        title: 'Amber Attributes',
+        body: `<p>The great forces of the multiverse — Pattern, Logrus, the Argent Refrain — are not distant abstractions. They are pressures that shape every shadow, every encounter, every choice.</p><p>Hover over any option or info icon to see what each choice means in the texture of the world you are about to walk through.</p>`
+    },
+    3: {
+        title: 'Assign Stats',
+        body: `<p>Six numbers contain the whole of a person's raw potential — what the body can endure, what the mind can hold, what the spirit can sustain before any training or scar.</p><p>The standard array is fixed by tradition. Where you assign it is your first act of intentional self-definition.</p>`
+    },
+    4: {
+        title: 'Flaws & Traits',
+        body: `<p>No one walks through Shadow unchanged. The powers that shape reality leave marks — sometimes obvious, sometimes quiet. A flaw is not a weakness. It is evidence that something real happened to you.</p><p>Traits are the compensations, the adaptations, the gifts that emerged from surviving what tried to unmake you.</p>`
+    },
+    5: {
+        title: 'Class',
+        body: `<p>In a world where princes of Amber reshape reality and masters of Chaos rewrite the laws of physics, a class is less about what you studied and more about what you reach for when everything else is stripped away.</p><p>Your class defines how you solve problems that no one else can solve.</p>`
+    },
+    6: {
+        title: 'Review',
+        body: `<p>Look carefully at what you are about to become.</p><p>Once you step through, the numbers harden into a person. The choices stop being hypothetical. You will carry this character through things not yet imagined, into shadows not yet named.</p><p>Take a moment. Be certain.</p>`
+    }
+};
+
 const FLAW_TRAIT_PAIRS = {
     pattern: [
         {
@@ -706,6 +757,35 @@ async function openCreateCharacter() {
     const modal = document.getElementById('create-character-modal');
     modal.classList.add('show');
     await wizardPopulateShadows();
+
+    // Imprint radio cards: hover shows lore temporarily; selection pins it
+    document.querySelectorAll('input[name="w-imprint"]').forEach(radio => {
+        const card = radio.closest('.radio-card');
+        card.addEventListener('mouseenter', () => {
+            const key = (radio.value === 'LogrusAdvanced' || radio.value === 'LogrusMaster')
+                ? 'LogrusBasic' : radio.value;
+            const lore = IMPRINT_LORE[key];
+            if (lore && lore.narrative) {
+                const html = lore.narrative.split('\n\n').map(p => `<p>${p}</p>`).join('');
+                wizardShowInfoPanel(lore.title, html);
+            } else {
+                wizardRevertInfoPanel();
+            }
+        });
+        card.addEventListener('mouseleave', () => wizardRevertInfoPanel());
+    });
+
+    // Info icons: hover shows tooltip text in the right panel
+    document.querySelectorAll('.modal-wizard .info-icon').forEach(icon => {
+        const tooltip = icon.querySelector('.info-tooltip');
+        if (!tooltip) return;
+        const text = tooltip.textContent.trim();
+        icon.addEventListener('mouseenter', () => {
+            wizardShowInfoPanel(null, `<p>${text}</p>`);
+        });
+        icon.addEventListener('mouseleave', () => wizardRevertInfoPanel());
+    });
+
     wizardRenderStep();
 }
 
@@ -768,6 +848,8 @@ function wizardRenderStep() {
     if (wiz.step === 4) wizardRenderFlaws();
     if (wiz.step === 5) wizardRenderClass();
     if (wiz.step === 6) wizardRenderReview();
+
+    wizardResetInfoPanel();
 }
 
 // ── Validation ───────────────────────────────────────────────
@@ -860,6 +942,62 @@ function wizardImprintChange() {
     wiz.brokenImprint = brokenCb.checked;
 
     wizardAmberUpdate();
+    wizardShowImprintLore(imprint);
+}
+
+// ── Wizard right-panel helpers ───────────────────────────────
+let _wizardInfoPinned = null; // { title, html } persists until step change
+
+function wizardShowInfoPanel(title, html) {
+    const panel = document.getElementById('wizard-info-panel');
+    if (!panel) return;
+    panel.classList.remove('is-default');
+    const titleEl = document.getElementById('wizard-info-title');
+    titleEl.textContent = title || '';
+    titleEl.style.display = title ? '' : 'none';
+    document.getElementById('wizard-info-body').innerHTML = html || '';
+}
+
+function wizardPinInfoPanel(title, html) {
+    _wizardInfoPinned = html ? { title, html } : null;
+    if (_wizardInfoPinned) {
+        wizardShowInfoPanel(title, html);
+    } else {
+        wizardResetInfoPanel();
+    }
+}
+
+function wizardRevertInfoPanel() {
+    if (_wizardInfoPinned) {
+        wizardShowInfoPanel(_wizardInfoPinned.title, _wizardInfoPinned.html);
+    } else {
+        wizardResetInfoPanel();
+    }
+}
+
+function wizardResetInfoPanel() {
+    _wizardInfoPinned = null;
+    const panel = document.getElementById('wizard-info-panel');
+    if (!panel) return;
+    panel.classList.add('is-default');
+    const info = WIZARD_STEP_INFO[wiz.step];
+    const titleEl = document.getElementById('wizard-info-title');
+    titleEl.textContent = info ? info.title : '';
+    titleEl.style.display = '';
+    document.getElementById('wizard-info-body').innerHTML = info ? info.body : '';
+}
+
+function wizardShowImprintLore(imprint) {
+    const key = (imprint === 'LogrusAdvanced' || imprint === 'LogrusMaster')
+        ? 'LogrusBasic'
+        : imprint;
+    const lore = IMPRINT_LORE[key];
+    if (!lore || !lore.narrative) {
+        wizardPinInfoPanel(null, null);
+        return;
+    }
+    const html = lore.narrative.split('\n\n').map(p => `<p>${p}</p>`).join('');
+    wizardPinInfoPanel(lore.title, html);
 }
 
 function wizardAmberUpdate() {

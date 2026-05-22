@@ -9,7 +9,8 @@
       "Bash(python -m json.tool:*)",
       "Bash(node add_shadows.js:*)",
       "Bash(node src/database/migrate-claims.js:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(grep -n \"LogrusMaster.*Logrus.*runtime\\\\|^};\\\\s*$\\\\|^const FLAW_TRAIT\" public/js/player-dashboard.js)"
     ],
     "deny": [],
     "ask": []

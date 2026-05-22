@@ -1,0 +1,1232 @@
+/*
+ * dark-theme.css
+ * Global dark-theme overrides for DM Helper pages.
+ * Applied after all other stylesheets; mirrors the design language of index.html.
+ *
+ * Design tokens:
+ *   body bg        #000
+ *   glass card     rgba(255,255,255,0.05) / border rgba(255,255,255,0.1)
+ *   accent gold    #c9a84c
+ *   accent blue    #3498db
+ *   text default   #dde1e7
+ *   text bright    #ecf0f1
+ *   text muted     #9aabbf
+ *   text dim       #7f8c8d
+ */
+
+/* ─────────────────────────────────────────────
+   BASE
+───────────────────────────────────────────── */
+
+body {
+    background: #000 !important;
+    color: #dde1e7;
+    padding: 0;
+    position: relative;
+}
+
+/* Logo watermark */
+body::before {
+    content: '';
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 70vmin;
+    height: 70vmin;
+    background-image: url('/logo.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    opacity: 0.08;
+    z-index: 0;
+    pointer-events: none;
+}
+
+/* ─────────────────────────────────────────────
+   LAYOUT / CONTAINERS  (from style.css)
+───────────────────────────────────────────── */
+
+.container {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
+    color: #dde1e7;
+}
+
+/* ─────────────────────────────────────────────
+   TABS  (style.css + player-dashboard.css)
+───────────────────────────────────────────── */
+
+.tabs {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+.tab-btn {
+    color: #9aabbf !important;
+}
+
+.tab-btn:hover {
+    background: rgba(255, 255, 255, 0.06) !important;
+    color: #dde1e7 !important;
+}
+
+.tab-btn.active {
+    color: #3498db !important;
+}
+
+/* ─────────────────────────────────────────────
+   TAB HEADER
+───────────────────────────────────────────── */
+
+.tab-header {
+    border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.tab-header h2 {
+    color: #ecf0f1 !important;
+}
+
+/* ─────────────────────────────────────────────
+   CARDS  (style.css .card)
+───────────────────────────────────────────── */
+
+.card {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+}
+
+.card h3 {
+    color: #ecf0f1 !important;
+}
+
+.card-label {
+    color: #9aabbf !important;
+}
+
+.card-value {
+    color: #dde1e7 !important;
+}
+
+/* ─────────────────────────────────────────────
+   FORMS
+───────────────────────────────────────────── */
+
+.form-group label {
+    color: #9aabbf !important;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    background: rgba(255, 255, 255, 0.07) !important;
+    border-color: rgba(255, 255, 255, 0.15) !important;
+    color: #dde1e7 !important;
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+    color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    border-color: #3498db !important;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.15) !important;
+}
+
+select option {
+    background: #1a1a2e;
+    color: #dde1e7;
+}
+
+/* ─────────────────────────────────────────────
+   FILTER SECTION
+───────────────────────────────────────────── */
+
+.filter-section {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: none !important;
+}
+
+.filter-section label {
+    color: #9aabbf !important;
+}
+
+.filter-section select {
+    background: rgba(255, 255, 255, 0.07) !important;
+    border-color: rgba(255, 255, 255, 0.15) !important;
+    color: #dde1e7 !important;
+}
+
+/* ─────────────────────────────────────────────
+   BADGES
+───────────────────────────────────────────── */
+
+.badge-order {
+    background: rgba(41, 128, 185, 0.2) !important;
+    color: #5dade2 !important;
+}
+
+.badge-chaos {
+    background: rgba(231, 76, 60, 0.2) !important;
+    color: #e98080 !important;
+}
+
+.badge-pattern {
+    background: rgba(22, 160, 133, 0.2) !important;
+    color: #48c9b0 !important;
+}
+
+.badge-logrus {
+    background: rgba(192, 57, 43, 0.2) !important;
+    color: #e88075 !important;
+}
+
+.badge-argent {
+    background: rgba(90, 90, 154, 0.2) !important;
+    color: #9898cc !important;
+}
+
+.badge-starting {
+    background: rgba(46, 125, 50, 0.2) !important;
+    color: #66bb6a !important;
+}
+
+/* ─────────────────────────────────────────────
+   PROGRESS BAR
+───────────────────────────────────────────── */
+
+.progress-bar {
+    background: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* ─────────────────────────────────────────────
+   STAT BLOCK
+───────────────────────────────────────────── */
+
+.stat {
+    background: rgba(255, 255, 255, 0.06) !important;
+}
+
+.stat-label {
+    color: #9aabbf !important;
+}
+
+.stat-value {
+    color: #ecf0f1 !important;
+}
+
+/* ─────────────────────────────────────────────
+   MODAL  (style.css content box version)
+───────────────────────────────────────────── */
+
+.modal {
+    background: #1a1a2e !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    color: #dde1e7 !important;
+}
+
+.modal-header {
+    border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.modal-header h2,
+.modal-header h3 {
+    color: #ecf0f1 !important;
+}
+
+.modal-body {
+    color: #dde1e7 !important;
+}
+
+.close-btn {
+    color: #7f8c8d !important;
+}
+
+.close-btn:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: #e74c3c !important;
+}
+
+/* ─────────────────────────────────────────────
+   SESSION CARDS & JOURNAL ENTRIES
+───────────────────────────────────────────── */
+
+.session-card {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4) !important;
+}
+
+.session-header {
+    border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.session-header h3 {
+    color: #ecf0f1 !important;
+}
+
+.journal-entry-card {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4) !important;
+}
+
+.entry-header h3,
+.progress-entry h4 {
+    color: #ecf0f1 !important;
+}
+
+.entry-header,
+.entry-footer {
+    border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.entry-meta,
+.progress-meta {
+    color: #9aabbf !important;
+}
+
+.entry-content {
+    color: #dde1e7 !important;
+}
+
+.entry-footer small {
+    color: #7f8c8d !important;
+}
+
+.progress-entry {
+    background: rgba(255, 255, 255, 0.04) !important;
+}
+
+/* ─────────────────────────────────────────────
+   LOADING / EMPTY STATE
+───────────────────────────────────────────── */
+
+.loading {
+    color: #7f8c8d !important;
+}
+
+.empty-state {
+    color: #7f8c8d !important;
+}
+
+.empty-state h3 {
+    color: #5d6d7e !important;
+}
+
+/* ─────────────────────────────────────────────
+   PUBLIC / PRIVATE BADGES
+───────────────────────────────────────────── */
+
+.public-badge {
+    background: rgba(46, 125, 50, 0.2) !important;
+    color: #66bb6a !important;
+}
+
+.private-badge {
+    background: rgba(194, 24, 91, 0.2) !important;
+    color: #f48fb1 !important;
+}
+
+/* ─────────────────────────────────────────────
+   PRIMAL PATTERNS
+───────────────────────────────────────────── */
+
+.pattern-card {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.pattern-card:hover {
+    border-color: #3498db !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4) !important;
+}
+
+.pattern-card.active {
+    background: rgba(41, 128, 185, 0.12) !important;
+    border-color: #3498db !important;
+    box-shadow: 0 0 0 3px rgba(41, 128, 185, 0.2) !important;
+}
+
+.pattern-card-name {
+    color: #ecf0f1 !important;
+}
+
+.pattern-card-origin {
+    color: #9aabbf !important;
+}
+
+.pattern-detail {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.pattern-meta-bar {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.pattern-meta-item label {
+    color: #7f8c8d !important;
+}
+
+.pattern-meta-item .meta-value {
+    color: #ecf0f1 !important;
+}
+
+/* ─────────────────────────────────────────────
+   SECTION PANELS (pattern sections)
+───────────────────────────────────────────── */
+
+.section-panel {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.section-panel-header:hover {
+    background: rgba(255, 255, 255, 0.06) !important;
+}
+
+.section-body {
+    border-top-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.section-col label {
+    color: #7f8c8d !important;
+}
+
+.section-col textarea {
+    background: rgba(255, 255, 255, 0.07) !important;
+    border-color: rgba(255, 255, 255, 0.15) !important;
+    color: #dde1e7 !important;
+}
+
+.section-actions {
+    background: rgba(255, 255, 255, 0.03) !important;
+    border-top-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.spirit-animal-role-badge,
+.section-key-badge {
+    background: rgba(255, 255, 255, 0.08) !important;
+    color: #9aabbf !important;
+}
+
+/* ─────────────────────────────────────────────
+   GRAND NARRATIVE / STORY ARCS
+───────────────────────────────────────────── */
+
+.grand-narrative-panel {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.gn-header {
+    background: rgba(255, 255, 255, 0.06) !important;
+    border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.gn-header:hover {
+    background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.gn-title {
+    color: #ecf0f1 !important;
+}
+
+.gn-subtitle {
+    color: #7f8c8d !important;
+}
+
+/* Arc cards */
+.arc-card {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.arc-card:hover {
+    border-color: #3498db !important;
+}
+
+.arc-card.active {
+    border-color: #3498db !important;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.15) !important;
+}
+
+.arc-card-title {
+    color: #ecf0f1 !important;
+}
+
+/* Arc status badges */
+.arc-status-planned {
+    background: rgba(21, 101, 192, 0.25) !important;
+    color: #90caf9 !important;
+}
+
+.arc-status-active {
+    background: rgba(46, 125, 50, 0.25) !important;
+    color: #a5d6a7 !important;
+}
+
+.arc-status-dormant {
+    background: rgba(230, 81, 0, 0.25) !important;
+    color: #ffcc80 !important;
+}
+
+.arc-status-completed {
+    background: rgba(117, 117, 117, 0.25) !important;
+    color: #bdbdbd !important;
+}
+
+/* Arc detail panel */
+.arc-detail-panel {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.arc-detail-header h3 {
+    color: #ecf0f1 !important;
+}
+
+.arc-section h4 {
+    color: #9aabbf !important;
+    border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.arc-field {
+    background: rgba(255, 255, 255, 0.07) !important;
+    border-color: rgba(255, 255, 255, 0.15) !important;
+    color: #dde1e7 !important;
+}
+
+.arc-field:focus {
+    border-color: #3498db !important;
+}
+
+.arc-theme-field {
+    background: rgba(201, 168, 76, 0.07) !important;
+    border-color: rgba(201, 168, 76, 0.3) !important;
+    color: #e8d5a3 !important;
+}
+
+.arc-theme-field:focus {
+    background: rgba(201, 168, 76, 0.1) !important;
+    border-color: rgba(201, 168, 76, 0.5) !important;
+}
+
+.arc-theme-field::placeholder {
+    color: rgba(201, 168, 76, 0.35) !important;
+}
+
+.arc-detail-header select {
+    background: rgba(255, 255, 255, 0.07) !important;
+    border-color: rgba(255, 255, 255, 0.15) !important;
+    color: #dde1e7 !important;
+}
+
+/* Chapters */
+.chapter-item {
+    background: rgba(255, 255, 255, 0.05) !important;
+}
+
+.chapter-title-text {
+    color: #ecf0f1 !important;
+}
+
+.chapter-desc {
+    color: #9aabbf !important;
+}
+
+.chapter-status-select {
+    background: rgba(255, 255, 255, 0.07) !important;
+    border-color: rgba(255, 255, 255, 0.15) !important;
+    color: #dde1e7 !important;
+}
+
+/* Beat chips */
+.beat-chip {
+    background: rgba(41, 128, 185, 0.15) !important;
+    color: #5dade2 !important;
+}
+
+.beat-chip.done {
+    background: rgba(255, 255, 255, 0.06) !important;
+    color: #7f8c8d !important;
+}
+
+/* Beats pool */
+.beats-pool-panel {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.beats-pool-header h3 {
+    color: #ecf0f1 !important;
+}
+
+.beats-pool-subtitle {
+    color: #7f8c8d !important;
+}
+
+.beat-pool-item {
+    background: rgba(255, 255, 255, 0.05) !important;
+}
+
+.beat-desc {
+    color: #9aabbf !important;
+}
+
+.beat-assign-chip {
+    background: rgba(106, 27, 154, 0.2) !important;
+    color: #ce93d8 !important;
+}
+
+/* Character arc headers */
+.char-arc-header h3 {
+    color: #9aabbf !important;
+    border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Char / dep chips */
+.char-chip {
+    background: rgba(41, 128, 185, 0.15) !important;
+    color: #5dade2 !important;
+}
+
+.dep-chip {
+    background: rgba(106, 27, 154, 0.15) !important;
+    color: #ce93d8 !important;
+}
+
+/* Arc beat bar track */
+.arc-beat-bar-wrap {
+    background: rgba(255, 255, 255, 0.12) !important;
+}
+
+.arc-beat-label {
+    color: #9aabbf !important;
+}
+
+/* ─────────────────────────────────────────────
+   PLAYER-DASHBOARD.CSS OVERRIDES
+───────────────────────────────────────────── */
+
+/* Content area background */
+.content {
+    background: transparent !important;
+}
+
+/* Character cards */
+.character-card {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4) !important;
+    color: #dde1e7 !important;
+}
+
+.character-card h3 {
+    color: #ecf0f1 !important;
+}
+
+.character-meta {
+    color: #9aabbf !important;
+}
+
+.character-stats {
+    border-top-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.stat-item .stat-label {
+    color: #9aabbf !important;
+}
+
+/* Character sheet */
+.character-sheet {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4) !important;
+}
+
+.character-sheet-header {
+    border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.character-sheet-header h2 {
+    color: #ecf0f1 !important;
+}
+
+/* Ability scores */
+.ability-score {
+    background: rgba(255, 255, 255, 0.06) !important;
+}
+
+.ability-score .label {
+    color: #9aabbf !important;
+}
+
+.ability-score .value {
+    color: #ecf0f1 !important;
+}
+
+/* Modal (player-dashboard version — the overlay is the .modal, content inside is .modal-content) */
+.modal-content {
+    background: #12122a !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    color: #dde1e7 !important;
+}
+
+/* ─────────────────────────────────────────────
+   CHARACTER CREATION WIZARD
+───────────────────────────────────────────── */
+
+.wizard-steps {
+    background: #0d0d1a !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.wstep {
+    color: #7f8c8d !important;
+}
+
+.wstep-num {
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: #9aabbf !important;
+}
+
+.wstep.active .wstep-num {
+    background: #3498db !important;
+    color: white !important;
+}
+
+.wstep.active .wstep-label {
+    color: #3498db !important;
+}
+
+.wstep.done .wstep-num {
+    background: #2c3e50 !important;
+    color: white !important;
+}
+
+.wstep.done .wstep-label {
+    color: #9aabbf !important;
+}
+
+.wizard-footer {
+    background: #12122a !important;
+    border-top-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.wizard-left {
+    border-right-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Panel title / note */
+.panel-title {
+    color: #ecf0f1 !important;
+}
+
+.panel-note {
+    color: #9aabbf !important;
+}
+
+/* Amber section label */
+.amber-section-label {
+    color: #c9a84c !important;
+}
+
+.amber-note {
+    color: #9aabbf !important;
+}
+
+/* Step counter */
+.step-counter {
+    color: #9aabbf !important;
+}
+
+/* OC slider */
+.oc-label {
+    color: #9aabbf !important;
+}
+
+.oc-value-display {
+    color: #dde1e7 !important;
+}
+
+/* Radio cards */
+.radio-card {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.radio-card:hover {
+    border-color: #3498db !important;
+    background: rgba(52, 152, 219, 0.08) !important;
+}
+
+.radio-card:has(input:checked) {
+    border-color: #3498db !important;
+    background: rgba(52, 152, 219, 0.15) !important;
+}
+
+.rc-body strong {
+    color: #ecf0f1 !important;
+}
+
+.rc-body small {
+    color: #9aabbf !important;
+}
+
+/* Imprint sub-sections */
+.imprint-sub {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.stat-radio-row label {
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    color: #dde1e7 !important;
+}
+
+.stat-radio-row label:hover {
+    border-color: #3498db !important;
+}
+
+.stat-radio-row label:has(input:checked) {
+    border-color: #3498db !important;
+    background: rgba(52, 152, 219, 0.12) !important;
+}
+
+/* Array chips */
+.chip {
+    background: rgba(255, 255, 255, 0.08) !important;
+    color: #dde1e7 !important;
+    border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.chip:hover:not(:disabled) {
+    background: #3498db !important;
+    color: white !important;
+}
+
+.chip.selected {
+    background: #3498db !important;
+    color: white !important;
+    border-color: #3498db !important;
+}
+
+.chip.used {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    color: #7f8c8d !important;
+}
+
+/* Stat slot cards */
+.stat-slot-card {
+    border-color: rgba(255, 255, 255, 0.15) !important;
+    background: transparent !important;
+}
+
+.stat-slot-card:hover {
+    border-color: #3498db !important;
+    background: rgba(52, 152, 219, 0.06) !important;
+}
+
+.stat-slot-card.has-value {
+    border-color: #3498db !important;
+    background: rgba(52, 152, 219, 0.1) !important;
+}
+
+.stat-slot-card.targeted {
+    border-color: #3498db !important;
+    background: rgba(52, 152, 219, 0.12) !important;
+}
+
+.ssc-name {
+    color: #9aabbf !important;
+}
+
+.ssc-base {
+    color: #ecf0f1 !important;
+}
+
+.ssc-final {
+    color: #3498db !important;
+}
+
+.modifier-legend {
+    color: #9aabbf !important;
+}
+
+/* Flaw/trait pairs */
+.flaw-trait-pair {
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    background: transparent !important;
+}
+
+.flaw-trait-pair:hover {
+    border-color: #3498db !important;
+}
+
+.flaw-trait-pair.selected {
+    border-color: #3498db !important;
+    background: rgba(52, 152, 219, 0.1) !important;
+}
+
+.ftp-flaw small,
+.ftp-trait small {
+    color: #9aabbf !important;
+}
+
+.free-trait-card {
+    background: rgba(39, 174, 96, 0.08) !important;
+}
+
+.free-trait-card small {
+    color: #9aabbf !important;
+}
+
+/* Class suggestion buttons */
+.class-suggest-btn {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-color: #3498db !important;
+    color: #dde1e7 !important;
+}
+
+.class-suggest-btn:hover {
+    background: #3498db !important;
+    color: white !important;
+}
+
+.class-suggest-btn .suggest-reason {
+    color: #9aabbf !important;
+}
+
+/* Class cards */
+.class-card {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    color: #dde1e7 !important;
+}
+
+.class-card:hover {
+    border-color: #3498db !important;
+    background: rgba(52, 152, 219, 0.08) !important;
+}
+
+.class-card.selected {
+    border-color: #3498db !important;
+    background: rgba(52, 152, 219, 0.15) !important;
+    box-shadow: 0 0 0 3px rgba(41, 128, 185, 0.18) !important;
+}
+
+.cls-name {
+    color: #ecf0f1 !important;
+}
+
+.cls-hd {
+    color: #9aabbf !important;
+}
+
+.cls-stat-tag.secondary {
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: #dde1e7 !important;
+}
+
+.cls-desc {
+    color: #9aabbf !important;
+}
+
+.cls-warn-msg {
+    color: #f39c12 !important;
+}
+
+.class-amber-note {
+    background: rgba(201, 168, 76, 0.1) !important;
+    border-color: rgba(201, 168, 76, 0.3) !important;
+    color: #e8d5a3 !important;
+}
+
+/* Trump eligibility */
+.trump-check.eligible {
+    background: rgba(46, 125, 50, 0.15) !important;
+    border-color: rgba(165, 214, 167, 0.3) !important;
+    color: #a5d6a7 !important;
+}
+
+.trump-check.ineligible {
+    background: rgba(136, 14, 79, 0.15) !important;
+    border-color: rgba(244, 143, 177, 0.3) !important;
+    color: #f48fb1 !important;
+}
+
+/* Review block */
+.review-section h4 {
+    color: #ecf0f1 !important;
+    border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.review-row span:first-child {
+    color: #9aabbf !important;
+}
+
+.review-row span:last-child {
+    color: #ecf0f1 !important;
+}
+
+.review-stat {
+    background: rgba(255, 255, 255, 0.06) !important;
+}
+
+.review-stat .rs-name {
+    color: #9aabbf !important;
+}
+
+.review-stat .rs-val {
+    color: #ecf0f1 !important;
+}
+
+/* Broken imprint */
+.broken-disabled {
+    color: #7f8c8d !important;
+}
+
+.broken-enabled {
+    color: #dde1e7 !important;
+}
+
+/* Character edit tabs */
+.character-edit-tabs {
+    border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.char-tab-btn {
+    color: #9aabbf !important;
+}
+
+.char-tab-btn:hover,
+.char-tab-btn.active {
+    color: #3498db !important;
+    border-bottom-color: #3498db !important;
+    background: rgba(52, 152, 219, 0.05) !important;
+}
+
+/* Dice roller */
+.dice-section {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: none !important;
+}
+
+.dice-section h3 {
+    color: #ecf0f1 !important;
+}
+
+.dice-select {
+    background: rgba(255, 255, 255, 0.07) !important;
+    border-color: rgba(255, 255, 255, 0.15) !important;
+    color: #dde1e7 !important;
+}
+
+.dice-system-btn,
+.attribute-btn {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    color: #dde1e7 !important;
+}
+
+.dice-system-btn:hover,
+.attribute-btn:hover {
+    border-color: #3498db !important;
+    background: rgba(52, 152, 219, 0.1) !important;
+}
+
+.dice-system-btn.active {
+    background: #3498db !important;
+    color: white !important;
+    border-color: #3498db !important;
+}
+
+.history-item {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border-left-color: #3498db !important;
+}
+
+.history-item .history-roll {
+    color: #5dade2 !important;
+}
+
+.history-item .history-breakdown {
+    color: #9aabbf !important;
+}
+
+.history-item .history-timestamp {
+    color: #7f8c8d !important;
+}
+
+.hp-bar {
+    background: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* Combatant cards */
+.combatant-card {
+    background: rgba(255, 255, 255, 0.05) !important;
+}
+
+.combatant-card.active-turn {
+    background: linear-gradient(to right, rgba(76, 175, 80, 0.12), rgba(255, 255, 255, 0.04)) !important;
+}
+
+.combatant-initiative {
+    color: #5dade2 !important;
+}
+
+.hp-text {
+    color: #9aabbf !important;
+}
+
+.back-button {
+    background: rgba(255, 255, 255, 0.08) !important;
+    color: #dde1e7 !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+.back-button:hover {
+    background: rgba(255, 255, 255, 0.14) !important;
+}
+
+/* Session history items */
+.session-history-item {
+    background: rgba(255, 255, 255, 0.05) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+.session-history-title {
+    color: #ecf0f1 !important;
+}
+
+.session-history-date,
+.session-history-summary {
+    color: #9aabbf !important;
+}
+
+/* Known shadows tab */
+.shadows-lore-note,
+.shadow-player-card {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    color: #9aabbf !important;
+}
+
+/* ─────────────────────────────────────────────
+   LOGIN PAGE
+───────────────────────────────────────────── */
+
+.login-container {
+    background: #1a1a2e !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6) !important;
+    color: #dde1e7 !important;
+}
+
+.login-body {
+    color: #dde1e7 !important;
+}
+
+.login-body label {
+    color: #9aabbf !important;
+}
+
+.login-body input {
+    background: rgba(255, 255, 255, 0.07) !important;
+    border-color: rgba(255, 255, 255, 0.15) !important;
+    color: #dde1e7 !important;
+}
+
+/* ─────────────────────────────────────────────
+   ADMIN PAGE
+───────────────────────────────────────────── */
+
+.admin-content,
+.admin-container,
+.admin-section {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    color: #dde1e7 !important;
+}
+
+/* ─────────────────────────────────────────────
+   DM CLAIMS VIEW
+───────────────────────────────────────────── */
+
+.dm-container {
+    color: #dde1e7;
+}
+
+.dm-info {
+    background: rgba(201, 168, 76, 0.1) !important;
+    border-color: rgba(201, 168, 76, 0.3) !important;
+    color: #e8d5a3 !important;
+}
+
+.attribute-section {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: none !important;
+    color: #dde1e7 !important;
+}
+
+.attribute-section h3 {
+    color: #ecf0f1 !important;
+}
+
+/* ─────────────────────────────────────────────
+   PLAYER CLAIMS PAGE
+───────────────────────────────────────────── */
+
+.claims-container {
+    color: #dde1e7;
+}
+
+.claims-section {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: none !important;
+    color: #dde1e7 !important;
+}
+
+/* ─────────────────────────────────────────────
+   INLINE STYLE OVERRIDES — shadow inputs / selects
+   that may not be inside .form-group
+───────────────────────────────────────────── */
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(.chip):not(.dice-system-btn),
+textarea,
+select {
+    color-scheme: dark;
+}
+
+/* Ensure all generic white section backgrounds go dark */
+[style*="background: white"],
+[style*="background:white"],
+[style*="background-color: white"],
+[style*="background-color:white"] {
+    background: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* ─────────────────────────────────────────────
+   NAVIGATION (navigation.css overrides)
+───────────────────────────────────────────── */
+
+nav,
+.nav,
+.navbar,
+.navigation {
+    background: #000 !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+}

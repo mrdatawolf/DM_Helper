@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="/css/navigation.css">
     <link rel="stylesheet" href="/css/player-dashboard.css">
+    <link rel="stylesheet" href="/css/dark-theme.css">
     <style>
         .btn-create-locked {
             opacity: 0.45;
@@ -128,6 +129,10 @@
         .info-icon.tip-up .info-tooltip {
             top: auto;
             bottom: calc(100% + 7px);
+        }
+        /* Inside the wizard modal, right panel handles info — suppress CSS tooltips */
+        .modal-wizard .info-tooltip {
+            display: none !important;
         }
     </style>
 </head>
@@ -420,6 +425,9 @@
                 <button class="close-btn" onclick="closeCreateCharacter()">&times;</button>
             </div>
 
+            <div class="wizard-layout">
+            <div class="wizard-left">
+
             <!-- Step progress bar -->
             <div class="wizard-steps" id="wizard-steps">
                 <div class="wstep active" data-step="1"><span class="wstep-num">1</span><span class="wstep-label">Identity</span></div>
@@ -683,8 +691,20 @@
                     <button id="wizard-submit-btn" class="btn-primary" onclick="wizardSubmit()" style="display:none;">Create Character</button>
                 </div>
             </div>
-        </div>
-    </div>
+
+            </div><!-- /wizard-left -->
+
+            <div class="wizard-right">
+                <div id="wizard-info-panel" class="wizard-info-panel is-default">
+                    <div class="wizard-info-sigil">✦</div>
+                    <h4 id="wizard-info-title" class="lore-title"></h4>
+                    <div id="wizard-info-body" class="lore-text"></div>
+                </div>
+            </div><!-- /wizard-right -->
+
+            </div><!-- /wizard-layout -->
+        </div><!-- /modal-content -->
+    </div><!-- /create-character-modal -->
 
     <!-- Create Journal Entry Modal -->
     <div id="journal-entry-modal" class="modal">
