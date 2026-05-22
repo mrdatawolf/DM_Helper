@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getDatabase } = require('../database/connection');
+const { authenticate } = require('../middleware/auth');
 
 // Get all shadows
 router.get('/', (req, res) => {
@@ -8,6 +9,45 @@ router.get('/', (req, res) => {
         const db = getDatabase();
         const shadows = db.prepare('SELECT * FROM shadows ORDER BY name').all();
         res.json(shadows);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Shadows a character has visited (player-facing)
+// Only counts completed or in-progress sessions — enough time to truly feel the world.
+router.get('/character/:characterId/visited', authenticate, (req, res) => {
+    try {
+        const db = getDatabase();
+        const characterId = parseInt(req.params.characterId, 10);
+
+        // Verify the character belongs to the requesting user
+        const character = db.prepare('SELECT id, user_id FROM characters WHERE id = ?').get(characterId);
+        if (!character) return res.status(404).json({ error: 'Character not found' });
+        if (character.user_id !== req.user.userId && !req.user.isDM) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+
+        const visited = db.prepare(`
+            SELECT
+                s.id, s.name, s.description,
+                s.order_level, s.chaos_level, s.dream_level,
+                s.pattern_influence, s.corruption_status, s.is_starting_shadow,
+                COUNT(DISTINCT cp.session_id)  AS visit_count,
+                MIN(cs.session_date)           AS first_visit_date,
+                MAX(cs.session_date)           AS last_visit_date,
+                MIN(cs.session_number)         AS first_session_number,
+                MAX(cs.session_number)         AS last_session_number
+            FROM shadows s
+            JOIN character_progress cp ON cp.shadow_id = s.id
+            JOIN campaign_sessions cs  ON cs.id = cp.session_id
+            WHERE cp.character_id = ?
+              AND cs.session_status IN ('completed', 'in-progress')
+            GROUP BY s.id
+            ORDER BY MIN(cs.session_date) ASC
+        `).all(characterId);
+
+        res.json(visited);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

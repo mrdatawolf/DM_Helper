@@ -132,7 +132,7 @@ function migrate() {
     // ── The Argent Refrain ──
     const p3 = insertPattern.run(
         'The Argent Refrain',
-        "The Silver Road, Corwin's Pattern, The New Pattern, The Shadow Pattern",
+        "The Silver Road, , The New Pattern, The Shadow Pattern",
         'Corwin of Amber',
         'Morrí (The Crow)',
         'threshold',

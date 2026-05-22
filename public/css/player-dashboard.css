@@ -348,12 +348,17 @@ header {
 .modal {
     display: none;
     position: fixed;
-    z-index: 1000;
+    z-index: 2000;
     left: 0;
     top: 0;
     width: 100%;
     height: 100%;
+    max-width: none;
+    max-height: none;
     background-color: rgba(0, 0, 0, 0.5);
+    border-radius: 0;
+    overflow-y: visible;
+    box-shadow: none;
     animation: fadeIn 0.3s ease;
 }
 
@@ -381,11 +386,96 @@ header {
 /* ===== CHARACTER CREATION WIZARD ===== */
 
 .modal-content.modal-wizard {
-    max-width: 900px;
-    width: 95%;
+    max-width: 95vw;
+    width: 95vw;
     max-height: 92vh;
+    height: 92vh;
     display: flex;
     flex-direction: column;
+}
+
+/* ── Wizard two-column layout ── */
+.wizard-layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+}
+
+.wizard-left {
+    flex: 0 0 50%;
+    max-width: 50%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-right: 2px solid var(--light);
+}
+
+.wizard-right {
+    flex: 1;
+    overflow-y: auto;
+    background: linear-gradient(160deg, #0f0f1a 0%, #1a1a2e 100%);
+    display: flex;
+    flex-direction: column;
+}
+
+.wizard-info-panel {
+    padding: 32px 28px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    color: #e8d5a3;
+}
+
+.wizard-info-sigil {
+    font-size: 3.5rem;
+    color: #c9a84c;
+    text-align: center;
+    margin-bottom: 20px;
+    opacity: 0.3;
+}
+
+.wizard-info-panel:not(.is-default) .wizard-info-sigil {
+    display: none;
+}
+
+.wizard-info-panel.is-default .lore-title {
+    text-align: center;
+    opacity: 0.6;
+}
+
+.wizard-info-panel.is-default .lore-text p {
+    text-align: center;
+    opacity: 0.55;
+    font-size: 0.88rem;
+}
+
+/* Shared lore text styles (right panel) */
+.wizard-right .lore-title {
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #c9a84c;
+    margin: 0 0 14px 0;
+}
+
+.wizard-right .lore-text p {
+    font-style: italic;
+    font-size: 0.92rem;
+    line-height: 1.75;
+    margin: 0 0 12px 0;
+    color: #e8d5a3;
+}
+
+.wizard-right .lore-text p:last-child {
+    margin-bottom: 0;
+}
+
+@media (max-width: 720px) {
+    .wizard-layout { flex-direction: column; }
+    .wizard-left { flex: none; max-width: 100%; border-right: none; }
+    .wizard-right { display: none; }
 }
 
 /* Step progress bar */
@@ -1862,3 +1952,4 @@ header {
         grid-column: 1 / -1;
     }
 }
+

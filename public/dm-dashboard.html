@@ -6,6 +6,57 @@
     <title>DM Helper - Amber Campaign</title>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="/css/navigation.css">
+    <link rel="stylesheet" href="/css/dark-theme.css">
+    <style>
+        .shadow-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            padding: 12px 0 20px;
+        }
+        .shadow-search-input {
+            padding: 8px 14px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            width: 220px;
+        }
+        .shadow-filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .shadow-filter-btn {
+            padding: 6px 14px;
+            border-radius: 20px;
+            border: 2px solid #ccc;
+            background: transparent;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: #555;
+        }
+        .shadow-filter-btn.active,
+        .shadow-filter-btn:hover { color: #fff; border-color: transparent; }
+
+        .sfb-pattern  { border-color: #16a085; color: #16a085; }
+        .sfb-argent   { border-color: #5a5a9a; color: #5a5a9a; }
+        .sfb-logrus   { border-color: #c0392b; color: #c0392b; }
+        .sfb-nexus    { border-color: #b8860b; color: #b8860b; }
+        .sfb-mixed    { border-color: #8e44ad; color: #8e44ad; }
+        .sfb-none     { border-color: #888;    color: #888;    }
+
+        .sfb-pattern.active,  .sfb-pattern:hover  { background: #16a085; }
+        .sfb-argent.active,   .sfb-argent:hover   { background: #5a5a9a; }
+        .sfb-logrus.active,   .sfb-logrus:hover   { background: #c0392b; }
+        .sfb-nexus.active,    .sfb-nexus:hover    { background: #b8860b; }
+        .sfb-mixed.active,    .sfb-mixed:hover    { background: #8e44ad; }
+        .sfb-none.active,     .sfb-none:hover     { background: #888;    }
+        .shadow-filter-btn:not([class*="sfb-"]).active,
+        .shadow-filter-btn:not([class*="sfb-"]):hover { background: #3498db; border-color: #3498db; }
+    </style>
 </head>
 <body data-user-role="dm">
     <!-- Navigation will be injected here -->
@@ -49,6 +100,18 @@
             <div class="tab-header">
                 <h2>Known Shadows</h2>
                 <button class="btn-primary" onclick="showCreateShadowModal()">+ Create Shadow</button>
+            </div>
+            <div class="shadow-controls">
+                <input type="text" id="shadow-search" class="shadow-search-input" placeholder="Search by name…" oninput="filterShadows()">
+                <div class="shadow-filters">
+                    <button class="shadow-filter-btn active" data-filter="All" onclick="setShadowFilter('All',this)">All</button>
+                    <button class="shadow-filter-btn sfb-pattern" data-filter="Pattern" onclick="setShadowFilter('Pattern',this)">Pattern</button>
+                    <button class="shadow-filter-btn sfb-argent" data-filter="Argent Refrain" onclick="setShadowFilter('Argent Refrain',this)">Argent Refrain</button>
+                    <button class="shadow-filter-btn sfb-logrus" data-filter="Logrus" onclick="setShadowFilter('Logrus',this)">Logrus</button>
+                    <button class="shadow-filter-btn sfb-nexus" data-filter="Nexus" onclick="setShadowFilter('Nexus',this)">Nexus</button>
+                    <button class="shadow-filter-btn sfb-mixed" data-filter="Mixed" onclick="setShadowFilter('Mixed',this)">Mixed</button>
+                    <button class="shadow-filter-btn sfb-none" data-filter="None" onclick="setShadowFilter('None',this)">None</button>
+                </div>
             </div>
             <div id="shadows-list" class="grid">
                 <!-- Shadows will be loaded here -->

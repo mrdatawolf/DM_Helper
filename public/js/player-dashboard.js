@@ -31,6 +31,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             usernameEl.textContent = currentUser.username;
         }
 
+        // Unlock "Create New Character" if the player has acknowledged the guide
+        applyGuideGate();
+
         // Load user's characters
         await loadCharacters();
 
@@ -82,6 +85,8 @@ function switchTab(tabName) {
         loadClaims();
     } else if (tabName === 'progress' && currentCharacter) {
         loadProgress();
+    } else if (tabName === 'shadows') {
+        loadVisitedShadows();
     }
 }
 
@@ -498,6 +503,57 @@ const CLASSES_5E = [
     }
 ];
 
+const IMPRINT_LORE = {
+    None: { title: null, narrative: null },
+    FirstPattern: {
+        title: 'The Pattern',
+        narrative: `Before you stands something that has always existed, older than the oldest name spoken in any shadow. It does not call to you. It does not need to. You are here because some part of you has always known this moment would come — and because the blood in your veins carries a memory that predates your birth.\n\nTo walk the Pattern is to be unmade and remade in the same breath. Every step strips away what you pretend to be and leaves only what you are. It does not grant power. It reveals it. What you carry out of it is not a gift — it is a truth you can no longer unknow.\n\nThose who walk the Pattern do not become something new. They become, fully and finally, themselves.`
+    },
+    CorwinPattern: {
+        title: 'The Argent Refrain',
+        narrative: null // placeholder — to be written later
+    },
+    LogrusBasic: {
+        title: 'The Logrus',
+        narrative: `You did not find the Logrus. The Logrus found you.\n\nIt has been there at the edges of your sight — in the moment a pattern of leaves felt like a warning, in the pull you felt toward doors that should have meant nothing, in the dreams that left you certain something vast had been watching you sleep. You dismissed it. You moved on. It waited.\n\nTo walk the Logrus is not a test of who you are. It is a test of whether you can survive what it makes of you. It does not reveal you. It reaches inside you and pulls. What comes out the other side is changed — not broken, not lost, but fundamentally rewritten in a language only Chaos can read.\n\nThe Logrus does not choose the worthy. It chooses the ones it wants. The difference matters more than you know.`
+    },
+    LogrusAdvanced: {
+        title: 'The Logrus',
+        narrative: null // inherits from LogrusBasic at runtime
+    },
+    LogrusMaster: {
+        title: 'The Logrus',
+        narrative: null // inherits from LogrusBasic at runtime
+    }
+};
+
+const WIZARD_STEP_INFO = {
+    1: {
+        title: 'Who Are You?',
+        body: `<p>A name is not merely a label — in the Amber multiverse, it is a declaration. The Pattern responds to those who know themselves. Shadow bends around identity as much as will.</p><p>Your origin shadow is not just backstory. It determines what you consider normal, what unnerves you, and how much of the infinite multiverse already feels like home.</p>`
+    },
+    2: {
+        title: 'Amber Attributes',
+        body: `<p>The great forces of the multiverse — Pattern, Logrus, the Argent Refrain — are not distant abstractions. They are pressures that shape every shadow, every encounter, every choice.</p><p>Hover over any option or info icon to see what each choice means in the texture of the world you are about to walk through.</p>`
+    },
+    3: {
+        title: 'Assign Stats',
+        body: `<p>Six numbers contain the whole of a person's raw potential — what the body can endure, what the mind can hold, what the spirit can sustain before any training or scar.</p><p>The standard array is fixed by tradition. Where you assign it is your first act of intentional self-definition.</p>`
+    },
+    4: {
+        title: 'Flaws & Traits',
+        body: `<p>No one walks through Shadow unchanged. The powers that shape reality leave marks — sometimes obvious, sometimes quiet. A flaw is not a weakness. It is evidence that something real happened to you.</p><p>Traits are the compensations, the adaptations, the gifts that emerged from surviving what tried to unmake you.</p>`
+    },
+    5: {
+        title: 'Class',
+        body: `<p>In a world where princes of Amber reshape reality and masters of Chaos rewrite the laws of physics, a class is less about what you studied and more about what you reach for when everything else is stripped away.</p><p>Your class defines how you solve problems that no one else can solve.</p>`
+    },
+    6: {
+        title: 'Review',
+        body: `<p>Look carefully at what you are about to become.</p><p>Once you step through, the numbers harden into a person. The choices stop being hypothetical. You will carry this character through things not yet imagined, into shadows not yet named.</p><p>Take a moment. Be certain.</p>`
+    }
+};
+
 const FLAW_TRAIT_PAIRS = {
     pattern: [
         {
@@ -673,11 +729,63 @@ function classGateStatus(cls, finals) {
 
 // ── Wizard open / close ──────────────────────────────────────
 
+function applyGuideGate() {
+    const btn = document.getElementById('create-character-btn');
+    if (!btn) return;
+    if (localStorage.getItem('amber_guide_acknowledged')) {
+        btn.disabled = false;
+        btn.classList.remove('btn-create-locked');
+        const reminderBtn = document.getElementById('guide-reminder-btn');
+        if (reminderBtn) reminderBtn.style.display = 'none';
+    }
+}
+
+function showGuideReminder() {
+    document.getElementById('guide-reminder-modal').classList.add('show');
+}
+
+function acknowledgeGuide(goToGuide) {
+    localStorage.setItem('amber_guide_acknowledged', '1');
+    document.getElementById('guide-reminder-modal').classList.remove('show');
+    applyGuideGate();
+    // If going to the guide, the <a> tag handles navigation naturally
+}
+
 async function openCreateCharacter() {
+    if (!localStorage.getItem('amber_guide_acknowledged')) return;
     wizardReset();
     const modal = document.getElementById('create-character-modal');
     modal.classList.add('show');
     await wizardPopulateShadows();
+
+    // Imprint radio cards: hover shows lore temporarily; selection pins it
+    document.querySelectorAll('input[name="w-imprint"]').forEach(radio => {
+        const card = radio.closest('.radio-card');
+        card.addEventListener('mouseenter', () => {
+            const key = (radio.value === 'LogrusAdvanced' || radio.value === 'LogrusMaster')
+                ? 'LogrusBasic' : radio.value;
+            const lore = IMPRINT_LORE[key];
+            if (lore && lore.narrative) {
+                const html = lore.narrative.split('\n\n').map(p => `<p>${p}</p>`).join('');
+                wizardShowInfoPanel(lore.title, html);
+            } else {
+                wizardRevertInfoPanel();
+            }
+        });
+        card.addEventListener('mouseleave', () => wizardRevertInfoPanel());
+    });
+
+    // Info icons: hover shows tooltip text in the right panel
+    document.querySelectorAll('.modal-wizard .info-icon').forEach(icon => {
+        const tooltip = icon.querySelector('.info-tooltip');
+        if (!tooltip) return;
+        const text = tooltip.textContent.trim();
+        icon.addEventListener('mouseenter', () => {
+            wizardShowInfoPanel(null, `<p>${text}</p>`);
+        });
+        icon.addEventListener('mouseleave', () => wizardRevertInfoPanel());
+    });
+
     wizardRenderStep();
 }
 
@@ -740,6 +848,8 @@ function wizardRenderStep() {
     if (wiz.step === 4) wizardRenderFlaws();
     if (wiz.step === 5) wizardRenderClass();
     if (wiz.step === 6) wizardRenderReview();
+
+    wizardResetInfoPanel();
 }
 
 // ── Validation ───────────────────────────────────────────────
@@ -832,6 +942,62 @@ function wizardImprintChange() {
     wiz.brokenImprint = brokenCb.checked;
 
     wizardAmberUpdate();
+    wizardShowImprintLore(imprint);
+}
+
+// ── Wizard right-panel helpers ───────────────────────────────
+let _wizardInfoPinned = null; // { title, html } persists until step change
+
+function wizardShowInfoPanel(title, html) {
+    const panel = document.getElementById('wizard-info-panel');
+    if (!panel) return;
+    panel.classList.remove('is-default');
+    const titleEl = document.getElementById('wizard-info-title');
+    titleEl.textContent = title || '';
+    titleEl.style.display = title ? '' : 'none';
+    document.getElementById('wizard-info-body').innerHTML = html || '';
+}
+
+function wizardPinInfoPanel(title, html) {
+    _wizardInfoPinned = html ? { title, html } : null;
+    if (_wizardInfoPinned) {
+        wizardShowInfoPanel(title, html);
+    } else {
+        wizardResetInfoPanel();
+    }
+}
+
+function wizardRevertInfoPanel() {
+    if (_wizardInfoPinned) {
+        wizardShowInfoPanel(_wizardInfoPinned.title, _wizardInfoPinned.html);
+    } else {
+        wizardResetInfoPanel();
+    }
+}
+
+function wizardResetInfoPanel() {
+    _wizardInfoPinned = null;
+    const panel = document.getElementById('wizard-info-panel');
+    if (!panel) return;
+    panel.classList.add('is-default');
+    const info = WIZARD_STEP_INFO[wiz.step];
+    const titleEl = document.getElementById('wizard-info-title');
+    titleEl.textContent = info ? info.title : '';
+    titleEl.style.display = '';
+    document.getElementById('wizard-info-body').innerHTML = info ? info.body : '';
+}
+
+function wizardShowImprintLore(imprint) {
+    const key = (imprint === 'LogrusAdvanced' || imprint === 'LogrusMaster')
+        ? 'LogrusBasic'
+        : imprint;
+    const lore = IMPRINT_LORE[key];
+    if (!lore || !lore.narrative) {
+        wizardPinInfoPanel(null, null);
+        return;
+    }
+    const html = lore.narrative.split('\n\n').map(p => `<p>${p}</p>`).join('');
+    wizardPinInfoPanel(lore.title, html);
 }
 
 function wizardAmberUpdate() {
@@ -2728,7 +2894,7 @@ async function rollDice() {
             rollResult = rollWorldOfDarkness();
 
         } else if (diceSelectedSystem === 'd6') {
-            // Car Wars d6 system
+            // Car Wars 2d6 system
             rollResult = rollCarWars();
         }
 
@@ -2832,7 +2998,7 @@ function rollWorldOfDarkness() {
     };
 }
 
-// Roll Car Wars (d6 system)
+// Roll Car Wars (2d6 system)
 function rollCarWars() {
     const diceCount = parseInt(document.getElementById('dice-count').value) || 1;
     const modifier = parseInt(document.getElementById('dice-modifier').value) || 0;
@@ -3292,4 +3458,114 @@ function viewSessionDetails(index) {
         `Combats: ${session.combats.length}\n\n` +
         `Notes:\n${session.notes || 'No notes recorded'}`
     );
+}
+
+// ── Known Shadows ─────────────────────────────────────────────────────────────
+
+async function loadVisitedShadows() {
+    const container = document.getElementById('player-shadows-list');
+    if (!currentCharacter) {
+        container.innerHTML = '<div class="info-message"><p>Select a character from "My Characters" to see the shadows they have felt.</p></div>';
+        return;
+    }
+    container.innerHTML = '<div class="loading">Loading shadows…</div>';
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`/api/shadows/character/${currentCharacter.id}/visited`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) throw new Error('Failed to load visited shadows');
+        const visited = await response.json();
+        renderVisitedShadows(visited);
+    } catch (err) {
+        console.error('Error loading visited shadows:', err);
+        container.innerHTML = '<div class="info-message"><p>Could not load shadow data.</p></div>';
+    }
+}
+
+function renderVisitedShadows(visited) {
+    const container = document.getElementById('player-shadows-list');
+    if (!visited.length) {
+        container.innerHTML = '<div class="info-message"><p>No shadows have left their mark on this character yet. Participate in sessions to begin feeling the worlds you pass through.</p></div>';
+        return;
+    }
+    container.innerHTML = visited.map(s => {
+        const style = visitedShadowCardStyle(s.pattern_influence);
+        const infLabel = visitedInfluenceLabel(s.pattern_influence);
+        const depth = shadowDepth(s.visit_count);
+        const balanceBar = visitedBalanceBar(s);
+        const firstDate = s.first_visit_date ? new Date(s.first_visit_date).toLocaleDateString() : '—';
+        const lastDate  = s.last_visit_date  ? new Date(s.last_visit_date).toLocaleDateString()  : '—';
+        const visitText = s.visit_count === 1 ? '1 session' : `${s.visit_count} sessions`;
+        return `
+        <div class="shadow-player-card" style="${style}">
+            <h3>${escHtmlP(s.name)}</h3>
+            <span class="shadow-depth-badge">${depth.label}</span>
+            <p class="shadow-depth-flavor">${depth.flavor}</p>
+            ${s.description ? `<p class="shadow-desc">${escHtmlP(s.description)}</p>` : ''}
+            <div style="display:flex;align-items:center;gap:10px;margin:8px 0">
+                <span class="shadow-influence-tag">${escHtmlP(infLabel)}</span>
+                ${s.corruption_status ? `<span style="font-size:0.8rem;color:#c0392b;font-style:italic">${escHtmlP(s.corruption_status)}</span>` : ''}
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                <span style="font-size:0.8rem;color:#888;white-space:nowrap">${visitedBarLabel(s)}</span>
+                <div style="flex:1;height:7px;border-radius:4px;overflow:hidden;${balanceBar}"></div>
+            </div>
+            <div class="shadow-meta">
+                <span>First felt: ${firstDate} (Session ${s.first_session_number})</span>
+                ${s.visit_count > 1 ? `<span>Last visited: ${lastDate}</span>` : ''}
+                <span>${visitText}</span>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function shadowDepth(visitCount) {
+    if (visitCount >= 10) return { label: 'Part of You',      flavor: 'This world is woven into your very soul.' };
+    if (visitCount >= 4)  return { label: 'Well Known',        flavor: "This shadow's rhythms move through your blood." };
+    if (visitCount >= 2)  return { label: 'Familiar Ground',   flavor: 'You can feel its nature without concentration.' };
+    return                       { label: 'First Impression',  flavor: "The shadow's essence has touched your awareness." };
+}
+
+function visitedInfluenceLabel(val) {
+    if (val === 'First Pattern')  return 'Pattern';
+    if (val === 'Corwin Pattern') return 'Argent Refrain';
+    return val || 'None';
+}
+
+function visitedShadowCardStyle(val) {
+    const label = visitedInfluenceLabel(val);
+    const map = {
+        'Pattern':        ['rgba(22,160,133,0.1)',  'rgba(22,160,133,0.5)'],
+        'Argent Refrain': ['rgba(90,90,154,0.1)',   'rgba(90,90,154,0.5)'],
+        'Logrus':         ['rgba(192,57,43,0.1)',   'rgba(192,57,43,0.5)'],
+        'Nexus':          ['rgba(184,134,11,0.1)',  'rgba(184,134,11,0.5)'],
+        'Mixed':          ['rgba(142,68,173,0.1)',  'rgba(142,68,173,0.5)'],
+    };
+    const colors = map[label];
+    if (!colors) return '';
+    return `background:${colors[0]};border-left-color:${colors[1]};`;
+}
+
+function visitedBarLabel(s) {
+    return (s.dream_level || 0) > 0 ? 'Order/Dream/Chaos:' : 'Order/Chaos:';
+}
+
+function visitedBalanceBar(s) {
+    const o = s.order_level || 0;
+    const d = s.dream_level || 0;
+    const c = s.chaos_level || 0;
+    if (d > 0) {
+        const total = o + d + c || 100;
+        const op  = (o / total * 100).toFixed(1);
+        const mid = ((o + d / 2) / total * 100).toFixed(1);
+        const cp  = ((o + d) / total * 100).toFixed(1);
+        return `background:linear-gradient(90deg,#3d7ab5 ${op}%,#080818 ${op}%,#e8e4ff ${mid}%,#080818 ${cp}%,#b03030 ${cp}%)`;
+    }
+    return `background:linear-gradient(90deg,#3498db ${o}%,#e74c3c ${o}%)`;
+}
+
+function escHtmlP(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
