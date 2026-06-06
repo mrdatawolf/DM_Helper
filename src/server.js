@@ -54,7 +54,7 @@ async function seedAdminUser() {
         console.log('Admin user created');
     }
 }
-seedAdminUser();
+seedAdminUser().catch(err => console.error('seedAdminUser failed:', err));
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -104,9 +104,22 @@ process.on('SIGTERM', () => {
     process.exit(0);
 });
 
+process.on('unhandledRejection', (reason) => {
+    console.error('Unhandled rejection:', reason);
+});
+
 // Start server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
     console.log(`DM Helper server running on http://localhost:${PORT}`);
     console.log(`DM Dashboard available at http://localhost:${PORT}`);
     console.log(`API available at http://localhost:${PORT}/api`);
+});
+server.on('error', (err) => {
+    console.error(`Server failed to start: ${err.message}`);
+    if (err.code === 'EACCES') {
+        console.error(`Port ${PORT} is reserved by Windows. Change PORT in .env to a different value (e.g. 3777) and try again.`);
+    } else if (err.code === 'EADDRINUSE') {
+        console.error(`Port ${PORT} is already in use. Stop the other process or change PORT in .env.`);
+    }
+    process.exit(1);
 });
