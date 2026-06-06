@@ -966,6 +966,24 @@ select option {
 }
 
 /* Review block */
+.review-dnd-note {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    color: #9aabbf !important;
+}
+
+.review-dnd-note strong {
+    color: #ecf0f1 !important;
+}
+
+.review-description {
+    background: rgba(255, 255, 255, 0.04) !important;
+}
+
+.review-description p {
+    color: #b0c4d8 !important;
+}
+
 .review-section h4 {
     color: #ecf0f1 !important;
     border-bottom-color: rgba(255, 255, 255, 0.1) !important;
