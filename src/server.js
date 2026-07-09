@@ -1,12 +1,12 @@
 const express = require('express');
 const cors = require('cors');
-const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 const bcrypt = require('bcrypt');
 const path = require('path');
 require('dotenv').config();
 
 const { getDatabase, closeDatabase } = require('./database/connection');
+const { runMigrations } = require('./database/migrate');
 
 // Import routes
 const characterRoutes = require('./routes/characters');
@@ -21,21 +21,24 @@ const adminRoutes = require('./routes/admin');
 const arcRoutes   = require('./routes/arcs');
 const beatRoutes  = require('./routes/beats');
 const npcRoutes   = require('./routes/npcs');
+const sceneRoutes = require('./routes/scenes');
+const sessionNoteRoutes = require('./routes/session-notes');
+const combatRoutes = require('./routes/combats');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // Serve static files (for the DM dashboard)
 app.use(express.static(path.join(__dirname, '../public')));
 
-// Initialize database connection
-getDatabase();
+// Initialize database connection and apply pending migrations
+runMigrations(getDatabase());
 
 // Seed admin user from ADMIN_PASSWORD env var
 async function seedAdminUser() {
@@ -54,7 +57,6 @@ async function seedAdminUser() {
         console.log('Admin user created');
     }
 }
-seedAdminUser().catch(err => console.error('seedAdminUser failed:', err));
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -69,6 +71,9 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/arcs',  arcRoutes);
 app.use('/api/beats', beatRoutes);
 app.use('/api/npcs',  npcRoutes);
+app.use('/api/scenes', sceneRoutes);
+app.use('/api/session-notes', sessionNoteRoutes);
+app.use('/api/combats', combatRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -91,35 +96,41 @@ app.use((err, req, res, next) => {
     res.status(500).json({ error: 'Internal server error', message: err.message });
 });
 
-// Graceful shutdown
-process.on('SIGINT', () => {
-    console.log('Shutting down gracefully...');
-    closeDatabase();
-    process.exit(0);
-});
+// Start the server only when run directly (tests import { app } instead)
+if (require.main === module) {
+    seedAdminUser().catch(err => console.error('seedAdminUser failed:', err));
 
-process.on('SIGTERM', () => {
-    console.log('Shutting down gracefully...');
-    closeDatabase();
-    process.exit(0);
-});
+    // Graceful shutdown
+    process.on('SIGINT', () => {
+        console.log('Shutting down gracefully...');
+        closeDatabase();
+        process.exit(0);
+    });
 
-process.on('unhandledRejection', (reason) => {
-    console.error('Unhandled rejection:', reason);
-});
+    process.on('SIGTERM', () => {
+        console.log('Shutting down gracefully...');
+        closeDatabase();
+        process.exit(0);
+    });
 
-// Start server
-const server = app.listen(PORT, () => {
-    console.log(`DM Helper server running on http://localhost:${PORT}`);
-    console.log(`DM Dashboard available at http://localhost:${PORT}`);
-    console.log(`API available at http://localhost:${PORT}/api`);
-});
-server.on('error', (err) => {
-    console.error(`Server failed to start: ${err.message}`);
-    if (err.code === 'EACCES') {
-        console.error(`Port ${PORT} is reserved by Windows. Change PORT in .env to a different value (e.g. 3777) and try again.`);
-    } else if (err.code === 'EADDRINUSE') {
-        console.error(`Port ${PORT} is already in use. Stop the other process or change PORT in .env.`);
-    }
-    process.exit(1);
-});
+    process.on('unhandledRejection', (reason) => {
+        console.error('Unhandled rejection:', reason);
+    });
+
+    const server = app.listen(PORT, () => {
+        console.log(`DM Helper server running on http://localhost:${PORT}`);
+        console.log(`DM Dashboard available at http://localhost:${PORT}`);
+        console.log(`API available at http://localhost:${PORT}/api`);
+    });
+    server.on('error', (err) => {
+        console.error(`Server failed to start: ${err.message}`);
+        if (err.code === 'EACCES') {
+            console.error(`Port ${PORT} is reserved by Windows. Change PORT in .env to a different value (e.g. 3777) and try again.`);
+        } else if (err.code === 'EADDRINUSE') {
+            console.error(`Port ${PORT} is already in use. Stop the other process or change PORT in .env.`);
+        }
+        process.exit(1);
+    });
+}
+
+module.exports = { app };

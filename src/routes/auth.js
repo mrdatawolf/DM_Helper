@@ -185,29 +185,24 @@ router.get('/me', authenticate, (req, res) => {
 router.get('/characters', authenticate, (req, res) => {
     try {
         const db = getDatabase();
-        console.log('Fetching characters for user:', req.user.userId);
         const characters = db.prepare(`
             SELECT
-                id, name, race, class as class_type, level,
-                current_hit_points as current_hp, max_hit_points as max_hp,
-                shadow_origin_id as current_shadow_id,
-                order_chaos_balance as order_chaos_value,
-                has_pattern_imprint as pattern_imprint,
-                has_logrus_imprint as logrus_imprint,
-                blood_purity,
-                has_trump_artistry as trump_artist,
+                id, name, species, class_type, level,
+                current_hp, max_hp,
+                shadow_origin_id, current_shadow_id,
+                order_chaos_value,
+                pattern_imprint, logrus_imprint,
+                blood_purity, trump_artist,
                 created_at
             FROM characters
             WHERE user_id = ?
             ORDER BY created_at DESC
         `).all(req.user.userId);
 
-        console.log('Found characters:', characters.length);
         res.json({ characters });
 
     } catch (error) {
         console.error('Get user characters error:', error);
-        console.error('Error stack:', error.stack);
         res.status(500).json({ error: 'Failed to get characters' });
     }
 });

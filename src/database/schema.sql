@@ -20,8 +20,8 @@ CREATE TABLE IF NOT EXISTS characters (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     player_name TEXT,
-    race TEXT NOT NULL,
-    class TEXT NOT NULL,
+    species TEXT NOT NULL,
+    class_type TEXT NOT NULL,
     level INTEGER DEFAULT 1,
 
     -- D&D 5e Core Stats
@@ -34,23 +34,23 @@ CREATE TABLE IF NOT EXISTS characters (
 
     -- D&D Combat Stats
     armor_class INTEGER DEFAULT 10,
-    max_hit_points INTEGER DEFAULT 10,
-    current_hit_points INTEGER DEFAULT 10,
+    max_hp INTEGER DEFAULT 10,
+    current_hp INTEGER DEFAULT 10,
     speed INTEGER DEFAULT 30,
 
     -- Amber-Specific Attributes
     shadow_origin_id INTEGER,
     blood_purity TEXT CHECK(blood_purity IN ('Pure', 'Half', 'None')),
-    order_chaos_balance INTEGER DEFAULT 50, -- 0=chaos, 50=neutral, 100=order
+    order_chaos_value INTEGER DEFAULT 50, -- 0=chaos, 50=neutral, 100=order
 
     -- Pattern/Logrus Powers
-    has_pattern_imprint BOOLEAN DEFAULT 0,
-    has_logrus_imprint BOOLEAN DEFAULT 0,
+    pattern_imprint BOOLEAN DEFAULT 0,
+    logrus_imprint BOOLEAN DEFAULT 0,
     pattern_mastery_level INTEGER DEFAULT 0,
     logrus_mastery_level INTEGER DEFAULT 0,
 
     -- Trump Powers
-    has_trump_artistry BOOLEAN DEFAULT 0,
+    trump_artist BOOLEAN DEFAULT 0,
     trump_mastery_level INTEGER DEFAULT 0,
 
     -- Custom Feat/Leveling System

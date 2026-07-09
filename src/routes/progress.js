@@ -1,6 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const { getDatabase } = require('../database/connection');
+const { authenticate, requireDM } = require('../middleware/auth');
+
+// Write operations require a logged-in DM; reads stay open
+router.use((req, res, next) => {
+    if (req.method === 'GET') return next();
+    authenticate(req, res, () => requireDM(req, res, next));
+});
 
 // Get all progress entries (optionally filtered by character or session)
 router.get('/', (req, res) => {

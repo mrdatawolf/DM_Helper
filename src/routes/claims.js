@@ -1,6 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const { getDatabase } = require('../database/connection');
+const { authenticate, requireDM } = require('../middleware/auth');
+
+// True if the requesting user owns the character (or is DM/admin)
+function ownsCharacter(db, reqUser, characterId) {
+    if (reqUser.isDM || reqUser.isAdmin) return true;
+    const c = db.prepare('SELECT user_id FROM characters WHERE id = ?').get(characterId);
+    return !!c && c.user_id === reqUser.userId;
+}
 
 // Get character's claim point pool
 router.get('/pool/:character_id', (req, res) => {
@@ -132,7 +140,7 @@ router.get('/rankings/all', (req, res) => {
 });
 
 // Allocate/update claim points for an attribute
-router.post('/allocate', (req, res) => {
+router.post('/allocate', authenticate, (req, res) => {
     try {
         const db = getDatabase();
         const { character_id, attribute_name, points_to_add, justification } = req.body;
@@ -141,6 +149,10 @@ router.post('/allocate', (req, res) => {
             return res.status(400).json({
                 error: 'character_id, attribute_name, points_to_add, and justification are required'
             });
+        }
+
+        if (!ownsCharacter(db, req.user, character_id)) {
+            return res.status(403).json({ error: 'You can only allocate points for your own characters' });
         }
 
         // Get current pool
@@ -216,7 +228,7 @@ router.post('/allocate', (req, res) => {
 });
 
 // Set perceived ranking (what a character thinks about another)
-router.post('/perception', (req, res) => {
+router.post('/perception', authenticate, (req, res) => {
     try {
         const db = getDatabase();
         const {
@@ -231,6 +243,10 @@ router.post('/perception', (req, res) => {
             return res.status(400).json({
                 error: 'observer_character_id, target_character_id, attribute_name, and perceived_points are required'
             });
+        }
+
+        if (!ownsCharacter(db, req.user, observer_character_id)) {
+            return res.status(403).json({ error: 'You can only record perceptions for your own characters' });
         }
 
         const stmt = db.prepare(`
@@ -260,7 +276,7 @@ router.post('/perception', (req, res) => {
 });
 
 // Grant additional claim points to a character (DM function)
-router.post('/grant-points', (req, res) => {
+router.post('/grant-points', authenticate, requireDM, (req, res) => {
     try {
         const db = getDatabase();
         const { character_id, points, reason } = req.body;
@@ -305,8 +321,8 @@ router.get('/history/:character_id', (req, res) => {
     }
 });
 
-// Resolve a claim for an attribute check (returns bonuses for player)
-router.post('/resolve', (req, res) => {
+// Resolve a claim for an attribute check (returns bonuses for player; no writes)
+router.post('/resolve', authenticate, (req, res) => {
     try {
         const db = getDatabase();
         const { character_id, attribute_name, roll_result } = req.body;

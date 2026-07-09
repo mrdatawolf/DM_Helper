@@ -1,7 +1,11 @@
 const jwt = require('jsonwebtoken');
 
-// Secret key for JWT - in production, use environment variable
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+    console.error('JWT_SECRET is not set. Add a line like the following to your .env file and restart:');
+    console.error('  JWT_SECRET=' + require('crypto').randomBytes(32).toString('hex'));
+    process.exit(1);
+}
 const JWT_EXPIRES_IN = '24h';
 
 /**
@@ -112,16 +116,6 @@ function requireDM(req, res, next) {
 }
 
 /**
- * Check if user owns the character
- */
-function requireCharacterOwnership(req, res, next) {
-    // This will be used with character routes
-    // Implementation depends on character_id parameter
-    // For now, just pass through - will implement in route handlers
-    next();
-}
-
-/**
  * Require admin (username === 'admin')
  */
 function requireAdmin(req, res, next) {
@@ -141,7 +135,6 @@ module.exports = {
     optionalAuth,
     requireDM,
     requireAdmin,
-    requireCharacterOwnership,
     JWT_SECRET,
     JWT_EXPIRES_IN
 };

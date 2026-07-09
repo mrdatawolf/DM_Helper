@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getDatabase } = require('../database/connection');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, requireDM } = require('../middleware/auth');
 
 // Get all shadows
 router.get('/', (req, res) => {
@@ -85,8 +85,8 @@ router.get('/:id', (req, res) => {
     }
 });
 
-// Create new shadow
-router.post('/', (req, res) => {
+// Create new shadow (players may create one for their home shadow)
+router.post('/', authenticate, (req, res) => {
     try {
         const db = getDatabase();
         const {
@@ -119,7 +119,7 @@ router.post('/', (req, res) => {
 });
 
 // Update shadow
-router.put('/:id', (req, res) => {
+router.put('/:id', authenticate, requireDM, (req, res) => {
     try {
         const db = getDatabase();
         const shadowId = req.params.id;
@@ -159,7 +159,7 @@ router.put('/:id', (req, res) => {
 });
 
 // Delete shadow
-router.delete('/:id', (req, res) => {
+router.delete('/:id', authenticate, requireDM, (req, res) => {
     try {
         const db = getDatabase();
         const result = db.prepare('DELETE FROM shadows WHERE id = ?').run(req.params.id);

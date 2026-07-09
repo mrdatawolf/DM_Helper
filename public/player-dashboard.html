@@ -323,64 +323,18 @@
                 </div>
             </div>
 
-            <!-- Sessions Tab -->
+            <!-- Sessions Tab: the character's own "comic" — campaign sessions and personal scenes -->
             <div id="sessions-tab" class="tab-content">
                 <div class="tab-header">
-                    <h2>Session Tracker</h2>
-                    <button class="btn-primary" onclick="createNewSession()">
-                        + New Session
+                    <h2>My Story</h2>
+                    <button class="btn-primary" onclick="openDraftSceneForm()">
+                        + Draft a Scene
                     </button>
                 </div>
 
-                <div id="sessions-content">
-                    <div class="sessions-container">
-                        <!-- Active Session -->
-                        <div id="active-session-section" style="display: none;">
-                            <div class="session-card active-session">
-                                <div class="session-header">
-                                    <h3 id="active-session-title">Session Title</h3>
-                                    <div class="session-actions">
-                                        <button class="btn-secondary btn-sm" onclick="toggleCombatTracker()">Combat Tracker</button>
-                                        <button class="btn-secondary btn-sm" onclick="endActiveSession()">End Session</button>
-                                    </div>
-                                </div>
-
-                                <!-- Session Notes -->
-                                <div class="session-notes-section">
-                                    <h4>Session Notes</h4>
-                                    <textarea id="active-session-notes" rows="6" placeholder="Take notes during the session..."></textarea>
-                                    <button class="btn-primary btn-sm" onclick="saveSessionNotes()">Save Notes</button>
-                                </div>
-
-                                <!-- Combat Tracker -->
-                                <div id="combat-tracker" style="display: none;">
-                                    <div class="combat-header">
-                                        <h4>Combat Tracker</h4>
-                                        <div class="combat-controls">
-                                            <button class="btn-primary btn-sm" onclick="addCombatant()">+ Add Combatant</button>
-                                            <button class="btn-secondary btn-sm" onclick="nextTurn()">Next Turn</button>
-                                            <button class="btn-danger btn-sm" onclick="endCombat()">End Combat</button>
-                                        </div>
-                                    </div>
-
-                                    <div class="initiative-tracker" id="initiative-list">
-                                        <!-- Will be populated dynamically -->
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Session History -->
-                        <div class="session-history-section">
-                            <h3>Session History</h3>
-                            <div id="session-history-list">
-                                <div class="info-message">
-                                    <p>No sessions yet. Create a new session to start tracking!</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <div id="story-draft-form" style="display: none;"></div>
+                <div id="story-timeline"></div>
+                <div id="story-detail" style="display: none;"></div>
             </div>
         </main>
     </div>
@@ -1332,6 +1286,20 @@
         </div>
     </div>
 
-    <script src="/js/player-dashboard.js"></script>
+    <!-- Player dashboard scripts (load order matters: shared state/helpers first) -->
+    <script src="/js/toast.js"></script>
+    <script src="/js/player/player-core.js"></script>
+    <script src="/js/player/player-characters.js"></script>
+    <script src="/js/player/player-gear-powers.js"></script>
+    <script src="/js/player/player-wizard-data.js"></script>
+    <script src="/js/player/player-wizard-core.js"></script>
+    <script src="/js/player/player-wizard-steps.js"></script>
+    <script src="/js/player/player-account.js"></script>
+    <script src="/js/player/player-journal.js"></script>
+    <script src="/js/player/player-edit-form.js"></script>
+    <script src="/js/player/player-claims.js"></script>
+    <script src="/js/player/player-dice.js"></script>
+    <script src="/js/player/player-session-tracker.js"></script>
+    <script src="/js/player/player-shadows.js"></script>
 </body>
 </html>

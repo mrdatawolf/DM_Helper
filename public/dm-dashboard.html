@@ -124,6 +124,9 @@
                 <h2>Campaign Sessions</h2>
                 <button class="btn-primary" onclick="showCreateSessionModal()">+ Create Session</button>
             </div>
+            <div id="dm-scenes-panel">
+                <!-- Player scene drafts awaiting review -->
+            </div>
             <div id="sessions-list">
                 <!-- Sessions will be loaded here -->
             </div>
@@ -249,6 +252,16 @@
             }
         })();
     </script>
-    <script src="/js/app.js"></script>
+    <!-- DM dashboard scripts (load order matters: shared state/helpers first) -->
+    <script src="/js/toast.js"></script>
+    <script src="/js/dm/dm-core.js"></script>
+    <script src="/js/dm/dm-lists.js"></script>
+    <script src="/js/dm/dm-modals.js"></script>
+    <script src="/js/dm/dm-journal.js"></script>
+    <script src="/js/dm/dm-editors.js"></script>
+    <script src="/js/dm/dm-claims.js"></script>
+    <script src="/js/dm/dm-primal-patterns.js"></script>
+    <script src="/js/dm/dm-story-arcs.js"></script>
+    <script src="/js/dm/dm-scenes-combats.js"></script>
 </body>
 </html>

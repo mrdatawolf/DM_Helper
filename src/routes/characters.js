@@ -1,10 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const { getDatabase } = require('../database/connection');
-const { optionalAuth, authenticate, requireDM } = require('../middleware/auth');
+const { authenticate } = require('../middleware/auth');
+
+// Owner, DM, or admin may modify a character
+function canModifyCharacter(reqUser, character) {
+    return reqUser.isDM || reqUser.isAdmin || character.user_id === reqUser.userId;
+}
 
 // Get all characters
-router.get('/', (req, res) => {
+router.get('/', authenticate, (req, res) => {
     try {
         const db = getDatabase();
         const characters = db.prepare(`
@@ -25,7 +30,7 @@ router.get('/', (req, res) => {
 });
 
 // Get single character by ID
-router.get('/:id', (req, res) => {
+router.get('/:id', authenticate, (req, res) => {
     try {
         const db = getDatabase();
         const character = db.prepare(`
@@ -72,11 +77,11 @@ router.get('/:id', (req, res) => {
 });
 
 // Create new character
-router.post('/', optionalAuth, (req, res) => {
+router.post('/', authenticate, (req, res) => {
     try {
         const db = getDatabase();
         const {
-            name, race, class_type, level = 1,
+            name, player_name = null, race, species, class_type, level = 1,
             strength = 10, dexterity = 10, constitution = 10,
             intelligence = 10, wisdom = 10, charisma = 10,
             max_hp = 10, current_hp = 10,
@@ -84,47 +89,49 @@ router.post('/', optionalAuth, (req, res) => {
             pattern_imprint = null, pattern_type = null,
             logrus_imprint = null, blood_purity = 'None',
             trump_artist = 0, broken_imprint = 0, backstory = null,
+            character_notes = null,
             amber_flaws = null, amber_traits = null,
-            shadow_origin_id = null,
-            user_id = null
+            shadow_origin_id = null
         } = req.body;
 
+        // Accept legacy "race" as an alias for species
+        const finalSpecies = species || race;
+
         // Validate required fields
-        if (!name || !race || !class_type) {
-            return res.status(400).json({ error: 'Name, race, and class_type are required' });
+        if (!name || !finalSpecies || !class_type) {
+            return res.status(400).json({ error: 'Name, species, and class_type are required' });
         }
 
-        // If user is authenticated, use their user_id
-        const finalUserId = req.user ? req.user.userId : user_id;
+        const finalUserId = req.user.userId;
 
-        // Derive has_pattern / has_logrus booleans and mastery levels from wizard values
+        // Derive imprint booleans and mastery levels from wizard values
         const hasPattern = pattern_imprint ? 1 : 0;
         const hasLogrus  = logrus_imprint  ? 1 : 0;
         const logrusLevel = { Basic: 1, Advanced: 2, Master: 3 }[logrus_imprint] ?? 0;
 
         const stmt = db.prepare(`
             INSERT INTO characters (
-                name, race, class, level,
+                name, player_name, species, class_type, level,
                 strength, dexterity, constitution, intelligence, wisdom, charisma,
-                max_hit_points, current_hit_points,
-                order_chaos_balance,
-                has_pattern_imprint, pattern_type,
-                has_logrus_imprint, logrus_mastery_level,
-                blood_purity, has_trump_artistry, broken_imprint,
-                character_notes, amber_flaws, amber_traits,
+                max_hp, current_hp,
+                order_chaos_value,
+                pattern_imprint, pattern_type,
+                logrus_imprint, logrus_mastery_level,
+                blood_purity, trump_artist, broken_imprint,
+                backstory, character_notes, amber_flaws, amber_traits,
                 shadow_origin_id, user_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         const result = stmt.run(
-            name, race, class_type, level,
+            name, player_name, finalSpecies, class_type, level,
             strength, dexterity, constitution, intelligence, wisdom, charisma,
             max_hp, current_hp,
             order_chaos_value,
             hasPattern, pattern_type,
             hasLogrus, logrusLevel,
             blood_purity, trump_artist ? 1 : 0, broken_imprint ? 1 : 0,
-            backstory,
+            backstory, character_notes,
             amber_flaws ? JSON.stringify(amber_flaws) : null,
             amber_traits ? JSON.stringify(amber_traits) : null,
             shadow_origin_id || null,
@@ -147,15 +154,18 @@ router.post('/', optionalAuth, (req, res) => {
 });
 
 // Update character
-router.put('/:id', (req, res) => {
+router.put('/:id', authenticate, (req, res) => {
     try {
         const db = getDatabase();
         const characterId = req.params.id;
 
         // Check if character exists
-        const existing = db.prepare('SELECT id FROM characters WHERE id = ?').get(characterId);
+        const existing = db.prepare('SELECT id, user_id FROM characters WHERE id = ?').get(characterId);
         if (!existing) {
             return res.status(404).json({ error: 'Character not found' });
+        }
+        if (!canModifyCharacter(req.user, existing)) {
+            return res.status(403).json({ error: 'You do not have permission to edit this character' });
         }
 
         // Build dynamic update query based on provided fields
@@ -164,7 +174,7 @@ router.put('/:id', (req, res) => {
 
         const allowedFields = [
             // Basic Info
-            'name', 'player_name', 'race', 'species', 'class', 'class_type', 'subclass', 'level', 'background', 'alignment', 'size', 'speed',
+            'name', 'player_name', 'species', 'class_type', 'subclass', 'level', 'background', 'alignment', 'size', 'speed',
 
             // Ability Scores
             'strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma',
@@ -179,7 +189,7 @@ router.put('/:id', (req, res) => {
             'skill_sleight_of_hand', 'skill_stealth', 'skill_survival',
 
             // Combat & HP
-            'armor_class', 'max_hp', 'max_hit_points', 'current_hp', 'current_hit_points', 'temp_hit_points',
+            'armor_class', 'max_hp', 'current_hp', 'temp_hit_points',
             'hit_dice_total', 'hit_dice_current', 'death_save_successes', 'death_save_failures',
             'proficiency_bonus', 'initiative_bonus', 'passive_perception', 'heroic_inspiration',
 
@@ -206,11 +216,11 @@ router.put('/:id', (req, res) => {
             'attunement_slots_used', 'attunement_slots_max',
 
             // Amber-specific
-            'shadow_origin_id', 'blood_purity', 'order_chaos_value', 'order_chaos_balance',
-            'pattern_imprint', 'has_pattern_imprint', 'pattern_type',
-            'logrus_imprint', 'has_logrus_imprint',
-            'pattern_mastery_level', 'logrus_mastery_level', 'trump_artist', 'has_trump_artistry', 'trump_mastery_level',
-            'amber_flaws', 'amber_traits',
+            'shadow_origin_id', 'blood_purity', 'order_chaos_value',
+            'pattern_imprint', 'pattern_type',
+            'logrus_imprint',
+            'pattern_mastery_level', 'logrus_mastery_level', 'trump_artist', 'trump_mastery_level',
+            'amber_flaws', 'amber_traits', 'broken_imprint',
 
             // Other
             'feat_pool', 'total_feats_earned', 'experience_points', 'points_to_next_level',
@@ -242,15 +252,18 @@ router.put('/:id', (req, res) => {
 });
 
 // Delete character
-router.delete('/:id', (req, res) => {
+router.delete('/:id', authenticate, (req, res) => {
     try {
         const db = getDatabase();
-        const result = db.prepare('DELETE FROM characters WHERE id = ?').run(req.params.id);
-
-        if (result.changes === 0) {
+        const existing = db.prepare('SELECT id, user_id FROM characters WHERE id = ?').get(req.params.id);
+        if (!existing) {
             return res.status(404).json({ error: 'Character not found' });
         }
+        if (!canModifyCharacter(req.user, existing)) {
+            return res.status(403).json({ error: 'You do not have permission to delete this character' });
+        }
 
+        db.prepare('DELETE FROM characters WHERE id = ?').run(req.params.id);
         res.json({ message: 'Character deleted successfully' });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -258,9 +271,17 @@ router.delete('/:id', (req, res) => {
 });
 
 // Add gear to character
-router.post('/:id/gear', (req, res) => {
+router.post('/:id/gear', authenticate, (req, res) => {
     try {
         const db = getDatabase();
+        const character = db.prepare('SELECT id, user_id FROM characters WHERE id = ?').get(req.params.id);
+        if (!character) {
+            return res.status(404).json({ error: 'Character not found' });
+        }
+        if (!canModifyCharacter(req.user, character)) {
+            return res.status(403).json({ error: 'You do not have permission to modify this character' });
+        }
+
         const { item_name, item_type, description, quantity = 1, is_equipped = 0, magical_properties } = req.body;
 
         if (!item_name) {
@@ -281,11 +302,73 @@ router.post('/:id/gear', (req, res) => {
     }
 });
 
-// Add power/ability to character
-router.post('/:id/powers', (req, res) => {
+// Update a gear item (owner or DM)
+router.put('/:id/gear/:gearId', authenticate, (req, res) => {
     try {
         const db = getDatabase();
-        const { power_name, power_type, description, power_level = 1, uses_per_day, current_uses } = req.body;
+        const character = db.prepare('SELECT id, user_id FROM characters WHERE id = ?').get(req.params.id);
+        if (!character) return res.status(404).json({ error: 'Character not found' });
+        if (!canModifyCharacter(req.user, character)) {
+            return res.status(403).json({ error: 'You do not have permission to modify this character' });
+        }
+        const gear = db.prepare('SELECT id FROM character_gear WHERE id = ? AND character_id = ?').get(req.params.gearId, req.params.id);
+        if (!gear) return res.status(404).json({ error: 'Gear item not found' });
+
+        const allowed = ['item_name', 'item_type', 'description', 'quantity', 'is_equipped', 'magical_properties'];
+        const updates = [];
+        const values = [];
+        for (const field of allowed) {
+            if (req.body.hasOwnProperty(field)) {
+                updates.push(`${field} = ?`);
+                values.push(field === 'is_equipped' ? (req.body[field] ? 1 : 0) : req.body[field]);
+            }
+        }
+        if (!updates.length) return res.status(400).json({ error: 'No valid fields to update' });
+
+        values.push(req.params.gearId);
+        db.prepare(`UPDATE character_gear SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+        res.json(db.prepare('SELECT * FROM character_gear WHERE id = ?').get(req.params.gearId));
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Delete a gear item (owner or DM)
+router.delete('/:id/gear/:gearId', authenticate, (req, res) => {
+    try {
+        const db = getDatabase();
+        const character = db.prepare('SELECT id, user_id FROM characters WHERE id = ?').get(req.params.id);
+        if (!character) return res.status(404).json({ error: 'Character not found' });
+        if (!canModifyCharacter(req.user, character)) {
+            return res.status(403).json({ error: 'You do not have permission to modify this character' });
+        }
+        const result = db.prepare('DELETE FROM character_gear WHERE id = ? AND character_id = ?').run(req.params.gearId, req.params.id);
+        if (result.changes === 0) return res.status(404).json({ error: 'Gear item not found' });
+        res.json({ message: 'Gear item deleted' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Powers are earned at the table: only the DM grants, edits, or revokes them.
+// Players track their own uses (current_uses) and can take a long rest.
+function requireDMUser(req, res) {
+    if (!req.user.isDM && !req.user.isAdmin) {
+        res.status(403).json({ error: 'Powers are granted by the DM' });
+        return false;
+    }
+    return true;
+}
+
+// Grant a power (DM only)
+router.post('/:id/powers', authenticate, (req, res) => {
+    try {
+        if (!requireDMUser(req, res)) return;
+        const db = getDatabase();
+        const character = db.prepare('SELECT id FROM characters WHERE id = ?').get(req.params.id);
+        if (!character) return res.status(404).json({ error: 'Character not found' });
+
+        const { power_name, power_type, description, power_level = 1, uses_per_day = null, current_uses = null } = req.body;
 
         if (!power_name) {
             return res.status(400).json({ error: 'Power name is required' });
@@ -296,10 +379,79 @@ router.post('/:id/powers', (req, res) => {
             VALUES (?, ?, ?, ?, ?, ?, ?)
         `);
 
-        const result = stmt.run(req.params.id, power_name, power_type, description, power_level, uses_per_day, current_uses);
+        const result = stmt.run(req.params.id, power_name, power_type, description, power_level, uses_per_day, current_uses ?? uses_per_day);
         const newPower = db.prepare('SELECT * FROM character_powers WHERE id = ?').get(result.lastInsertRowid);
 
         res.status(201).json(newPower);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Update a power. DM: everything. Owner: current_uses only (spending uses).
+router.put('/:id/powers/:powerId', authenticate, (req, res) => {
+    try {
+        const db = getDatabase();
+        const character = db.prepare('SELECT id, user_id FROM characters WHERE id = ?').get(req.params.id);
+        if (!character) return res.status(404).json({ error: 'Character not found' });
+        if (!canModifyCharacter(req.user, character)) {
+            return res.status(403).json({ error: 'You do not have permission to modify this character' });
+        }
+        const power = db.prepare('SELECT id FROM character_powers WHERE id = ? AND character_id = ?').get(req.params.powerId, req.params.id);
+        if (!power) return res.status(404).json({ error: 'Power not found' });
+
+        const dm = req.user.isDM || req.user.isAdmin;
+        const allowed = dm
+            ? ['power_name', 'power_type', 'description', 'power_level', 'uses_per_day', 'current_uses']
+            : ['current_uses'];
+
+        const updates = [];
+        const values = [];
+        for (const field of allowed) {
+            if (req.body.hasOwnProperty(field)) {
+                updates.push(`${field} = ?`);
+                values.push(req.body[field]);
+            }
+        }
+        if (!updates.length) return res.status(400).json({ error: 'No valid fields to update' });
+
+        values.push(req.params.powerId);
+        db.prepare(`UPDATE character_powers SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+        res.json(db.prepare('SELECT * FROM character_powers WHERE id = ?').get(req.params.powerId));
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Long rest: reset all limited-use powers to full (owner or DM)
+router.post('/:id/powers/rest', authenticate, (req, res) => {
+    try {
+        const db = getDatabase();
+        const character = db.prepare('SELECT id, user_id FROM characters WHERE id = ?').get(req.params.id);
+        if (!character) return res.status(404).json({ error: 'Character not found' });
+        if (!canModifyCharacter(req.user, character)) {
+            return res.status(403).json({ error: 'You do not have permission to modify this character' });
+        }
+
+        db.prepare(`
+            UPDATE character_powers SET current_uses = uses_per_day
+            WHERE character_id = ? AND uses_per_day IS NOT NULL
+        `).run(req.params.id);
+
+        res.json(db.prepare('SELECT * FROM character_powers WHERE character_id = ?').all(req.params.id));
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Revoke a power (DM only)
+router.delete('/:id/powers/:powerId', authenticate, (req, res) => {
+    try {
+        if (!requireDMUser(req, res)) return;
+        const db = getDatabase();
+        const result = db.prepare('DELETE FROM character_powers WHERE id = ? AND character_id = ?').run(req.params.powerId, req.params.id);
+        if (result.changes === 0) return res.status(404).json({ error: 'Power not found' });
+        res.json({ message: 'Power revoked' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
