@@ -10,6 +10,48 @@ function showModal(title, content) {
     document.getElementById('modal-overlay').classList.add('active');
 }
 
+// Deep lore viewer (reads Background Information/DM Info/{shadow name}.md)
+function renderLoreMarkdown(md) {
+    const lines = escHtml(md).split('\n');
+    let html = '';
+    let inList = false;
+    for (const line of lines) {
+        const heading = line.match(/^(#{1,3})\s+(.*)/);
+        const listItem = line.match(/^\d+\.\s+\*\*(.*?)\*\*\s*—\s*(.*)|^\d+\.\s+(.*)/);
+        if (heading) {
+            if (inList) { html += '</ul>'; inList = false; }
+            const level = heading[1].length + 2; // h3..h5
+            html += `<h${level}>${heading[2]}</h${level}>`;
+        } else if (listItem) {
+            if (!inList) { html += '<ul>'; inList = true; }
+            const text = listItem[1] ? `<strong>${listItem[1]}</strong> — ${listItem[2]}` : listItem[3];
+            html += `<li>${text}</li>`;
+        } else if (line.trim() === '') {
+            if (inList) { html += '</ul>'; inList = false; }
+        } else {
+            if (inList) { html += '</ul>'; inList = false; }
+            const withBold = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>');
+            html += `<p>${withBold}</p>`;
+        }
+    }
+    if (inList) html += '</ul>';
+    return html;
+}
+
+async function viewShadowLore(id, name) {
+    try {
+        const response = await fetch(`${API_BASE}/shadows/${id}/lore`);
+        if (!response.ok) {
+            showToast('No detailed lore written for this shadow yet.');
+            return;
+        }
+        const data = await response.json();
+        showModal(name, `<div class="lore-content">${renderLoreMarkdown(data.content)}</div>`);
+    } catch (err) {
+        showToast(`Failed to load lore: ${err.message}`);
+    }
+}
+
 // Create Character Modal
 function showCreateCharacterModal() {
     const shadowOptions = shadows.map(s => `<option value="${s.id}">${escHtml(s.name)}</option>`).join('');

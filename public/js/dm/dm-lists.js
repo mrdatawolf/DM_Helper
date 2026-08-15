@@ -107,6 +107,7 @@ function renderShadows() {
     container.innerHTML = filtered.map(shadow => {
         const infLabel = patternInfluenceLabel(shadow.pattern_influence) || shadow.pattern_influence || 'None';
         const cardStyle = shadowInfluenceCardStyle(shadow.pattern_influence);
+        const canModify = !!currentUser && (currentUser.is_super_admin || shadow.created_by === currentUser.id);
         return `
         <div class="card" style="${cardStyle}">
             <h3>${escHtml(shadow.name)}</h3>
@@ -122,15 +123,16 @@ function renderShadows() {
             ${shadow.corruption_status ? `<p><strong>Corruption:</strong> ${escHtml(shadow.corruption_status)}</p>` : ''}
             <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
                 ${shadow.is_starting_shadow ? '<span class="badge badge-starting">Starting World</span>' : ''}
-                <span class="badge" style="background:${shadow.is_spoiler ? 'rgba(142,68,173,0.2);color:#8e44ad' : 'rgba(0,0,0,0.07);color:#888'};cursor:pointer"
-                    onclick="toggleShadowSpoiler(${shadow.id}, ${shadow.is_spoiler ? 0 : 1})"
-                    title="${shadow.is_spoiler ? 'Click to remove spoiler flag' : 'Click to mark as spoiler'}">
+                <span class="badge" style="background:${shadow.is_spoiler ? 'rgba(142,68,173,0.2);color:#8e44ad' : 'rgba(0,0,0,0.07);color:#888'};${canModify ? 'cursor:pointer' : ''}"
+                    ${canModify ? `onclick="toggleShadowSpoiler(${shadow.id}, ${shadow.is_spoiler ? 0 : 1})"` : ''}
+                    title="${canModify ? (shadow.is_spoiler ? 'Click to remove spoiler flag' : 'Click to mark as spoiler') : (shadow.is_spoiler ? 'Spoiler' : 'Not spoiler')}">
                     ${shadow.is_spoiler ? '🔒 Spoiler' : '🔓 Not Spoiler'}
                 </span>
             </div>
             <div style="margin-top:10px">
-                <button class="btn-secondary" onclick="editShadow(${shadow.id})">Edit</button>
-                <button class="btn-secondary btn-danger" onclick="deleteShadow(${shadow.id})">Delete</button>
+                <button class="btn-secondary" onclick="viewShadowLore(${shadow.id}, '${escHtml(shadow.name).replace(/'/g, "\\'")}')">View Full Lore</button>
+                ${canModify ? `<button class="btn-secondary" onclick="editShadow(${shadow.id})">Edit</button>` : ''}
+                ${canModify ? `<button class="btn-secondary btn-danger" onclick="deleteShadow(${shadow.id})">Delete</button>` : ''}
             </div>
         </div>`;
     }).join('');

@@ -70,7 +70,8 @@ router.post('/register', async (req, res) => {
                 username: user.username,
                 email: email || null,
                 is_dm: user.is_dm,
-                is_admin: user.username === 'admin'
+                is_admin: user.username === 'admin',
+                is_super_admin: !!user.is_super_admin
             },
             token
         });
@@ -132,7 +133,8 @@ router.post('/login', async (req, res) => {
                 username: user.username,
                 email: user.email,
                 is_dm: user.is_dm,
-                is_admin: user.username === 'admin'
+                is_admin: user.username === 'admin',
+                is_super_admin: !!user.is_super_admin
             },
             token
         });
@@ -161,7 +163,7 @@ router.get('/me', authenticate, (req, res) => {
         const db = getDatabase();
         // req.user is set by authenticate middleware
         const user = db.prepare(`
-            SELECT id, username, email, is_dm, created_at, last_login
+            SELECT id, username, email, is_dm, is_super_admin, created_at, last_login
             FROM users
             WHERE id = ?
         `).get(req.user.userId);
@@ -170,7 +172,7 @@ router.get('/me', authenticate, (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        res.json({ user: { ...user, is_admin: user.username === 'admin' } });
+        res.json({ user: { ...user, is_admin: user.username === 'admin', is_super_admin: !!user.is_super_admin } });
 
     } catch (error) {
         console.error('Get user error:', error);

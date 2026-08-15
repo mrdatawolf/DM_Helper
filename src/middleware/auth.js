@@ -17,7 +17,8 @@ function generateToken(user) {
             userId: user.id,
             username: user.username,
             isDM: user.is_dm,
-            isAdmin: user.username === 'admin'
+            isAdmin: user.username === 'admin',
+            isSuperAdmin: !!user.is_super_admin
         },
         JWT_SECRET,
         { expiresIn: JWT_EXPIRES_IN }
@@ -65,7 +66,8 @@ function authenticate(req, res, next) {
         userId: decoded.userId,
         username: decoded.username,
         isDM: decoded.isDM,
-        isAdmin: decoded.isAdmin || false
+        isAdmin: decoded.isAdmin || false,
+        isSuperAdmin: decoded.isSuperAdmin || false
     };
 
     next();
@@ -92,7 +94,8 @@ function optionalAuth(req, res, next) {
                 userId: decoded.userId,
                 username: decoded.username,
                 isDM: decoded.isDM,
-                isAdmin: decoded.isAdmin || false
+                isAdmin: decoded.isAdmin || false,
+                isSuperAdmin: decoded.isSuperAdmin || false
             };
         }
     }

@@ -1,7 +1,32 @@
 const express = require('express');
 const router = express.Router();
+const fs = require('fs');
+const path = require('path');
 const { getDatabase } = require('../database/connection');
-const { authenticate, requireDM } = require('../middleware/auth');
+const { authenticate } = require('../middleware/auth');
+
+const LORE_DIR = path.join(__dirname, '..', '..', 'Background Information', 'DM Info');
+
+// Get a shadow's deep lore markdown, if a file matching its name exists
+router.get('/:id/lore', (req, res) => {
+    try {
+        const db = getDatabase();
+        const shadow = db.prepare('SELECT name FROM shadows WHERE id = ?').get(req.params.id);
+        if (!shadow) {
+            return res.status(404).json({ error: 'Shadow not found' });
+        }
+
+        const lorePath = path.resolve(LORE_DIR, `${shadow.name}.md`);
+        if (!lorePath.startsWith(LORE_DIR) || !fs.existsSync(lorePath)) {
+            return res.status(404).json({ error: 'No lore file for this shadow' });
+        }
+
+        const content = fs.readFileSync(lorePath, 'utf8');
+        res.json({ name: shadow.name, content });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
 
 // Get all shadows
 router.get('/', (req, res) => {
@@ -65,7 +90,7 @@ router.get('/:id', (req, res) => {
 
         // Get characters currently in this shadow
         const characters = db.prepare(`
-            SELECT id, name, player_name, race, class, level
+            SELECT id, name, player_name, species, class_type, level
             FROM characters
             WHERE current_shadow_id = ?
         `).all(req.params.id);
@@ -105,11 +130,11 @@ router.post('/', authenticate, (req, res) => {
         }
 
         const stmt = db.prepare(`
-            INSERT INTO shadows (name, description, order_level, chaos_level, dream_level, pattern_influence, corruption_status, is_starting_shadow)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO shadows (name, description, order_level, chaos_level, dream_level, pattern_influence, corruption_status, is_starting_shadow, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
-        const result = stmt.run(name, description, order_level, chaos_level, dream_level, pattern_influence, corruption_status, is_starting_shadow ? 1 : 0);
+        const result = stmt.run(name, description, order_level, chaos_level, dream_level, pattern_influence, corruption_status, is_starting_shadow ? 1 : 0, req.user.userId);
         const newShadow = db.prepare('SELECT * FROM shadows WHERE id = ?').get(result.lastInsertRowid);
 
         res.status(201).json(newShadow);
@@ -119,14 +144,18 @@ router.post('/', authenticate, (req, res) => {
 });
 
 // Update shadow
-router.put('/:id', authenticate, requireDM, (req, res) => {
+router.put('/:id', authenticate, (req, res) => {
     try {
         const db = getDatabase();
         const shadowId = req.params.id;
 
-        const existing = db.prepare('SELECT id FROM shadows WHERE id = ?').get(shadowId);
+        const existing = db.prepare('SELECT id, created_by FROM shadows WHERE id = ?').get(shadowId);
         if (!existing) {
             return res.status(404).json({ error: 'Shadow not found' });
+        }
+
+        if (existing.created_by !== req.user.userId && !req.user.isSuperAdmin) {
+            return res.status(403).json({ error: 'Only this shadow\'s creator or a super admin can edit it' });
         }
 
         const updateFields = [];
@@ -159,9 +188,19 @@ router.put('/:id', authenticate, requireDM, (req, res) => {
 });
 
 // Delete shadow
-router.delete('/:id', authenticate, requireDM, (req, res) => {
+router.delete('/:id', authenticate, (req, res) => {
     try {
         const db = getDatabase();
+
+        const existing = db.prepare('SELECT id, created_by FROM shadows WHERE id = ?').get(req.params.id);
+        if (!existing) {
+            return res.status(404).json({ error: 'Shadow not found' });
+        }
+
+        if (existing.created_by !== req.user.userId && !req.user.isSuperAdmin) {
+            return res.status(403).json({ error: 'Only this shadow\'s creator or a super admin can delete it' });
+        }
+
         const result = db.prepare('DELETE FROM shadows WHERE id = ?').run(req.params.id);
 
         if (result.changes === 0) {

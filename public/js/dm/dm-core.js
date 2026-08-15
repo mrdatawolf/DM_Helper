@@ -3,6 +3,7 @@
 const API_BASE = '/api';
 
 // State
+let currentUser = JSON.parse(localStorage.getItem('user') || 'null');
 let characters = [];
 let shadows = [];
 let shadowActiveFilter = 'All';
