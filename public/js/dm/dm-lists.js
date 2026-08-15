@@ -120,13 +120,38 @@ function renderShadows() {
                 <div class="${shadowBarClass(shadow)}" style="${shadowBalanceBar(shadow)}"></div>
             </div>
             ${shadow.corruption_status ? `<p><strong>Corruption:</strong> ${escHtml(shadow.corruption_status)}</p>` : ''}
-            ${shadow.is_starting_shadow ? '<span class="badge badge-starting">Starting World</span>' : ''}
-            <div style="margin-top:15px">
+            <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+                ${shadow.is_starting_shadow ? '<span class="badge badge-starting">Starting World</span>' : ''}
+                <span class="badge" style="background:${shadow.is_spoiler ? 'rgba(142,68,173,0.2);color:#8e44ad' : 'rgba(0,0,0,0.07);color:#888'};cursor:pointer"
+                    onclick="toggleShadowSpoiler(${shadow.id}, ${shadow.is_spoiler ? 0 : 1})"
+                    title="${shadow.is_spoiler ? 'Click to remove spoiler flag' : 'Click to mark as spoiler'}">
+                    ${shadow.is_spoiler ? '🔒 Spoiler' : '🔓 Not Spoiler'}
+                </span>
+            </div>
+            <div style="margin-top:10px">
                 <button class="btn-secondary" onclick="editShadow(${shadow.id})">Edit</button>
                 <button class="btn-secondary btn-danger" onclick="deleteShadow(${shadow.id})">Delete</button>
             </div>
         </div>`;
     }).join('');
+}
+
+async function toggleShadowSpoiler(shadowId, newValue) {
+    const token = localStorage.getItem('token');
+    try {
+        const res = await fetch(`${API_BASE}/shadows/${shadowId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ is_spoiler: newValue })
+        });
+        if (!res.ok) throw new Error('Failed to update shadow');
+        const updated = await res.json();
+        const idx = shadows.findIndex(s => s.id === shadowId);
+        if (idx !== -1) shadows[idx] = { ...shadows[idx], is_spoiler: updated.is_spoiler };
+        renderShadows();
+    } catch (err) {
+        console.error('Error toggling shadow spoiler:', err);
+    }
 }
 
 function setShadowFilter(filter, btn) {

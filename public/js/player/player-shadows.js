@@ -18,27 +18,34 @@ async function loadVisitedShadows() {
         if (currentCharacter.shadow_origin_id) {
             fetches.push(fetch(`/api/shadows/${currentCharacter.shadow_origin_id}`));
         }
-        const [visitedRes, originRes] = await Promise.all(fetches);
+        const currentIsDifferent = currentCharacter.current_shadow_id &&
+            currentCharacter.current_shadow_id !== currentCharacter.shadow_origin_id;
+        if (currentIsDifferent) {
+            fetches.push(fetch(`/api/shadows/${currentCharacter.current_shadow_id}`));
+        }
+        const [visitedRes, originRes, currentRes] = await Promise.all(fetches);
         if (!visitedRes.ok) throw new Error('Failed to load visited shadows');
         const visited = await visitedRes.json();
         const originShadow = originRes ? await originRes.json() : null;
-        renderVisitedShadows(visited, originShadow);
+        const currentShadow = currentRes ? await currentRes.json() : null;
+        renderVisitedShadows(visited, originShadow, currentShadow);
     } catch (err) {
         console.error('Error loading visited shadows:', err);
         container.innerHTML = '<div class="info-message"><p>Could not load shadow data.</p></div>';
     }
 }
 
-function renderVisitedShadows(visited, originShadow) {
+function renderVisitedShadows(visited, originShadow, currentShadow) {
     const container = document.getElementById('player-shadows-list');
     const hasOrigin = !!originShadow;
+    const hasCurrent = !!currentShadow;
 
     const addButton = !hasOrigin ? `
         <div style="margin-bottom:20px">
             <button class="btn-secondary" onclick="showAddKnownShadowPanel()">+ Add Known Shadow</button>
         </div>` : '';
 
-    if (!hasOrigin && !visited.length) {
+    if (!hasOrigin && !hasCurrent && !visited.length) {
         container.innerHTML = `
             ${addButton}
             <div class="info-message"><p>No shadows have left their mark on this character yet. Participate in sessions to begin feeling the worlds you pass through.</p></div>`;
@@ -46,9 +53,16 @@ function renderVisitedShadows(visited, originShadow) {
     }
 
     const originCard = hasOrigin ? renderOriginShadowCard(originShadow) : '';
+    const currentCard = hasCurrent ? renderCurrentShadowCard(currentShadow) : '';
 
+    const pinnedIds = new Set([
+        hasOrigin ? originShadow.id : null,
+        hasCurrent ? currentShadow.id : null,
+    ].filter(Boolean));
+
+    const showSpoilers = localStorage.getItem('showSpoilers') === 'true';
     const visitedCards = visited
-        .filter(s => !hasOrigin || s.id !== originShadow.id)
+        .filter(s => !pinnedIds.has(s.id))
         .map(s => {
             const style = visitedShadowCardStyle(s.pattern_influence);
             const infLabel = visitedInfluenceLabel(s.pattern_influence);
@@ -57,7 +71,7 @@ function renderVisitedShadows(visited, originShadow) {
             const firstDate = s.first_visit_date ? new Date(s.first_visit_date).toLocaleDateString() : '—';
             const lastDate  = s.last_visit_date  ? new Date(s.last_visit_date).toLocaleDateString()  : '—';
             const visitText = s.visit_count === 1 ? '1 session' : `${s.visit_count} sessions`;
-            return `
+            const card = `
             <div class="shadow-player-card" style="${style}">
                 <h3>${escHtmlP(s.name)}</h3>
                 <span class="shadow-depth-badge">${depth.label}</span>
@@ -77,9 +91,20 @@ function renderVisitedShadows(visited, originShadow) {
                     <span>${visitText}</span>
                 </div>
             </div>`;
+            if (s.is_spoiler && !showSpoilers) {
+                return `
+                <div class="spoiler-card-wrapper">
+                    ${card}
+                    <div class="spoiler-overlay">
+                        <span class="spoiler-label">Spoiler</span>
+                        <button class="btn-spoiler-toggle" onclick="enableSpoilers()">Reveal</button>
+                    </div>
+                </div>`;
+            }
+            return card;
         }).join('');
 
-    container.innerHTML = addButton + originCard + visitedCards;
+    container.innerHTML = addButton + originCard + currentCard + visitedCards;
 }
 
 function renderOriginShadowCard(s) {
@@ -91,6 +116,28 @@ function renderOriginShadowCard(s) {
         <h3>${escHtmlP(s.name)}</h3>
         <span class="shadow-depth-badge" style="background:rgba(184,134,11,0.3);color:#c8a000">Home Shadow</span>
         <p class="shadow-depth-flavor">This is where your story began.</p>
+        ${s.description ? `<p class="shadow-desc">${escHtmlP(s.description)}</p>` : ''}
+        <div style="display:flex;align-items:center;gap:10px;margin:8px 0">
+            <span class="shadow-influence-tag">${escHtmlP(infLabel)}</span>
+            ${s.corruption_status ? `<span style="font-size:0.8rem;color:#c0392b;font-style:italic">${escHtmlP(s.corruption_status)}</span>` : ''}
+        </div>
+        ${(s.order_level || s.chaos_level || s.dream_level) ? `
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <span style="font-size:0.8rem;color:#888;white-space:nowrap">${visitedBarLabel(s)}</span>
+            <div style="flex:1;height:7px;border-radius:4px;overflow:hidden;${balanceBar}"></div>
+        </div>` : ''}
+    </div>`;
+}
+
+function renderCurrentShadowCard(s) {
+    const style = visitedShadowCardStyle(s.pattern_influence);
+    const infLabel = visitedInfluenceLabel(s.pattern_influence);
+    const balanceBar = visitedBalanceBar(s);
+    return `
+    <div class="shadow-player-card" style="${style}border-top:3px solid #2980b9;">
+        <h3>${escHtmlP(s.name)}</h3>
+        <span class="shadow-depth-badge" style="background:rgba(41,128,185,0.2);color:#2980b9">Current Location</span>
+        <p class="shadow-depth-flavor">Your character is here now.</p>
         ${s.description ? `<p class="shadow-desc">${escHtmlP(s.description)}</p>` : ''}
         <div style="display:flex;align-items:center;gap:10px;margin:8px 0">
             <span class="shadow-influence-tag">${escHtmlP(infLabel)}</span>
@@ -208,6 +255,28 @@ function visitedShadowCardStyle(val) {
 
 function visitedBarLabel(s) {
     return (s.dream_level || 0) > 0 ? 'Order/Dream/Chaos:' : 'Order/Chaos:';
+}
+
+function syncSpoilerButton() {
+    const btn = document.getElementById('spoilers-toggle-btn');
+    if (!btn) return;
+    const on = localStorage.getItem('showSpoilers') === 'true';
+    btn.textContent = on ? 'Show Spoilers: On' : 'Show Spoilers: Off';
+    btn.style.borderColor = on ? '#8e44ad' : '';
+    btn.style.color = on ? '#8e44ad' : '';
+}
+
+function toggleSpoilers() {
+    const on = localStorage.getItem('showSpoilers') === 'true';
+    localStorage.setItem('showSpoilers', on ? 'false' : 'true');
+    syncSpoilerButton();
+    loadVisitedShadows();
+}
+
+function enableSpoilers() {
+    localStorage.setItem('showSpoilers', 'true');
+    syncSpoilerButton();
+    loadVisitedShadows();
 }
 
 function visitedBalanceBar(s) {

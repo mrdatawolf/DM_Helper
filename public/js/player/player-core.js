@@ -94,6 +94,7 @@ function switchTab(tabName) {
     } else if (tabName === 'progress' && currentCharacter) {
         loadProgress();
     } else if (tabName === 'shadows') {
+        syncSpoilerButton();
         loadVisitedShadows();
     } else if (tabName === 'sessions') {
         loadStoryTimeline();

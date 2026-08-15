@@ -32,7 +32,7 @@ router.get('/character/:characterId/visited', authenticate, (req, res) => {
             SELECT
                 s.id, s.name, s.description,
                 s.order_level, s.chaos_level, s.dream_level,
-                s.pattern_influence, s.corruption_status, s.is_starting_shadow,
+                s.pattern_influence, s.corruption_status, s.is_starting_shadow, s.is_spoiler,
                 COUNT(DISTINCT cp.session_id)  AS visit_count,
                 MIN(cs.session_date)           AS first_visit_date,
                 MAX(cs.session_date)           AS last_visit_date,
@@ -132,7 +132,7 @@ router.put('/:id', authenticate, requireDM, (req, res) => {
         const updateFields = [];
         const values = [];
 
-        const allowedFields = ['name', 'description', 'order_level', 'chaos_level', 'dream_level', 'pattern_influence', 'corruption_status', 'is_starting_shadow'];
+        const allowedFields = ['name', 'description', 'order_level', 'chaos_level', 'dream_level', 'pattern_influence', 'corruption_status', 'is_starting_shadow', 'is_spoiler'];
 
         for (const field of allowedFields) {
             if (req.body.hasOwnProperty(field)) {

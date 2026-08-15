@@ -68,6 +68,45 @@
             background: rgba(0,0,0,0.06);
         }
 
+        /* ── Spoiler system ── */
+        .spoiler-card-wrapper {
+            position: relative;
+        }
+        .spoiler-card-wrapper .shadow-player-card {
+            filter: blur(4px);
+            user-select: none;
+            pointer-events: none;
+        }
+        .spoiler-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: rgba(0,0,0,0.08);
+            border-radius: 12px;
+            z-index: 1;
+        }
+        .spoiler-label {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #8e44ad;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+        .btn-spoiler-toggle {
+            font-size: 0.8rem;
+            padding: 4px 14px;
+            border-radius: 20px;
+            border: 1px solid #8e44ad;
+            background: transparent;
+            color: #8e44ad;
+            cursor: pointer;
+        }
+        .btn-spoiler-toggle:hover { background: rgba(142,68,173,0.1); }
+
         /* ── Wizard info icons ── */
         .info-icon {
             display: inline-flex;
@@ -285,6 +324,7 @@
             <div id="shadows-tab" class="tab-content">
                 <div class="tab-header">
                     <h2>Known Shadows</h2>
+                    <button id="spoilers-toggle-btn" class="btn-secondary" onclick="toggleSpoilers()" style="font-size:0.85rem;padding:6px 14px">Show Spoilers: Off</button>
                 </div>
                 <p class="shadows-lore-note">These are worlds your character has inhabited long enough for their essence to leave a mark — more than a passing glimpse through the Pattern. Each one lives in your blood now.</p>
                 <div id="player-shadows-list" class="characters-grid">
