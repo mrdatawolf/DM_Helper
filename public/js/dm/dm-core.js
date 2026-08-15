@@ -8,6 +8,7 @@ let characters = [];
 let shadows = [];
 let shadowActiveFilter = 'All';
 let shadowSearchQuery  = '';
+let creatureActiveFilter = 'All';
 let sessions = [];
 let progress = [];
 let journalEntries = [];
@@ -95,6 +96,7 @@ async function loadNpcs() {
     try {
         const r = await fetch(`${API_BASE}/npcs`);
         npcs = await r.json();
+        if (typeof renderCreatures === 'function') renderCreatures();
     } catch (e) { console.error('Error loading npcs:', e); }
 }
 

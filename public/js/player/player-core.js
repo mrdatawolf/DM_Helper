@@ -96,6 +96,9 @@ function switchTab(tabName) {
     } else if (tabName === 'shadows') {
         syncSpoilerButton();
         loadVisitedShadows();
+    } else if (tabName === 'creatures') {
+        syncCreatureSpoilerButton();
+        loadCreatures();
     } else if (tabName === 'sessions') {
         loadStoryTimeline();
     }

@@ -76,6 +76,7 @@
         <nav class="tabs">
             <button class="tab-btn active" data-tab="characters">Characters</button>
             <button class="tab-btn" data-tab="shadows">Shadows</button>
+            <button class="tab-btn" data-tab="creatures">Creatures</button>
             <button class="tab-btn" data-tab="sessions">Sessions</button>
             <button class="tab-btn" data-tab="progress">Progress Tracking</button>
             <button class="tab-btn" data-tab="claims">Claims Rankings</button>
@@ -115,6 +116,28 @@
             </div>
             <div id="shadows-list" class="grid">
                 <!-- Shadows will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Creatures Tab -->
+        <div id="creatures-tab" class="tab-content">
+            <div class="tab-header">
+                <h2>Creatures &amp; NPCs</h2>
+                <button class="btn-primary" onclick="showCreateCreatureModal()">+ Create Creature/NPC</button>
+            </div>
+            <div class="shadow-controls">
+                <div class="shadow-filters">
+                    <button class="creature-filter-btn shadow-filter-btn active" data-filter="All" onclick="setCreatureFilter('All',this)">All</button>
+                    <button class="creature-filter-btn shadow-filter-btn" data-filter="Predator" onclick="setCreatureFilter('Predator',this)">Predator</button>
+                    <button class="creature-filter-btn shadow-filter-btn" data-filter="Ally" onclick="setCreatureFilter('Ally',this)">Ally</button>
+                    <button class="creature-filter-btn shadow-filter-btn" data-filter="Pet" onclick="setCreatureFilter('Pet',this)">Pet</button>
+                    <button class="creature-filter-btn shadow-filter-btn" data-filter="Fae" onclick="setCreatureFilter('Fae',this)">Fae</button>
+                    <button class="creature-filter-btn shadow-filter-btn" data-filter="Monster" onclick="setCreatureFilter('Monster',this)">Monster</button>
+                    <button class="creature-filter-btn shadow-filter-btn" data-filter="Other" onclick="setCreatureFilter('Other',this)">Other</button>
+                </div>
+            </div>
+            <div id="creatures-list" class="grid">
+                <!-- Creatures will be loaded here -->
             </div>
         </div>
 
