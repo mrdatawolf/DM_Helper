@@ -190,6 +190,10 @@
     display: none;
 }
 
+.nav-super-admin-only {
+    display: none;
+}
+
 /* Show based on user state (will be controlled by JavaScript) */
 body[data-user-role="dm"] .nav-dm-only {
     display: flex;
@@ -200,6 +204,10 @@ body[data-user-role="player"] .nav-player-only {
 }
 
 body[data-user-role="guest"] .nav-guest-only {
+    display: flex;
+}
+
+body[data-super-admin="true"] .nav-super-admin-only {
     display: flex;
 }
 

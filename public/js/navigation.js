@@ -53,6 +53,7 @@ async function checkAuthStatus() {
 function updateNavForUser(user) {
     const role = user.is_dm ? 'dm' : 'player';
     document.body.setAttribute('data-user-role', role);
+    document.body.setAttribute('data-super-admin', user.is_super_admin ? 'true' : 'false');
 
     const usernameEl = document.querySelector('.nav-username');
     if (usernameEl) {

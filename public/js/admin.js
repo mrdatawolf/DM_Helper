@@ -16,7 +16,7 @@ function authHeader() {
 (function() {
     token = localStorage.getItem('token');
     const user = JSON.parse(localStorage.getItem('user') || '{}');
-    if (!token || !user.is_admin) {
+    if (!token || (!user.is_admin && !user.is_super_admin)) {
         window.location.href = '/player-login.html';
         return;
     }
