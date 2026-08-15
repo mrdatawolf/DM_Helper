@@ -5,7 +5,7 @@ const path = require('path');
 const { getDatabase } = require('../database/connection');
 const { authenticate } = require('../middleware/auth');
 
-const LORE_DIR = path.join(__dirname, '..', '..', 'Background Information', 'DM Info');
+const LORE_DIR = path.join(__dirname, '..', '..', 'Shadow Lore');
 
 // Get a shadow's deep lore markdown, if a file matching its name exists
 router.get('/:id/lore', (req, res) => {
