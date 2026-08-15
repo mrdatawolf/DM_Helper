@@ -141,28 +141,49 @@ test('a DM can edit any character', async () => {
     assert.strictEqual(res.body.feat_pool, 3);
 });
 
-test('players can create shadows but only a DM can modify or delete them', async () => {
+test('shadow creators manage their own shadows and super admins can override ownership', async () => {
     const created = await api('POST', '/api/shadows', {
         token: alice.token, body: { name: 'Greenwood', description: 'A quiet forest world' }
     });
     assert.strictEqual(created.status, 201, JSON.stringify(created.body));
     shadowId = created.body.id;
 
-    const playerPut = await api('PUT', `/api/shadows/${shadowId}`, {
+    const ownerPut = await api('PUT', `/api/shadows/${shadowId}`, {
         token: alice.token, body: { name: 'Hacked' }
     });
-    assert.strictEqual(playerPut.status, 403);
+    assert.strictEqual(ownerPut.status, 200);
+    assert.strictEqual(ownerPut.body.name, 'Hacked');
+
+    const otherPlayerPut = await api('PUT', `/api/shadows/${shadowId}`, {
+        token: mallory.token, body: { name: 'Stolen' }
+    });
+    assert.strictEqual(otherPlayerPut.status, 403);
+
+    const otherPlayerDel = await api('DELETE', `/api/shadows/${shadowId}`, { token: mallory.token });
+    assert.strictEqual(otherPlayerDel.status, 403);
 
     const dmPut = await api('PUT', `/api/shadows/${shadowId}`, {
         token: dm.token, body: { description: 'A quiet forest world, touched by Pattern' }
     });
-    assert.strictEqual(dmPut.status, 200);
+    assert.strictEqual(dmPut.status, 403, 'ordinary DMs do not override shadow ownership');
 
-    const playerDel = await api('DELETE', `/api/shadows/${shadowId}`, { token: alice.token });
-    assert.strictEqual(playerDel.status, 403);
+    await register('shadowadmin');
+    getDatabase().prepare("UPDATE users SET is_super_admin = 1 WHERE username = 'shadowadmin'").run();
+    const adminLogin = await api('POST', '/api/auth/login', {
+        body: { username: 'shadowadmin', password: 'testpass123' }
+    });
+    assert.strictEqual(adminLogin.status, 200);
 
-    const dmDel = await api('DELETE', `/api/shadows/${shadowId}`, { token: dm.token });
-    assert.strictEqual(dmDel.status, 200);
+    const adminPut = await api('PUT', `/api/shadows/${shadowId}`, {
+        token: adminLogin.body.token,
+        body: { description: 'A quiet forest world, touched by Pattern' }
+    });
+    assert.strictEqual(adminPut.status, 200);
+
+    const adminDel = await api('DELETE', `/api/shadows/${shadowId}`, {
+        token: adminLogin.body.token
+    });
+    assert.strictEqual(adminDel.status, 200);
 });
 
 test('campaign-session writes are DM-only', async () => {
