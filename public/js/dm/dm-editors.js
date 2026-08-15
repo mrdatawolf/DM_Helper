@@ -411,6 +411,41 @@ async function handleEditShadow(event, id) {
     }
 }
 
+async function editCreature(id) {
+    try {
+        const response = await fetch(`${API_BASE}/npcs/${id}`);
+        if (!response.ok) throw new Error('Failed to load creature');
+        const n = await response.json();
+
+        showModal(`Edit: ${escHtml(n.name)}`, `
+            <form onsubmit="handleEditCreature(event, ${id})">
+                ${creatureFormFields(n)}
+                <button type="submit" class="btn-primary">Save Changes</button>
+            </form>
+        `);
+    } catch (err) {
+        showToast(`Failed to load creature: ${err.message}`);
+    }
+}
+
+async function handleEditCreature(event, id) {
+    event.preventDefault();
+    const data = creaturePayloadFromForm(event);
+
+    try {
+        const response = await fetch(`${API_BASE}/npcs/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        if (!response.ok) throw new Error('Failed to save creature');
+        closeModal();
+        await loadNpcs();
+    } catch (err) {
+        showToast(`Failed to save creature: ${err.message}`);
+    }
+}
+
 async function editSession(id) {
     try {
         const res = await fetch(`${API_BASE}/sessions/${id}`);

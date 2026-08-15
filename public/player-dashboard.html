@@ -68,11 +68,34 @@
             background: rgba(0,0,0,0.06);
         }
 
+        .creature-player-card {
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid rgba(0,0,0,0.08);
+            border-left-width: 4px;
+            background: #fff;
+        }
+        .creature-player-card h3 { margin: 0 0 6px; font-size: 1.15rem; }
+        .creature-player-card .creature-desc {
+            color: #555; font-size: 0.9rem; margin: 0 0 12px; line-height: 1.5;
+        }
+        .creature-role-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            background: rgba(0,0,0,0.07);
+            color: #333;
+        }
+
         /* ── Spoiler system ── */
         .spoiler-card-wrapper {
             position: relative;
         }
-        .spoiler-card-wrapper .shadow-player-card {
+        .spoiler-card-wrapper .shadow-player-card,
+        .spoiler-card-wrapper .creature-player-card {
             filter: blur(4px);
             user-select: none;
             pointer-events: none;
@@ -197,6 +220,7 @@
             <button class="tab-btn" data-tab="claims">Claims & Rankings</button>
             <button class="tab-btn" data-tab="dice">Dice Roller</button>
             <button class="tab-btn" data-tab="shadows">Known Shadows</button>
+            <button class="tab-btn" data-tab="creatures">Bestiary</button>
             <button class="tab-btn" data-tab="progress">Progress Timeline</button>
         </nav>
 
@@ -331,6 +355,18 @@
                     <div class="info-message">
                         <p>Select a character from "My Characters" to see the shadows they have felt.</p>
                     </div>
+                </div>
+            </div>
+
+            <!-- Bestiary Tab -->
+            <div id="creatures-tab" class="tab-content">
+                <div class="tab-header">
+                    <h2>Bestiary</h2>
+                    <button id="creature-spoilers-toggle-btn" class="btn-secondary" onclick="toggleCreatureSpoilers()" style="font-size:0.85rem;padding:6px 14px">Show Spoilers: Off</button>
+                </div>
+                <p class="shadows-lore-note">The creatures and folk known to inhabit the shadows your party has crossed — pieced together from encounters, rumor, and the DM's own notes.</p>
+                <div id="player-creatures-list" class="characters-grid">
+                    <div class="loading">Loading creatures…</div>
                 </div>
             </div>
 
@@ -1341,5 +1377,6 @@
     <script src="/js/player/player-dice.js"></script>
     <script src="/js/player/player-session-tracker.js"></script>
     <script src="/js/player/player-shadows.js"></script>
+    <script src="/js/player/player-creatures.js"></script>
 </body>
 </html>
