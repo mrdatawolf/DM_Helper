@@ -193,6 +193,8 @@ function displayCharacterSheet(character) {
 
             ${renderPowersSection(character)}
 
+            ${renderFamiliarsSection(character)}
+
             ${character.backstory ? `
                 <h3>Backstory</h3>
                 <div class="backstory">

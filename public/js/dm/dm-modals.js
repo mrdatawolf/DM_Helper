@@ -338,6 +338,74 @@ function showCreateCreatureModal() {
     `);
 }
 
+// Familiar form fields shared by bond + edit. Growth table is a raw JSON
+// textarea — it's a DM-authored, per-familiar homebrew structure, and a
+// full dynamic row editor isn't worth building for a first version.
+const FAMILIAR_GROWTH_PLACEHOLDER = JSON.stringify([
+    { level: 3, hp_bonus: 5, ac_bonus: 0, abilities_gained: ['Keen Senses'], notes: 'Grows to Small size' },
+    { level: 5, hp_bonus: 10, ac_bonus: 1, abilities_gained: ['Share Senses'], notes: 'The bond deepens' }
+], null, 2);
+
+function familiarFormFields(f = {}) {
+    const s = f.base_stats || {};
+    const a = s.abilities || {};
+    const templateOptions = npcs.map(n => `<option value="${n.id}"${f.template_npc_id === n.id ? ' selected' : ''}>${escHtml(n.name)}</option>`).join('');
+    const growthJson = f.growth_table && f.growth_table.length ? JSON.stringify(f.growth_table, null, 2) : '';
+
+    return `
+        <div class="form-row">
+            <div class="form-group"><label>Name *</label><input type="text" name="name" value="${escHtml(f.name || '')}" required></div>
+            <div class="form-group"><label>Creature Type / Species</label><input type="text" name="creature_type" placeholder="e.g. Dog" value="${escHtml(f.creature_type || '')}"></div>
+        </div>
+        <div class="form-row">
+            <div class="form-group"><label>Bond Type</label><input type="text" name="bond_type" value="${escHtml(f.bond_type || 'Psychic')}"></div>
+            <div class="form-group"><label>Prefill from Bestiary</label><select name="template_npc_id"><option value="">— None —</option>${templateOptions}</select></div>
+        </div>
+        <div class="form-row">
+            <div class="form-group"><label>Base Armor Class</label><input type="number" name="armor_class" value="${f.armor_class ?? ''}"></div>
+            <div class="form-group"><label>Base Hit Points</label><input type="number" name="base_hit_points" value="${f.base_hit_points ?? ''}"></div>
+        </div>
+        <div class="form-row">
+            ${['str', 'dex', 'con', 'int', 'wis', 'cha'].map(k => `<div class="form-group"><label>${k.toUpperCase()}</label><input type="number" name="ability_${k}" value="${a[k] ?? ''}"></div>`).join('')}
+        </div>
+        <div class="form-group"><label>Description</label><textarea name="description" rows="2">${escHtml(f.description || '')}</textarea></div>
+        <div class="form-group"><label>Bond Notes (how the psychic bond manifests)</label><textarea name="bond_notes" rows="2">${escHtml(f.bond_notes || '')}</textarea></div>
+        <div class="form-group">
+            <label>Growth Table (JSON — bonuses/abilities unlocked as the bonded character levels up)</label>
+            <textarea name="growth_table" rows="6" placeholder="${escHtml(FAMILIAR_GROWTH_PLACEHOLDER)}">${escHtml(growthJson)}</textarea>
+        </div>
+        <div class="form-group"><label>DM Notes (never shown to players)</label><textarea name="dm_notes" rows="2">${escHtml(f.dm_notes || '')}</textarea></div>
+    `;
+}
+
+function familiarPayloadFromForm(event) {
+    const formData = new FormData(event.target);
+    const data = Object.fromEntries(formData);
+
+    data.template_npc_id = data.template_npc_id ? parseInt(data.template_npc_id, 10) : null;
+    data.armor_class = data.armor_class ? parseInt(data.armor_class, 10) : null;
+    data.base_hit_points = data.base_hit_points ? parseInt(data.base_hit_points, 10) : null;
+
+    const abilities = {};
+    for (const k of ['str', 'dex', 'con', 'int', 'wis', 'cha']) {
+        if (data[`ability_${k}`] !== '') abilities[k] = parseInt(data[`ability_${k}`], 10);
+        delete data[`ability_${k}`];
+    }
+    if (Object.keys(abilities).length) data.base_stats = { abilities };
+
+    if (data.growth_table && data.growth_table.trim()) {
+        try {
+            data.growth_table = JSON.parse(data.growth_table);
+        } catch (err) {
+            throw new Error('Growth Table must be valid JSON');
+        }
+    } else {
+        data.growth_table = [];
+    }
+
+    return data;
+}
+
 async function createCreature(event) {
     event.preventDefault();
     const data = creaturePayloadFromForm(event);

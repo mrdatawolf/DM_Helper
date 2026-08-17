@@ -6,6 +6,7 @@ const {
     isDM, visibleParent, canWriteToParent,
     recordVisible, parentIsVisibleDraftSafe,
 } = require('./tracker-shared');
+const { computeFamiliarPower } = require('../utils/familiars');
 
 router.use(authenticate);
 
@@ -115,7 +116,7 @@ router.post('/', requireDM, (req, res) => {
 });
 
 function insertCombatant(db, encounterId, cb) {
-    let { character_id = null, name, combatant_type = 'npc', initiative = 10, max_hp = 10, current_hp = null } = cb;
+    let { character_id = null, familiar_id = null, name, combatant_type = 'npc', initiative = 10, max_hp = 10, current_hp = null } = cb;
 
     // Linking a PC pulls name and HP from the character sheet unless overridden
     if (character_id) {
@@ -126,12 +127,28 @@ function insertCombatant(db, encounterId, cb) {
         max_hp = cb.max_hp ?? c.max_hp;
         current_hp = cb.current_hp ?? c.current_hp;
     }
+
+    // Linking a familiar pulls name and level-scaled HP unless overridden
+    if (familiar_id) {
+        const f = db.prepare('SELECT * FROM familiars WHERE id = ?').get(familiar_id);
+        if (!f) throw new Error(`Familiar ${familiar_id} not found`);
+        const character = db.prepare('SELECT level FROM characters WHERE id = ?').get(f.character_id);
+        const power = computeFamiliarPower(
+            { ...f, growth_table: f.growth_table ? JSON.parse(f.growth_table) : [] },
+            character ? character.level : 1
+        );
+        combatant_type = 'npc';
+        name = name || f.name;
+        max_hp = cb.max_hp ?? power.effective_hp;
+        current_hp = cb.current_hp ?? max_hp;
+    }
+
     if (!name) throw new Error('Combatant name is required');
 
     return db.prepare(`
-        INSERT INTO combatants (encounter_id, character_id, name, combatant_type, initiative, max_hp, current_hp)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(encounterId, character_id, name, combatant_type, initiative, max_hp, current_hp ?? max_hp);
+        INSERT INTO combatants (encounter_id, character_id, familiar_id, name, combatant_type, initiative, max_hp, current_hp)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(encounterId, character_id, familiar_id, name, combatant_type, initiative, max_hp, current_hp ?? max_hp);
 }
 
 // Update an encounter. DM: everything. Participants: run it (round, turn, close out).
