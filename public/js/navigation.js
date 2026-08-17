@@ -35,13 +35,16 @@ async function checkAuthStatus() {
                 }
                 updateNavForUser(data.user);
             } else {
-                // Token invalid - just show guest nav, don't clear storage
-                // Individual pages will handle redirects if needed
+                // Token is confirmed invalid/expired server-side - clear the stale
+                // copy so pages that only check localStorage (see dm-auth-guard.js)
+                // don't keep treating this browser as logged in.
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
                 updateNavForGuest();
             }
         } catch (error) {
             console.error('Auth check error:', error);
-            // On error, just show guest nav, don't clear storage
+            // Network error doesn't mean the token is bad - leave storage alone
             updateNavForGuest();
         }
     } else {

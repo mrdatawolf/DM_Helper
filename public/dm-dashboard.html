@@ -265,18 +265,9 @@
         </div>
     </div>
 
-    <script>
-        // Guard: only DM users may access this page
-        (function() {
-            const token = localStorage.getItem('token');
-            const user  = JSON.parse(localStorage.getItem('user') || '{}');
-            if (!token || (!user.is_dm && !user.is_admin)) {
-                window.location.href = '/player-login.html';
-            }
-        })();
-    </script>
     <!-- DM dashboard scripts (load order matters: shared state/helpers first) -->
     <script src="/js/toast.js"></script>
+    <script src="/js/dm/dm-auth-guard.js"></script>
     <script src="/js/dm/dm-core.js"></script>
     <script src="/js/dm/dm-lists.js"></script>
     <script src="/js/dm/dm-modals.js"></script>

@@ -146,13 +146,14 @@ async function toggleShadowSpoiler(shadowId, newValue) {
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({ is_spoiler: newValue })
         });
-        if (!res.ok) throw new Error('Failed to update shadow');
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to update shadow');
         const updated = await res.json();
         const idx = shadows.findIndex(s => s.id === shadowId);
         if (idx !== -1) shadows[idx] = { ...shadows[idx], is_spoiler: updated.is_spoiler };
         renderShadows();
     } catch (err) {
         console.error('Error toggling shadow spoiler:', err);
+        showToast(`Failed to update shadow: ${err.message}`);
     }
 }
 
@@ -261,13 +262,14 @@ async function toggleCreatureSpoiler(id, newValue) {
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({ is_spoiler: newValue })
         });
-        if (!res.ok) throw new Error('Failed to update creature');
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to update creature');
         const updated = await res.json();
         const idx = npcs.findIndex(n => n.id === id);
         if (idx !== -1) npcs[idx] = { ...npcs[idx], is_spoiler: updated.is_spoiler };
         renderCreatures();
     } catch (err) {
         console.error('Error toggling creature spoiler:', err);
+        showToast(`Failed to update creature: ${err.message}`);
     }
 }
 

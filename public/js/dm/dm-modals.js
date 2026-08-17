@@ -610,9 +610,12 @@ async function deleteCharacter(id) {
         const response = await fetch(`${API_BASE}/characters/${id}`, { method: 'DELETE' });
         if (response.ok) {
             await loadCharacters();
+        } else {
+            showToast(`Failed to delete character: ${(await response.json().catch(() => ({}))).error || response.statusText}`);
         }
     } catch (error) {
         console.error('Error:', error);
+        showToast('Failed to delete character: connection error');
     }
 }
 
@@ -623,9 +626,12 @@ async function deleteShadow(id) {
         const response = await fetch(`${API_BASE}/shadows/${id}`, { method: 'DELETE' });
         if (response.ok) {
             await loadShadows();
+        } else {
+            showToast(`Failed to delete shadow: ${(await response.json().catch(() => ({}))).error || response.statusText}`);
         }
     } catch (error) {
         console.error('Error:', error);
+        showToast('Failed to delete shadow: connection error');
     }
 }
 
@@ -636,9 +642,12 @@ async function deleteCreature(id) {
         const response = await fetch(`${API_BASE}/npcs/${id}`, { method: 'DELETE' });
         if (response.ok) {
             await loadNpcs();
+        } else {
+            showToast(`Failed to delete creature: ${(await response.json().catch(() => ({}))).error || response.statusText}`);
         }
     } catch (error) {
         console.error('Error:', error);
+        showToast('Failed to delete creature: connection error');
     }
 }
 
@@ -649,9 +658,12 @@ async function deleteSession(id) {
         const response = await fetch(`${API_BASE}/sessions/${id}`, { method: 'DELETE' });
         if (response.ok) {
             await loadSessions();
+        } else {
+            showToast(`Failed to delete session: ${(await response.json().catch(() => ({}))).error || response.statusText}`);
         }
     } catch (error) {
         console.error('Error:', error);
+        showToast('Failed to delete session: connection error');
     }
 }
 
@@ -662,9 +674,12 @@ async function deleteProgress(id) {
         const response = await fetch(`${API_BASE}/progress/${id}`, { method: 'DELETE' });
         if (response.ok) {
             await loadProgress();
+        } else {
+            showToast(`Failed to delete progress entry: ${(await response.json().catch(() => ({}))).error || response.statusText}`);
         }
     } catch (error) {
         console.error('Error:', error);
+        showToast('Failed to delete progress entry: connection error');
     }
 }
 
