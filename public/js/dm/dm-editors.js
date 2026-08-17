@@ -25,6 +25,23 @@ async function viewCharacter(id) {
             ? (c.powers || []).map(p => `<tr><td>${escHtml(p.power_name)}${p.power_level > 1 ? ` (Lv ${p.power_level})` : ''}</td><td>${escHtml(p.power_type || '—')}</td><td>${p.uses_per_day != null ? `${p.current_uses ?? p.uses_per_day}/${p.uses_per_day}` : 'At will'}</td><td>${escHtml(p.description || '—')}</td><td style="white-space:nowrap"><button class="btn-secondary btn-sm" onclick="dmEditPower(${id}, ${p.id})">Edit</button> <button class="btn-secondary btn-sm btn-danger" onclick="dmDeletePower(${id}, ${p.id})">×</button></td></tr>`).join('')
             : '<tr><td colspan="5" style="color:#999;font-style:italic">No powers granted yet</td></tr>';
 
+        const familiarCards = (c.familiars || []).length
+            ? (c.familiars || []).map(f => `
+                <div class="card-row" style="display:block;padding:8px 0;border-bottom:1px solid #eee">
+                    <div style="display:flex;justify-content:space-between;align-items:baseline">
+                        <strong>${escHtml(f.name)}</strong>
+                        <span style="white-space:nowrap">
+                            <button class="btn-secondary btn-sm" onclick="editFamiliar(${id}, ${f.id})">Edit</button>
+                            <button class="btn-secondary btn-sm btn-danger" onclick="dmDeleteFamiliar(${id}, ${f.id})">×</button>
+                        </span>
+                    </div>
+                    <div style="color:#888;font-size:0.85em">${escHtml(f.creature_type || 'Familiar')} — ${escHtml(f.bond_type || 'Psychic')} bond</div>
+                    <div style="font-size:0.85em;margin-top:2px">AC ${f.effective_ac ?? '—'} · HP ${f.effective_hp ?? '—'}${f.current_tier_level ? ` · Tier: Lv ${f.current_tier_level}` : ''}${f.next_tier ? ` · Next at Lv ${f.next_tier.level}` : ''}</div>
+                    ${f.unlocked_abilities && f.unlocked_abilities.length ? `<div style="font-size:0.85em;color:#555">Abilities: ${f.unlocked_abilities.map(escHtml).join(', ')}</div>` : ''}
+                </div>
+            `).join('')
+            : '<p style="color:#999;font-style:italic;margin:4px 0">No familiar bonded yet.</p>';
+
         const progressRows = (c.recent_progress || []).length
             ? (c.recent_progress || []).map(p => `<tr><td>${escHtml(p.session_title || '—')}</td><td>${escHtml(p.shadow_name || '—')}</td><td>${escHtml(p.description || '—')}</td></tr>`).join('')
             : '<tr><td colspan="3" style="color:#999;font-style:italic">No progress recorded</td></tr>';
@@ -67,6 +84,12 @@ async function viewCharacter(id) {
                     <tbody>${powerRows}</tbody>
                 </table>
                 <button type="button" class="btn-secondary btn-sm" style="margin-top:6px" onclick="dmGrantPower(${id})">+ Grant Power</button>
+            </details>
+
+            <details open style="margin-bottom:12px">
+                <summary style="cursor:pointer;font-weight:600;margin-bottom:6px">Familiar (${(c.familiars||[]).length})</summary>
+                ${familiarCards}
+                <button type="button" class="btn-secondary btn-sm" style="margin-top:6px" onclick="dmBondFamiliar(${id})">+ Bond Familiar</button>
             </details>
 
             <details style="margin-bottom:4px">
@@ -167,6 +190,77 @@ async function dmEditPower(characterId, powerId) {
         await viewCharacter(characterId);
     } catch (err) {
         showToast(`Failed to edit power: ${err.message}`);
+    }
+}
+
+async function dmBondFamiliar(characterId) {
+    showModal('Bond Familiar', `
+        <form onsubmit="handleBondFamiliar(event, ${characterId})">
+            ${familiarFormFields()}
+            <button type="submit" class="btn-primary">Bond Familiar</button>
+        </form>
+    `);
+}
+
+async function handleBondFamiliar(event, characterId) {
+    event.preventDefault();
+    try {
+        const data = familiarPayloadFromForm(event);
+        const res = await fetch(`${API_BASE}/characters/${characterId}/familiars`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
+        showToast(`Familiar bonded: ${data.name}`);
+        await viewCharacter(characterId);
+    } catch (err) {
+        showToast(`Failed to bond familiar: ${err.message}`);
+    }
+}
+
+async function editFamiliar(characterId, familiarId) {
+    try {
+        const c = await (await fetch(`${API_BASE}/characters/${characterId}`)).json();
+        const f = (c.familiars || []).find(x => x.id === familiarId);
+        if (!f) return;
+
+        showModal(`Edit: ${escHtml(f.name)}`, `
+            <form onsubmit="handleEditFamiliar(event, ${characterId}, ${familiarId})">
+                ${familiarFormFields(f)}
+                <button type="submit" class="btn-primary">Save Changes</button>
+            </form>
+        `);
+    } catch (err) {
+        showToast(`Failed to load familiar: ${err.message}`);
+    }
+}
+
+async function handleEditFamiliar(event, characterId, familiarId) {
+    event.preventDefault();
+    try {
+        const data = familiarPayloadFromForm(event);
+        const res = await fetch(`${API_BASE}/characters/${characterId}/familiars/${familiarId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
+        closeModal();
+        await viewCharacter(characterId);
+    } catch (err) {
+        showToast(`Failed to save familiar: ${err.message}`);
+    }
+}
+
+async function dmDeleteFamiliar(characterId, familiarId) {
+    if (!confirm('Release this familiar\'s bond?')) return;
+    try {
+        const res = await fetch(`${API_BASE}/characters/${characterId}/familiars/${familiarId}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
+        await viewCharacter(characterId);
+    } catch (err) {
+        showToast(`Failed to release familiar: ${err.message}`);
     }
 }
 
