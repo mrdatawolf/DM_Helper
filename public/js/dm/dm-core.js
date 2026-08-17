@@ -24,7 +24,8 @@ let npcs  = [];
 let grandNarrative = {};
 
 // Initialize app
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    if (!(await verifyDmSession())) return; // verifyDmSession() already redirected
     initTabs();
     loadAllData();
 });
