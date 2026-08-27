@@ -7,8 +7,10 @@
 // Draft scenes are only visible to their creator and the DM, regardless of the
 // visibility of anything attached to them.
 
+const { isDMOrAdmin } = require('../middleware/auth');
+
 function isDM(user) {
-    return !!(user.isDM || user.isAdmin);
+    return isDMOrAdmin(user);
 }
 
 function ownsCharacter(db, user, characterId) {

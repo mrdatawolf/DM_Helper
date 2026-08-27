@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const { generateToken, verifyToken, authenticate } = require('../middleware/auth');
 const { getDatabase } = require('../database/connection');
+const { asyncHandler } = require('../middleware/errorHandler');
 
 const router = express.Router();
 
@@ -11,7 +12,7 @@ const SALT_ROUNDS = 10;
  * POST /api/auth/register
  * Create new user account
  */
-router.post('/register', async (req, res) => {
+router.post('/register', asyncHandler(async (req, res, next) => {
     try {
         const db = getDatabase();
         const { username, password, email } = req.body;
@@ -78,15 +79,15 @@ router.post('/register', async (req, res) => {
 
     } catch (error) {
         console.error('Registration error:', error);
-        res.status(500).json({ error: 'Failed to create user' });
+        next(Object.assign(error, { clientMessage: 'Failed to create user' }));
     }
-});
+}));
 
 /**
  * POST /api/auth/login
  * Authenticate user and return token
  */
-router.post('/login', async (req, res) => {
+router.post('/login', asyncHandler(async (req, res, next) => {
     try {
         const db = getDatabase();
         const { username, password } = req.body;
@@ -141,9 +142,9 @@ router.post('/login', async (req, res) => {
 
     } catch (error) {
         console.error('Login error:', error);
-        res.status(500).json({ error: 'Login failed' });
+        next(Object.assign(error, { clientMessage: 'Login failed' }));
     }
-});
+}));
 
 /**
  * POST /api/auth/logout
@@ -158,7 +159,7 @@ router.post('/logout', (req, res) => {
  * GET /api/auth/me
  * Get current authenticated user info
  */
-router.get('/me', authenticate, (req, res) => {
+router.get('/me', authenticate, asyncHandler((req, res, next) => {
     try {
         const db = getDatabase();
         // req.user is set by authenticate middleware
@@ -176,15 +177,15 @@ router.get('/me', authenticate, (req, res) => {
 
     } catch (error) {
         console.error('Get user error:', error);
-        res.status(500).json({ error: 'Failed to get user info' });
+        next(Object.assign(error, { clientMessage: 'Failed to get user info' }));
     }
-});
+}));
 
 /**
  * GET /api/auth/characters
  * Get all characters owned by authenticated user
  */
-router.get('/characters', authenticate, (req, res) => {
+router.get('/characters', authenticate, asyncHandler((req, res, next) => {
     try {
         const db = getDatabase();
         const characters = db.prepare(`
@@ -205,8 +206,8 @@ router.get('/characters', authenticate, (req, res) => {
 
     } catch (error) {
         console.error('Get user characters error:', error);
-        res.status(500).json({ error: 'Failed to get characters' });
+        next(Object.assign(error, { clientMessage: 'Failed to get characters' }));
     }
-});
+}));
 
 module.exports = router;

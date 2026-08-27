@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { getDatabase } = require('../database/connection');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, isDMOrAdmin } = require('../middleware/auth');
+const { asyncHandler } = require('../middleware/errorHandler');
 
 /**
  * GET /api/journal/character/:characterId
@@ -9,11 +10,11 @@ const { authenticate } = require('../middleware/auth');
  * - Players see their own private entries + all public entries
  * - DMs see all entries
  */
-router.get('/character/:characterId', authenticate, (req, res) => {
+router.get('/character/:characterId', authenticate, asyncHandler((req, res, next) => {
     try {
         const db = getDatabase();
         const { characterId } = req.params;
-        const isDM = req.user.isDM;
+        const isDM = isDMOrAdmin(req.user);
         const userId = req.user.userId;
 
         // Verify the character exists and user has access
@@ -62,19 +63,19 @@ router.get('/character/:characterId', authenticate, (req, res) => {
 
     } catch (error) {
         console.error('Get journal entries error:', error);
-        res.status(500).json({ error: 'Failed to get journal entries' });
+        next(Object.assign(error, { clientMessage: 'Failed to get journal entries' }));
     }
-});
+}));
 
 /**
  * GET /api/journal/user
  * Get all journal entries for the authenticated user across all their characters
  */
-router.get('/user', authenticate, (req, res) => {
+router.get('/user', authenticate, asyncHandler((req, res, next) => {
     try {
         const db = getDatabase();
         const userId = req.user.userId;
-        const isDM = req.user.isDM;
+        const isDM = isDMOrAdmin(req.user);
 
         let entries;
         if (isDM) {
@@ -108,15 +109,15 @@ router.get('/user', authenticate, (req, res) => {
 
     } catch (error) {
         console.error('Get user journal entries error:', error);
-        res.status(500).json({ error: 'Failed to get journal entries' });
+        next(Object.assign(error, { clientMessage: 'Failed to get journal entries' }));
     }
-});
+}));
 
 /**
  * POST /api/journal
  * Create a new journal entry
  */
-router.post('/', authenticate, (req, res) => {
+router.post('/', authenticate, asyncHandler((req, res, next) => {
     try {
         const db = getDatabase();
         const {
@@ -141,7 +142,7 @@ router.post('/', authenticate, (req, res) => {
 
         // Players can only create entries for their own characters
         // DMs can create entries for any character
-        if (!req.user.isDM && character.user_id !== req.user.userId) {
+        if (!isDMOrAdmin(req.user) && character.user_id !== req.user.userId) {
             return res.status(403).json({ error: 'Access denied' });
         }
 
@@ -177,15 +178,15 @@ router.post('/', authenticate, (req, res) => {
 
     } catch (error) {
         console.error('Create journal entry error:', error);
-        res.status(500).json({ error: 'Failed to create journal entry' });
+        next(Object.assign(error, { clientMessage: 'Failed to create journal entry' }));
     }
-});
+}));
 
 /**
  * PUT /api/journal/:id
  * Update a journal entry
  */
-router.put('/:id', authenticate, (req, res) => {
+router.put('/:id', authenticate, asyncHandler((req, res, next) => {
     try {
         const db = getDatabase();
         const { id } = req.params;
@@ -204,7 +205,7 @@ router.put('/:id', authenticate, (req, res) => {
         }
 
         // Only the author or DM can edit
-        if (!req.user.isDM && entry.user_id !== req.user.userId) {
+        if (!isDMOrAdmin(req.user) && entry.user_id !== req.user.userId) {
             return res.status(403).json({ error: 'Access denied' });
         }
 
@@ -258,15 +259,15 @@ router.put('/:id', authenticate, (req, res) => {
 
     } catch (error) {
         console.error('Update journal entry error:', error);
-        res.status(500).json({ error: 'Failed to update journal entry' });
+        next(Object.assign(error, { clientMessage: 'Failed to update journal entry' }));
     }
-});
+}));
 
 /**
  * DELETE /api/journal/:id
  * Delete a journal entry
  */
-router.delete('/:id', authenticate, (req, res) => {
+router.delete('/:id', authenticate, asyncHandler((req, res, next) => {
     try {
         const db = getDatabase();
         const { id } = req.params;
@@ -278,7 +279,7 @@ router.delete('/:id', authenticate, (req, res) => {
         }
 
         // Only the author or DM can delete
-        if (!req.user.isDM && entry.user_id !== req.user.userId) {
+        if (!isDMOrAdmin(req.user) && entry.user_id !== req.user.userId) {
             return res.status(403).json({ error: 'Access denied' });
         }
 
@@ -288,8 +289,8 @@ router.delete('/:id', authenticate, (req, res) => {
 
     } catch (error) {
         console.error('Delete journal entry error:', error);
-        res.status(500).json({ error: 'Failed to delete journal entry' });
+        next(Object.assign(error, { clientMessage: 'Failed to delete journal entry' }));
     }
-});
+}));
 
 module.exports = router;

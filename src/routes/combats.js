@@ -7,6 +7,7 @@ const {
     recordVisible, parentIsVisibleDraftSafe,
 } = require('./tracker-shared');
 const { computeFamiliarPower } = require('../utils/familiars');
+const { asyncHandler } = require('../middleware/errorHandler');
 
 router.use(authenticate);
 
@@ -33,87 +34,75 @@ function canRun(db, user, encounter) {
 }
 
 // List encounters for a session, scene, or a character's timeline
-router.get('/', (req, res) => {
-    try {
-        const db = getDatabase();
-        const { session_id, scene_id, character_id } = req.query;
+router.get('/', asyncHandler((req, res) => {
+    const db = getDatabase();
+    const { session_id, scene_id, character_id } = req.query;
 
-        let rows;
-        if (session_id) {
-            rows = db.prepare('SELECT * FROM combat_encounters WHERE session_id = ? ORDER BY created_at ASC').all(session_id);
-        } else if (scene_id) {
-            rows = db.prepare('SELECT * FROM combat_encounters WHERE scene_id = ? ORDER BY created_at ASC').all(scene_id);
-        } else if (character_id) {
-            rows = db.prepare(`
-                SELECT DISTINCT e.* FROM combat_encounters e
-                JOIN combatants cb ON cb.encounter_id = e.id
-                WHERE cb.character_id = ?
-                ORDER BY e.created_at ASC
-            `).all(character_id);
-        } else {
-            return res.status(400).json({ error: 'session_id, scene_id, or character_id is required' });
-        }
-
-        rows = rows.filter(e =>
-            parentIsVisibleDraftSafe(db, req.user, e) && recordVisible(db, req.user, e)
-        );
-        attachCombatants(db, rows);
-        res.json(rows);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+    let rows;
+    if (session_id) {
+        rows = db.prepare('SELECT * FROM combat_encounters WHERE session_id = ? ORDER BY created_at ASC').all(session_id);
+    } else if (scene_id) {
+        rows = db.prepare('SELECT * FROM combat_encounters WHERE scene_id = ? ORDER BY created_at ASC').all(scene_id);
+    } else if (character_id) {
+        rows = db.prepare(`
+            SELECT DISTINCT e.* FROM combat_encounters e
+            JOIN combatants cb ON cb.encounter_id = e.id
+            WHERE cb.character_id = ?
+            ORDER BY e.created_at ASC
+        `).all(character_id);
+    } else {
+        return res.status(400).json({ error: 'session_id, scene_id, or character_id is required' });
     }
-});
+
+    rows = rows.filter(e =>
+        parentIsVisibleDraftSafe(db, req.user, e) && recordVisible(db, req.user, e)
+    );
+    attachCombatants(db, rows);
+    res.json(rows);
+}));
 
 // Single encounter with combatants
-router.get('/:id', (req, res) => {
-    try {
-        const db = getDatabase();
-        const encounter = db.prepare('SELECT * FROM combat_encounters WHERE id = ?').get(req.params.id);
-        if (!encounter) return res.status(404).json({ error: 'Encounter not found' });
-        if (!parentIsVisibleDraftSafe(db, req.user, encounter) || !recordVisible(db, req.user, encounter)) {
-            return res.status(403).json({ error: 'Access denied' });
-        }
-        attachCombatants(db, [encounter]);
-        res.json(encounter);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+router.get('/:id', asyncHandler((req, res) => {
+    const db = getDatabase();
+    const encounter = db.prepare('SELECT * FROM combat_encounters WHERE id = ?').get(req.params.id);
+    if (!encounter) return res.status(404).json({ error: 'Encounter not found' });
+    if (!parentIsVisibleDraftSafe(db, req.user, encounter) || !recordVisible(db, req.user, encounter)) {
+        return res.status(403).json({ error: 'Access denied' });
     }
-});
+    attachCombatants(db, [encounter]);
+    res.json(encounter);
+}));
 
 // Create an encounter (DM only), optionally with initial combatants
-router.post('/', requireDM, (req, res) => {
-    try {
-        const db = getDatabase();
-        const { session_id = null, scene_id = null, title, visibility = 'session', combatants = [] } = req.body;
+router.post('/', requireDM, asyncHandler((req, res) => {
+    const db = getDatabase();
+    const { session_id = null, scene_id = null, title, visibility = 'session', combatants = [] } = req.body;
 
-        if (!title) return res.status(400).json({ error: 'title is required' });
-        if (!session_id === !scene_id) {
-            return res.status(400).json({ error: 'Provide exactly one of session_id or scene_id' });
-        }
-        if (!visibleParent(db, req.user, { session_id, scene_id })) {
-            return res.status(404).json({ error: 'Session or scene not found' });
-        }
-
-        const create = db.transaction(() => {
-            const result = db.prepare(`
-                INSERT INTO combat_encounters (session_id, scene_id, title, visibility, created_by)
-                VALUES (?, ?, ?, ?, ?)
-            `).run(session_id, scene_id, title, visibility, req.user.userId);
-            const encounterId = result.lastInsertRowid;
-            for (const cb of combatants) {
-                insertCombatant(db, encounterId, cb);
-            }
-            return encounterId;
-        });
-
-        const id = create();
-        const encounter = db.prepare('SELECT * FROM combat_encounters WHERE id = ?').get(id);
-        attachCombatants(db, [encounter]);
-        res.status(201).json(encounter);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+    if (!title) return res.status(400).json({ error: 'title is required' });
+    if (!session_id === !scene_id) {
+        return res.status(400).json({ error: 'Provide exactly one of session_id or scene_id' });
     }
-});
+    if (!visibleParent(db, req.user, { session_id, scene_id })) {
+        return res.status(404).json({ error: 'Session or scene not found' });
+    }
+
+    const create = db.transaction(() => {
+        const result = db.prepare(`
+            INSERT INTO combat_encounters (session_id, scene_id, title, visibility, created_by)
+            VALUES (?, ?, ?, ?, ?)
+        `).run(session_id, scene_id, title, visibility, req.user.userId);
+        const encounterId = result.lastInsertRowid;
+        for (const cb of combatants) {
+            insertCombatant(db, encounterId, cb);
+        }
+        return encounterId;
+    });
+
+    const id = create();
+    const encounter = db.prepare('SELECT * FROM combat_encounters WHERE id = ?').get(id);
+    attachCombatants(db, [encounter]);
+    res.status(201).json(encounter);
+}));
 
 function insertCombatant(db, encounterId, cb) {
     let { character_id = null, familiar_id = null, name, combatant_type = 'npc', initiative = 10, max_hp = 10, current_hp = null } = cb;
@@ -152,112 +141,92 @@ function insertCombatant(db, encounterId, cb) {
 }
 
 // Update an encounter. DM: everything. Participants: run it (round, turn, close out).
-router.put('/:id', (req, res) => {
-    try {
-        const db = getDatabase();
-        const encounter = db.prepare('SELECT * FROM combat_encounters WHERE id = ?').get(req.params.id);
-        if (!encounter) return res.status(404).json({ error: 'Encounter not found' });
-        if (!canRun(db, req.user, encounter)) {
-            return res.status(403).json({ error: 'Your character is not part of this encounter' });
-        }
-
-        const allowed = isDM(req.user)
-            ? ['title', 'status', 'round', 'turn_index', 'summary', 'visibility']
-            : ['status', 'round', 'turn_index', 'summary'];
-
-        const updates = [];
-        const values = [];
-        for (const field of allowed) {
-            if (req.body.hasOwnProperty(field)) {
-                updates.push(`${field} = ?`);
-                values.push(req.body[field]);
-            }
-        }
-        if (!updates.length) return res.status(400).json({ error: 'No valid fields to update' });
-
-        if (req.body.status === 'completed') updates.push('ended_at = CURRENT_TIMESTAMP');
-
-        values.push(req.params.id);
-        db.prepare(`UPDATE combat_encounters SET ${updates.join(', ')} WHERE id = ?`).run(...values);
-
-        const updated = db.prepare('SELECT * FROM combat_encounters WHERE id = ?').get(req.params.id);
-        attachCombatants(db, [updated]);
-        res.json(updated);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+router.put('/:id', asyncHandler((req, res) => {
+    const db = getDatabase();
+    const encounter = db.prepare('SELECT * FROM combat_encounters WHERE id = ?').get(req.params.id);
+    if (!encounter) return res.status(404).json({ error: 'Encounter not found' });
+    if (!canRun(db, req.user, encounter)) {
+        return res.status(403).json({ error: 'Your character is not part of this encounter' });
     }
-});
+
+    const allowed = isDM(req.user)
+        ? ['title', 'status', 'round', 'turn_index', 'summary', 'visibility']
+        : ['status', 'round', 'turn_index', 'summary'];
+
+    const updates = [];
+    const values = [];
+    for (const field of allowed) {
+        if (req.body.hasOwnProperty(field)) {
+            updates.push(`${field} = ?`);
+            values.push(req.body[field]);
+        }
+    }
+    if (!updates.length) return res.status(400).json({ error: 'No valid fields to update' });
+
+    if (req.body.status === 'completed') updates.push('ended_at = CURRENT_TIMESTAMP');
+
+    values.push(req.params.id);
+    db.prepare(`UPDATE combat_encounters SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+
+    const updated = db.prepare('SELECT * FROM combat_encounters WHERE id = ?').get(req.params.id);
+    attachCombatants(db, [updated]);
+    res.json(updated);
+}));
 
 // Add a combatant (DM only)
-router.post('/:id/combatants', requireDM, (req, res) => {
-    try {
-        const db = getDatabase();
-        const encounter = db.prepare('SELECT * FROM combat_encounters WHERE id = ?').get(req.params.id);
-        if (!encounter) return res.status(404).json({ error: 'Encounter not found' });
+router.post('/:id/combatants', requireDM, asyncHandler((req, res) => {
+    const db = getDatabase();
+    const encounter = db.prepare('SELECT * FROM combat_encounters WHERE id = ?').get(req.params.id);
+    if (!encounter) return res.status(404).json({ error: 'Encounter not found' });
 
-        const result = insertCombatant(db, encounter.id, req.body);
-        res.status(201).json(db.prepare('SELECT * FROM combatants WHERE id = ?').get(result.lastInsertRowid));
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
+    const result = insertCombatant(db, encounter.id, req.body);
+    res.status(201).json(db.prepare('SELECT * FROM combatants WHERE id = ?').get(result.lastInsertRowid));
+}));
 
 // Update a combatant. DM: everything. Participants: HP and conditions.
-router.put('/:id/combatants/:cid', (req, res) => {
-    try {
-        const db = getDatabase();
-        const encounter = db.prepare('SELECT * FROM combat_encounters WHERE id = ?').get(req.params.id);
-        if (!encounter) return res.status(404).json({ error: 'Encounter not found' });
-        const combatant = db.prepare('SELECT * FROM combatants WHERE id = ? AND encounter_id = ?').get(req.params.cid, encounter.id);
-        if (!combatant) return res.status(404).json({ error: 'Combatant not found' });
-        if (!canRun(db, req.user, encounter)) {
-            return res.status(403).json({ error: 'Your character is not part of this encounter' });
-        }
-
-        const allowed = isDM(req.user)
-            ? ['name', 'combatant_type', 'initiative', 'max_hp', 'current_hp', 'conditions']
-            : ['current_hp', 'conditions'];
-
-        const updates = [];
-        const values = [];
-        for (const field of allowed) {
-            if (req.body.hasOwnProperty(field)) {
-                updates.push(`${field} = ?`);
-                values.push(field === 'conditions' ? JSON.stringify(req.body[field]) : req.body[field]);
-            }
-        }
-        if (!updates.length) return res.status(400).json({ error: 'No valid fields to update' });
-
-        values.push(req.params.cid);
-        db.prepare(`UPDATE combatants SET ${updates.join(', ')} WHERE id = ?`).run(...values);
-        res.json(db.prepare('SELECT * FROM combatants WHERE id = ?').get(req.params.cid));
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+router.put('/:id/combatants/:cid', asyncHandler((req, res) => {
+    const db = getDatabase();
+    const encounter = db.prepare('SELECT * FROM combat_encounters WHERE id = ?').get(req.params.id);
+    if (!encounter) return res.status(404).json({ error: 'Encounter not found' });
+    const combatant = db.prepare('SELECT * FROM combatants WHERE id = ? AND encounter_id = ?').get(req.params.cid, encounter.id);
+    if (!combatant) return res.status(404).json({ error: 'Combatant not found' });
+    if (!canRun(db, req.user, encounter)) {
+        return res.status(403).json({ error: 'Your character is not part of this encounter' });
     }
-});
+
+    const allowed = isDM(req.user)
+        ? ['name', 'combatant_type', 'initiative', 'max_hp', 'current_hp', 'conditions']
+        : ['current_hp', 'conditions'];
+
+    const updates = [];
+    const values = [];
+    for (const field of allowed) {
+        if (req.body.hasOwnProperty(field)) {
+            updates.push(`${field} = ?`);
+            values.push(field === 'conditions' ? JSON.stringify(req.body[field]) : req.body[field]);
+        }
+    }
+    if (!updates.length) return res.status(400).json({ error: 'No valid fields to update' });
+
+    values.push(req.params.cid);
+    db.prepare(`UPDATE combatants SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+    res.json(db.prepare('SELECT * FROM combatants WHERE id = ?').get(req.params.cid));
+}));
 
 // Remove a combatant (DM only)
-router.delete('/:id/combatants/:cid', requireDM, (req, res) => {
-    try {
-        const db = getDatabase();
-        const result = db.prepare('DELETE FROM combatants WHERE id = ? AND encounter_id = ?').run(req.params.cid, req.params.id);
-        if (result.changes === 0) return res.status(404).json({ error: 'Combatant not found' });
-        res.json({ message: 'Combatant removed' });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
+router.delete('/:id/combatants/:cid', requireDM, asyncHandler((req, res) => {
+    const db = getDatabase();
+    const result = db.prepare('DELETE FROM combatants WHERE id = ? AND encounter_id = ?').run(req.params.cid, req.params.id);
+    if (result.changes === 0) return res.status(404).json({ error: 'Combatant not found' });
+    res.json({ message: 'Combatant removed' });
+}));
 
 // Delete an encounter (DM only)
-router.delete('/:id', requireDM, (req, res) => {
-    try {
-        const db = getDatabase();
-        const result = db.prepare('DELETE FROM combat_encounters WHERE id = ?').run(req.params.id);
-        if (result.changes === 0) return res.status(404).json({ error: 'Encounter not found' });
-        res.json({ message: 'Encounter deleted' });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
+router.delete('/:id', requireDM, asyncHandler((req, res) => {
+    const db = getDatabase();
+    const result = db.prepare('DELETE FROM combat_encounters WHERE id = ?').run(req.params.id);
+    if (result.changes === 0) return res.status(404).json({ error: 'Encounter not found' });
+    res.json({ message: 'Encounter deleted' });
+}));
 
 module.exports = router;

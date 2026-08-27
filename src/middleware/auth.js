@@ -104,14 +104,25 @@ function optionalAuth(req, res, next) {
 }
 
 /**
- * Require DM role
+ * True if the user has DM authority — either literally the DM, or an
+ * admin/super-admin acting with DM-equivalent authority. Decided policy
+ * (2026-08-26): the site admin account is treated as DM-equivalent
+ * everywhere DM authority is checked, not just in the handful of spots that
+ * already happened to allow it.
+ */
+function isDMOrAdmin(user) {
+    return !!(user && (user.isDM || user.isAdmin || user.isSuperAdmin));
+}
+
+/**
+ * Require DM (or admin-equivalent) role
  */
 function requireDM(req, res, next) {
     if (!req.user) {
         return res.status(401).json({ error: 'Authentication required' });
     }
 
-    if (!req.user.isDM) {
+    if (!isDMOrAdmin(req.user)) {
         return res.status(403).json({ error: 'DM access required' });
     }
 
@@ -138,6 +149,7 @@ module.exports = {
     optionalAuth,
     requireDM,
     requireAdmin,
+    isDMOrAdmin,
     JWT_SECRET,
     JWT_EXPIRES_IN
 };

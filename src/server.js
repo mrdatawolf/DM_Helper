@@ -7,6 +7,7 @@ require('dotenv').config();
 
 const { getDatabase, closeDatabase } = require('./database/connection');
 const { runMigrations } = require('./database/migrate');
+const { errorHandler } = require('./middleware/errorHandler');
 
 // Import routes
 const characterRoutes = require('./routes/characters');
@@ -90,11 +91,9 @@ app.get('/dm', (req, res) => {
     res.sendFile(path.join(__dirname, '../public/dm-dashboard.html'));
 });
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-    console.error('Error:', err);
-    res.status(500).json({ error: 'Internal server error', message: err.message });
-});
+// Centralized error handling: routes forward errors via asyncHandler/next()
+// instead of catching them individually.
+app.use(errorHandler);
 
 // Start the server only when run directly (tests import { app } instead)
 if (require.main === module) {
