@@ -1,9 +1,14 @@
 // dm-scenes-combats.js — DM tools for the session tracker:
 // player-scene review/approval and combat-encounter authoring.
 // (Players run encounters from their dashboard; the DM builds them here.)
+import { state, API_BASE } from './dm-state.js';
 
 // ── Player Scenes panel (Sessions tab) ───────────────────────────────────────
 
+// Kept on raw fetch rather than apiFetch: a non-ok response here silently
+// clears the panel (no error shown — e.g. a non-DM viewer simply sees
+// nothing), a distinct behavior from a real fetch/network exception (logged
+// only). apiFetch would collapse both into one catch block.
 async function loadDMScenes() {
     const panel = document.getElementById('dm-scenes-panel');
     if (!panel) return;
@@ -51,8 +56,7 @@ function renderDMScenes(scenes) {
 
 async function approveScene(id) {
     try {
-        const res = await fetch(`${API_BASE}/scenes/${id}/approve`, { method: 'POST' });
-        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
+        await apiFetch(`${API_BASE}/scenes/${id}/approve`, { method: 'POST' });
         showToast('Scene approved into the timeline.');
         await loadDMScenes();
     } catch (err) {
@@ -63,8 +67,7 @@ async function approveScene(id) {
 async function dmDeleteScene(id) {
     if (!confirm('Delete this scene and all notes/combats attached to it?')) return;
     try {
-        const res = await fetch(`${API_BASE}/scenes/${id}`, { method: 'DELETE' });
-        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
+        await apiFetch(`${API_BASE}/scenes/${id}`, { method: 'DELETE' });
         await loadDMScenes();
     } catch (err) {
         showToast(`Failed to delete scene: ${err.message}`);
@@ -77,9 +80,7 @@ async function dmLoadSessionCombats(sessionId) {
     const container = document.getElementById(`session-combats-${sessionId}`);
     if (!container) return;
     try {
-        const res = await fetch(`${API_BASE}/combats?session_id=${sessionId}`);
-        if (!res.ok) throw new Error('Failed to load encounters');
-        const encounters = await res.json();
+        const encounters = await apiFetch(`${API_BASE}/combats?session_id=${sessionId}`);
         container.innerHTML = encounters.length
             ? encounters.map(e => dmEncounterHTML(e, sessionId)).join('')
             : '<em style="color:#999;font-size:0.9em">No encounters yet</em>';
@@ -100,7 +101,7 @@ function dmEncounterHTML(e, sessionId) {
             <button type="button" class="btn-secondary btn-sm btn-danger" onclick="dmRemoveCombatant(${e.id}, ${cb.id}, ${sessionId})">×</button>
         </div>`).join('');
 
-    const pcOptions = characters.map(c =>
+    const pcOptions = state.characters.map(c =>
         `<option value="${c.id}">${escHtml(c.name)}</option>`).join('');
 
     return `
@@ -125,12 +126,11 @@ async function dmAddEncounter(sessionId) {
     const title = input.value.trim();
     if (!title) { showToast('Encounter title is required.'); return; }
     try {
-        const res = await fetch(`${API_BASE}/combats`, {
+        await apiFetch(`${API_BASE}/combats`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ session_id: sessionId, title })
         });
-        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
         input.value = '';
         await dmLoadSessionCombats(sessionId);
     } catch (err) {
@@ -144,12 +144,11 @@ async function dmAddPCCombatant(encounterId, sessionId) {
     const initiative = parseInt(prompt('Initiative roll:', '10'), 10);
 
     try {
-        const res = await fetch(`${API_BASE}/combats/${encounterId}/combatants`, {
+        await apiFetch(`${API_BASE}/combats/${encounterId}/combatants`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ character_id: characterId, initiative: isNaN(initiative) ? 10 : initiative })
         });
-        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
         await dmLoadSessionCombats(sessionId);
     } catch (err) {
         showToast(`Failed to add combatant: ${err.message}`);
@@ -164,7 +163,7 @@ async function dmAddNPCCombatant(encounterId, sessionId) {
     const isMonster = confirm('Is this a monster? (Cancel = NPC)');
 
     try {
-        const res = await fetch(`${API_BASE}/combats/${encounterId}/combatants`, {
+        await apiFetch(`${API_BASE}/combats/${encounterId}/combatants`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -174,7 +173,6 @@ async function dmAddNPCCombatant(encounterId, sessionId) {
                 max_hp: isNaN(maxHp) ? 20 : maxHp
             })
         });
-        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
         await dmLoadSessionCombats(sessionId);
     } catch (err) {
         showToast(`Failed to add combatant: ${err.message}`);
@@ -185,12 +183,11 @@ async function dmEditInitiative(encounterId, combatantId, sessionId) {
     const initiative = parseInt(prompt('New initiative:'), 10);
     if (isNaN(initiative)) return;
     try {
-        const res = await fetch(`${API_BASE}/combats/${encounterId}/combatants/${combatantId}`, {
+        await apiFetch(`${API_BASE}/combats/${encounterId}/combatants/${combatantId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ initiative })
         });
-        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
         await dmLoadSessionCombats(sessionId);
     } catch (err) {
         showToast(`Failed to update initiative: ${err.message}`);
@@ -199,8 +196,7 @@ async function dmEditInitiative(encounterId, combatantId, sessionId) {
 
 async function dmRemoveCombatant(encounterId, combatantId, sessionId) {
     try {
-        const res = await fetch(`${API_BASE}/combats/${encounterId}/combatants/${combatantId}`, { method: 'DELETE' });
-        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
+        await apiFetch(`${API_BASE}/combats/${encounterId}/combatants/${combatantId}`, { method: 'DELETE' });
         await dmLoadSessionCombats(sessionId);
     } catch (err) {
         showToast(`Failed to remove combatant: ${err.message}`);
@@ -210,10 +206,18 @@ async function dmRemoveCombatant(encounterId, combatantId, sessionId) {
 async function dmDeleteEncounter(encounterId, sessionId) {
     if (!confirm('Delete this encounter?')) return;
     try {
-        const res = await fetch(`${API_BASE}/combats/${encounterId}`, { method: 'DELETE' });
-        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
+        await apiFetch(`${API_BASE}/combats/${encounterId}`, { method: 'DELETE' });
         await dmLoadSessionCombats(sessionId);
     } catch (err) {
         showToast(`Failed to delete encounter: ${err.message}`);
     }
 }
+
+// Referenced from generated onclick="..." HTML (see ADR-001).
+Object.assign(window, {
+    approveScene, dmAddEncounter, dmAddNPCCombatant, dmAddPCCombatant,
+    dmDeleteEncounter, dmDeleteScene, dmEditInitiative, dmRemoveCombatant,
+});
+
+// Used by dm-core.js (loadDMScenes) and dm-editors.js (dmLoadSessionCombats).
+export { loadDMScenes, dmLoadSessionCombats };

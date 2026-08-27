@@ -1,9 +1,12 @@
 // dm-lists.js — split from app.js (behavior unchanged)
+import { state, API_BASE } from './dm-state.js';
+import { patternInfluenceLabel, shadowBalanceBar, shadowBarClass, shadowBarLabel } from './dm-primal-patterns.js';
+import { updateJournalFilter } from './dm-journal.js';
+
 // Characters
 async function loadCharacters() {
     try {
-        const response = await fetch(`${API_BASE}/characters`);
-        characters = await response.json();
+        state.characters = await apiFetch(`${API_BASE}/characters`);
         renderCharacters();
         updateProgressFilter();
         updateJournalFilter();
@@ -14,12 +17,12 @@ async function loadCharacters() {
 
 function renderCharacters() {
     const container = document.getElementById('characters-list');
-    if (characters.length === 0) {
+    if (state.characters.length === 0) {
         container.innerHTML = '<div class="empty-state"><h3>No characters yet</h3><p>Create your first character to begin</p></div>';
         return;
     }
 
-    container.innerHTML = characters.map(char => `
+    container.innerHTML = state.characters.map(char => `
         <div class="card">
             <h3>${escHtml(char.name)}</h3>
             <div class="card-row">
@@ -75,8 +78,7 @@ function renderCharacters() {
 // Shadows
 async function loadShadows() {
     try {
-        const response = await fetch(`${API_BASE}/shadows`);
-        shadows = await response.json();
+        state.shadows = await apiFetch(`${API_BASE}/shadows`);
         renderShadows();
     } catch (error) {
         console.error('Error loading shadows:', error);
@@ -86,28 +88,28 @@ async function loadShadows() {
 function renderShadows() {
     const container = document.getElementById('shadows-list');
 
-    let filtered = shadows;
-    if (shadowActiveFilter !== 'All') {
+    let filtered = state.shadows;
+    if (state.shadowActiveFilter !== 'All') {
         filtered = filtered.filter(s => {
             const label = patternInfluenceLabel(s.pattern_influence) || s.pattern_influence || 'None';
-            return shadowActiveFilter === 'None'
+            return state.shadowActiveFilter === 'None'
                 ? (!s.pattern_influence || s.pattern_influence === 'None')
-                : label === shadowActiveFilter || s.pattern_influence === shadowActiveFilter;
+                : label === state.shadowActiveFilter || s.pattern_influence === state.shadowActiveFilter;
         });
     }
-    if (shadowSearchQuery) {
-        filtered = filtered.filter(s => (s.name || '').toLowerCase().includes(shadowSearchQuery));
+    if (state.shadowSearchQuery) {
+        filtered = filtered.filter(s => (s.name || '').toLowerCase().includes(state.shadowSearchQuery));
     }
 
     if (filtered.length === 0) {
-        container.innerHTML = `<div class="empty-state"><h3>${shadows.length === 0 ? 'No shadows yet' : 'No shadows match'}</h3></div>`;
+        container.innerHTML = `<div class="empty-state"><h3>${state.shadows.length === 0 ? 'No shadows yet' : 'No shadows match'}</h3></div>`;
         return;
     }
 
     container.innerHTML = filtered.map(shadow => {
         const infLabel = patternInfluenceLabel(shadow.pattern_influence) || shadow.pattern_influence || 'None';
         const cardStyle = shadowInfluenceCardStyle(shadow.pattern_influence);
-        const canModify = !!currentUser && (currentUser.is_super_admin || shadow.created_by === currentUser.id);
+        const canModify = !!state.currentUser && (state.currentUser.is_super_admin || shadow.created_by === state.currentUser.id);
         return `
         <div class="card" style="${cardStyle}">
             <h3>${escHtml(shadow.name)}</h3>
@@ -141,15 +143,13 @@ function renderShadows() {
 async function toggleShadowSpoiler(shadowId, newValue) {
     const token = localStorage.getItem('token');
     try {
-        const res = await fetch(`${API_BASE}/shadows/${shadowId}`, {
+        const updated = await apiFetch(`${API_BASE}/shadows/${shadowId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({ is_spoiler: newValue })
         });
-        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to update shadow');
-        const updated = await res.json();
-        const idx = shadows.findIndex(s => s.id === shadowId);
-        if (idx !== -1) shadows[idx] = { ...shadows[idx], is_spoiler: updated.is_spoiler };
+        const idx = state.shadows.findIndex(s => s.id === shadowId);
+        if (idx !== -1) state.shadows[idx] = { ...state.shadows[idx], is_spoiler: updated.is_spoiler };
         renderShadows();
     } catch (err) {
         console.error('Error toggling shadow spoiler:', err);
@@ -158,14 +158,14 @@ async function toggleShadowSpoiler(shadowId, newValue) {
 }
 
 function setShadowFilter(filter, btn) {
-    shadowActiveFilter = filter;
+    state.shadowActiveFilter = filter;
     document.querySelectorAll('.shadow-filter-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     renderShadows();
 }
 
 function filterShadows() {
-    shadowSearchQuery = (document.getElementById('shadow-search').value || '').toLowerCase();
+    state.shadowSearchQuery = (document.getElementById('shadow-search').value || '').toLowerCase();
     renderShadows();
 }
 
@@ -188,17 +188,17 @@ function renderCreatures() {
     const container = document.getElementById('creatures-list');
     if (!container) return;
 
-    let filtered = npcs;
-    if (creatureActiveFilter !== 'All') {
-        filtered = filtered.filter(n => (n.role || 'Other') === creatureActiveFilter);
+    let filtered = state.npcs;
+    if (state.creatureActiveFilter !== 'All') {
+        filtered = filtered.filter(n => (n.role || 'Other') === state.creatureActiveFilter);
     }
 
     if (filtered.length === 0) {
-        container.innerHTML = `<div class="empty-state"><h3>${npcs.length === 0 ? 'No creatures or NPCs yet' : 'No creatures match'}</h3></div>`;
+        container.innerHTML = `<div class="empty-state"><h3>${state.npcs.length === 0 ? 'No creatures or NPCs yet' : 'No creatures match'}</h3></div>`;
         return;
     }
 
-    const shadowName = id => (shadows.find(s => s.id === id) || {}).name || 'Unknown';
+    const shadowName = id => (state.shadows.find(s => s.id === id) || {}).name || 'Unknown';
 
     container.innerHTML = filtered.map(n => {
         const cardStyle = shadowInfluenceCardStyle(n.influence);
@@ -257,15 +257,13 @@ function renderCreatures() {
 async function toggleCreatureSpoiler(id, newValue) {
     const token = localStorage.getItem('token');
     try {
-        const res = await fetch(`${API_BASE}/npcs/${id}`, {
+        const updated = await apiFetch(`${API_BASE}/npcs/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({ is_spoiler: newValue })
         });
-        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to update creature');
-        const updated = await res.json();
-        const idx = npcs.findIndex(n => n.id === id);
-        if (idx !== -1) npcs[idx] = { ...npcs[idx], is_spoiler: updated.is_spoiler };
+        const idx = state.npcs.findIndex(n => n.id === id);
+        if (idx !== -1) state.npcs[idx] = { ...state.npcs[idx], is_spoiler: updated.is_spoiler };
         renderCreatures();
     } catch (err) {
         console.error('Error toggling creature spoiler:', err);
@@ -274,7 +272,7 @@ async function toggleCreatureSpoiler(id, newValue) {
 }
 
 function setCreatureFilter(filter, btn) {
-    creatureActiveFilter = filter;
+    state.creatureActiveFilter = filter;
     document.querySelectorAll('.creature-filter-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     renderCreatures();
@@ -283,8 +281,7 @@ function setCreatureFilter(filter, btn) {
 // Sessions
 async function loadSessions() {
     try {
-        const response = await fetch(`${API_BASE}/sessions`);
-        sessions = await response.json();
+        state.sessions = await apiFetch(`${API_BASE}/sessions`);
         renderSessions();
     } catch (error) {
         console.error('Error loading sessions:', error);
@@ -293,13 +290,13 @@ async function loadSessions() {
 
 function renderSessions() {
     const container = document.getElementById('sessions-list');
-    if (sessions.length === 0) {
+    if (state.sessions.length === 0) {
         container.innerHTML = '<div class="empty-state"><h3>No sessions yet</h3></div>';
         return;
     }
 
     const statusColors = { planned:'#8a7a5a', 'in-progress':'#2980b9', completed:'#27ae60' };
-    container.innerHTML = sessions.map(session => {
+    container.innerHTML = state.sessions.map(session => {
         const sc = session.session_characters || [];
         const charBadges = sc.map(c =>
             `<span class="badge" style="font-size:0.75em;margin-right:3px;background:${c.attendance==='absent'?'#fde':'#f5efe0'};color:${c.attendance==='absent'?'#a33':'#555'}">${escHtml(c.character_name)}</span>`
@@ -338,8 +335,7 @@ async function loadProgress() {
     try {
         const charFilter = document.getElementById('progress-filter-character')?.value || '';
         const url = charFilter ? `${API_BASE}/progress?character_id=${charFilter}` : `${API_BASE}/progress`;
-        const response = await fetch(url);
-        progress = await response.json();
+        state.progress = await apiFetch(url);
         renderProgress();
     } catch (error) {
         console.error('Error loading progress:', error);
@@ -348,12 +344,12 @@ async function loadProgress() {
 
 function renderProgress() {
     const container = document.getElementById('progress-list');
-    if (progress.length === 0) {
+    if (state.progress.length === 0) {
         container.innerHTML = '<div class="empty-state"><h3>No progress entries yet</h3></div>';
         return;
     }
 
-    container.innerHTML = progress.map(entry => `
+    container.innerHTML = state.progress.map(entry => `
         <div class="progress-entry">
             <h4>${escHtml(entry.character_name)} - Session ${entry.session_number}: ${escHtml(entry.session_title) || 'Untitled'}</h4>
             <p><strong>Summary:</strong> ${escHtml(entry.summary)}</p>
@@ -379,6 +375,16 @@ function updateProgressFilter() {
     if (!select) return;
 
     select.innerHTML = '<option value="">All Characters</option>' +
-        characters.map(char => `<option value="${char.id}">${escHtml(char.name)}</option>`).join('');
+        state.characters.map(char => `<option value="${char.id}">${escHtml(char.name)}</option>`).join('');
 }
+
+// Referenced from generated onclick="..." HTML and the dashboard's own
+// static HTML (see ADR-001).
+Object.assign(window, {
+    filterShadows, loadProgress, setCreatureFilter, setShadowFilter,
+    toggleCreatureSpoiler, toggleShadowSpoiler,
+});
+
+// Used by dm-core.js, dm-modals.js, and dm-editors.js.
+export { loadCharacters, loadShadows, loadSessions, loadProgress, renderCreatures };
 

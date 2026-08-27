@@ -1,4 +1,7 @@
 // dm-primal-patterns.js — split from app.js (behavior unchanged)
+import { state } from './dm-state.js';
+import { closeModal, showModal } from './dm-modals.js';
+
 // ========== PRIMAL PATTERNS FUNCTIONS ==========
 
 function patternInfluenceLabel(val) {
@@ -37,24 +40,16 @@ function patternInfluenceBadge(val) {
     return 'badge-pattern';
 }
 
-function escHtml(str) {
-    if (!str) return '';
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-}
+// escHtml now comes from /js/dom-utils.js (loaded before this file).
 
 async function loadPrimalPatterns() {
     try {
-        const response = await fetch('/api/primal-patterns');
-        primalPatterns = await response.json();
+        state.primalPatterns = await apiFetch('/api/primal-patterns');
         renderPrimalPatternCards();
-        if (activePatternId && primalPatterns.some(p => p.id === activePatternId)) {
-            await renderPatternDetail(activePatternId);
-        } else if (activePatternId) {
-            activePatternId = null;
+        if (state.activePatternId && state.primalPatterns.some(p => p.id === state.activePatternId)) {
+            await renderPatternDetail(state.activePatternId);
+        } else if (state.activePatternId) {
+            state.activePatternId = null;
             const dv = document.getElementById('pattern-detail-view');
             if (dv) dv.innerHTML = '';
         }
@@ -67,7 +62,7 @@ function renderPrimalPatternCards() {
     const container = document.getElementById('pattern-card-row');
     if (!container) return;
 
-    if (primalPatterns.length === 0) {
+    if (state.primalPatterns.length === 0) {
         container.innerHTML = `
             <div class="empty-state" style="grid-column:1/-1;">
                 <h3>No patterns yet</h3>
@@ -76,8 +71,8 @@ function renderPrimalPatternCards() {
         return;
     }
 
-    container.innerHTML = primalPatterns.map(p => `
-        <div class="pattern-card ${p.id === activePatternId ? 'active' : ''}" onclick="selectPattern(${p.id})">
+    container.innerHTML = state.primalPatterns.map(p => `
+        <div class="pattern-card ${p.id === state.activePatternId ? 'active' : ''}" onclick="selectPattern(${p.id})">
             <div class="pattern-card-name">${escHtml(p.name)}</div>
             ${p.origin_figure ? `<div class="pattern-card-origin">Origin: ${escHtml(p.origin_figure)}</div>` : ''}
             <div class="pattern-card-animal">${p.spirit_animal ? escHtml(p.spirit_animal) : 'No primal animal set'}</div>
@@ -89,7 +84,7 @@ function renderPrimalPatternCards() {
 }
 
 async function selectPattern(id) {
-    activePatternId = id;
+    state.activePatternId = id;
     renderPrimalPatternCards();
     await renderPatternDetail(id);
 }
@@ -100,13 +95,11 @@ async function renderPatternDetail(id) {
     detailView.innerHTML = '<div style="padding:20px; color:#999;">Loading...</div>';
 
     try {
-        const response = await fetch(`/api/primal-patterns/${id}`);
-        if (!response.ok) throw new Error('Failed to fetch pattern');
-        const pattern = await response.json();
+        const pattern = await apiFetch(`/api/primal-patterns/${id}`);
 
         // Cache section grants so openGrantModal can access them
-        sectionGrantsCache = {};
-        pattern.sections.forEach(s => { sectionGrantsCache[s.id] = s.grants || []; });
+        state.sectionGrantsCache = {};
+        pattern.sections.forEach(s => { state.sectionGrantsCache[s.id] = s.grants || []; });
 
         detailView.innerHTML = `
             <div class="pattern-detail">
@@ -159,7 +152,7 @@ function renderSectionPanels(sections, patternId) {
     }
 
     return sections.map(s => {
-        const isOpen = openSections.has(s.id);
+        const isOpen = state.openSections.has(s.id);
         const isSecrets = s.section_key === 'secrets';
         const grantCount = (s.grants || []).length;
 
@@ -213,12 +206,12 @@ function toggleSection(id) {
     const body = document.getElementById(`sec-body-${id}`);
     const chevron = document.getElementById(`sec-chevron-${id}`);
     if (!body) return;
-    if (openSections.has(id)) {
-        openSections.delete(id);
+    if (state.openSections.has(id)) {
+        state.openSections.delete(id);
         body.style.display = 'none';
         if (chevron) chevron.textContent = '▼';
     } else {
-        openSections.add(id);
+        state.openSections.add(id);
         body.style.display = '';
         if (chevron) chevron.textContent = '▲';
     }
@@ -232,12 +225,11 @@ async function saveSectionContent(patternId, sectionId) {
     if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
 
     try {
-        const response = await fetch(`/api/primal-patterns/${patternId}/sections/${sectionId}`, {
+        await apiFetch(`/api/primal-patterns/${patternId}/sections/${sectionId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ content, player_content: playerContent })
         });
-        if (!response.ok) throw new Error('Save failed');
         if (btn) {
             btn.textContent = 'Saved!';
             setTimeout(() => { btn.textContent = 'Save'; btn.disabled = false; }, 1800);
@@ -249,12 +241,12 @@ async function saveSectionContent(patternId, sectionId) {
 }
 
 function openGrantModal(sectionId, patternId) {
-    const grants = sectionGrantsCache[sectionId] || [];
+    const grants = state.sectionGrantsCache[sectionId] || [];
     const grantedIds = new Set(grants.map(g => g.character_id));
 
-    const charList = characters.length === 0
+    const charList = state.characters.length === 0
         ? '<p style="color:#999; font-style:italic;">No characters found. Create characters first.</p>'
-        : characters.map(c => `
+        : state.characters.map(c => `
             <label style="display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:6px; cursor:pointer;
                           ${grantedIds.has(c.id) ? 'background:#e8f5e9;' : ''}">
                 <input type="checkbox" value="${c.id}" ${grantedIds.has(c.id) ? 'checked' : ''}>
@@ -280,7 +272,7 @@ function openGrantModal(sectionId, patternId) {
 }
 
 async function handleGrantSave(sectionId, patternId) {
-    const grants = sectionGrantsCache[sectionId] || [];
+    const grants = state.sectionGrantsCache[sectionId] || [];
     const originalGrantedIds = new Set(grants.map(g => g.character_id));
 
     const checkboxes = document.querySelectorAll('#grant-char-list input[type="checkbox"]');
@@ -291,14 +283,14 @@ async function handleGrantSave(sectionId, patternId) {
 
     try {
         if (toGrant.length > 0) {
-            await fetch(`/api/primal-patterns/sections/${sectionId}/grant`, {
+            await apiFetch(`/api/primal-patterns/sections/${sectionId}/grant`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ character_ids: toGrant })
             });
         }
         for (const charId of toRevoke) {
-            await fetch(`/api/primal-patterns/sections/${sectionId}/revoke/${charId}`, { method: 'DELETE' });
+            await apiFetch(`/api/primal-patterns/sections/${sectionId}/revoke/${charId}`, { method: 'DELETE' });
         }
         closeModal();
         await renderPatternDetail(patternId);
@@ -310,8 +302,7 @@ async function handleGrantSave(sectionId, patternId) {
 async function revokeGrant(sectionId, patternId, characterId, characterName) {
     if (!confirm(`Remove lore access for ${characterName}?`)) return;
     try {
-        const response = await fetch(`/api/primal-patterns/sections/${sectionId}/revoke/${characterId}`, { method: 'DELETE' });
-        if (!response.ok) throw new Error('Revoke failed');
+        await apiFetch(`/api/primal-patterns/sections/${sectionId}/revoke/${characterId}`, { method: 'DELETE' });
         await renderPatternDetail(patternId);
     } catch (err) {
         showToast('Failed to revoke access: ' + err.message);
@@ -321,9 +312,8 @@ async function revokeGrant(sectionId, patternId, characterId, characterName) {
 async function deleteSection(patternId, sectionId) {
     if (!confirm('Delete this section? All player access to it will also be removed.')) return;
     try {
-        const response = await fetch(`/api/primal-patterns/${patternId}/sections/${sectionId}`, { method: 'DELETE' });
-        if (!response.ok) throw new Error('Delete failed');
-        openSections.delete(sectionId);
+        await apiFetch(`/api/primal-patterns/${patternId}/sections/${sectionId}`, { method: 'DELETE' });
+        state.openSections.delete(sectionId);
         await renderPatternDetail(patternId);
     } catch (err) {
         showToast('Failed to delete section: ' + err.message);
@@ -361,12 +351,11 @@ async function handleAddSection(event, patternId) {
     const sectionOrder = parseInt(document.getElementById('new-sec-order').value) || 10;
 
     try {
-        const response = await fetch(`/api/primal-patterns/${patternId}/sections`, {
+        await apiFetch(`/api/primal-patterns/${patternId}/sections`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ title, section_key: sectionKey, section_order: sectionOrder })
         });
-        if (!response.ok) throw new Error('Failed to add section');
         closeModal();
         await renderPatternDetail(patternId);
     } catch (err) {
@@ -375,7 +364,7 @@ async function handleAddSection(event, patternId) {
 }
 
 function openEditPatternModal(patternId) {
-    const pattern = primalPatterns.find(p => p.id === patternId);
+    const pattern = state.primalPatterns.find(p => p.id === patternId);
     if (!pattern) return;
 
     const roleOptions = ['unknown', 'mother', 'father', 'embodiment', 'guardian', 'avatar', 'bound'];
@@ -428,12 +417,11 @@ async function handleEditPattern(event, patternId) {
     };
 
     try {
-        const response = await fetch(`/api/primal-patterns/${patternId}`, {
+        await apiFetch(`/api/primal-patterns/${patternId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-        if (!response.ok) throw new Error('Update failed');
         closeModal();
         await loadPrimalPatterns();
     } catch (err) {
@@ -489,13 +477,11 @@ async function handleCreatePattern(event) {
     if (!data.name) { showToast('Name is required.'); return; }
 
     try {
-        const response = await fetch('/api/primal-patterns', {
+        const created = await apiFetch('/api/primal-patterns', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-        if (!response.ok) throw new Error('Create failed');
-        const created = await response.json();
         closeModal();
         await loadPrimalPatterns();
         await selectPattern(created.id);
@@ -505,12 +491,11 @@ async function handleCreatePattern(event) {
 }
 
 async function deletePattern(patternId) {
-    const pattern = primalPatterns.find(p => p.id === patternId);
+    const pattern = state.primalPatterns.find(p => p.id === patternId);
     if (!confirm(`Delete "${pattern?.name || 'this pattern'}" and all its sections? This cannot be undone.`)) return;
     try {
-        const response = await fetch(`/api/primal-patterns/${patternId}`, { method: 'DELETE' });
-        if (!response.ok) throw new Error('Delete failed');
-        activePatternId = null;
+        await apiFetch(`/api/primal-patterns/${patternId}`, { method: 'DELETE' });
+        state.activePatternId = null;
         const dv = document.getElementById('pattern-detail-view');
         if (dv) dv.innerHTML = '';
         await loadPrimalPatterns();
@@ -518,5 +503,19 @@ async function deletePattern(patternId) {
         showToast('Failed to delete pattern: ' + err.message);
     }
 }
+
+// Referenced from generated onclick="..."/onsubmit="..." HTML (see ADR-001).
+Object.assign(window, {
+    deletePattern, deleteSection, handleAddSection, handleCreatePattern,
+    handleEditPattern, handleGrantSave, openAddSectionModal, openCreatePatternModal,
+    openEditPatternModal, openGrantModal, revokeGrant, saveSectionContent,
+    selectPattern, toggleSection,
+});
+
+// Used by dm-core.js (loadPrimalPatterns) and dm-lists.js (the rest).
+export {
+    loadPrimalPatterns, patternInfluenceLabel, shadowBalanceBar, shadowBarClass,
+    shadowBarLabel,
+};
 
 // ═══════════════════════════════════════════════════════════════

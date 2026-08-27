@@ -1,4 +1,8 @@
 // dm-modals.js — split from app.js (behavior unchanged)
+import { state, API_BASE } from './dm-state.js';
+import { loadCharacters, loadShadows, loadSessions, loadProgress } from './dm-lists.js';
+import { buildChapterPicker, loadNpcs } from './dm-core.js';
+
 // Modal functions
 function closeModal() {
     document.getElementById('modal-overlay').classList.remove('active');
@@ -38,6 +42,10 @@ function renderLoreMarkdown(md) {
     return html;
 }
 
+// Kept on raw fetch rather than apiFetch: a 404 here means "no lore file
+// for this shadow" (an expected, common case with its own message), which
+// is a distinct situation from a real network/exception failure — apiFetch
+// would collapse both into one catch block and one message.
 async function viewShadowLore(id, name) {
     try {
         const response = await fetch(`${API_BASE}/shadows/${id}/lore`);
@@ -54,7 +62,7 @@ async function viewShadowLore(id, name) {
 
 // Create Character Modal
 function showCreateCharacterModal() {
-    const shadowOptions = shadows.map(s => `<option value="${s.id}">${escHtml(s.name)}</option>`).join('');
+    const shadowOptions = state.shadows.map(s => `<option value="${s.id}">${escHtml(s.name)}</option>`).join('');
 
     showModal('Create Character', `
         <form onsubmit="createCharacter(event)">
@@ -135,18 +143,13 @@ async function createCharacter(event) {
     data.trump_artist = formData.has('trump_artist') ? 1 : 0;
 
     try {
-        const response = await fetch(`${API_BASE}/characters`, {
+        await apiFetch(`${API_BASE}/characters`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-
-        if (response.ok) {
-            closeModal();
-            await loadCharacters();
-        } else {
-            showToast('Error creating character');
-        }
+        closeModal();
+        await loadCharacters();
     } catch (error) {
         console.error('Error:', error);
         showToast('Error creating character');
@@ -205,18 +208,13 @@ async function createShadow(event) {
     const data = Object.fromEntries(formData);
 
     try {
-        const response = await fetch(`${API_BASE}/shadows`, {
+        await apiFetch(`${API_BASE}/shadows`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-
-        if (response.ok) {
-            closeModal();
-            await loadShadows();
-        } else {
-            showToast('Error creating shadow');
-        }
+        closeModal();
+        await loadShadows();
     } catch (error) {
         console.error('Error:', error);
         showToast('Error creating shadow');
@@ -230,7 +228,7 @@ const CREATURE_INFLUENCES = ['None', 'Pattern', 'Argent Refrain', 'Logrus', 'Mix
 function creatureFormFields(n = {}) {
     const s = n.stats || {};
     const a = s.abilities || {};
-    const shadowOptions = shadows.map(sh => `<option value="${sh.id}"${n.shadow_id === sh.id ? ' selected' : ''}>${escHtml(sh.name)}</option>`).join('');
+    const shadowOptions = state.shadows.map(sh => `<option value="${sh.id}"${n.shadow_id === sh.id ? ' selected' : ''}>${escHtml(sh.name)}</option>`).join('');
     const roleOptions = CREATURE_ROLES.map(r => `<option value="${r}"${n.role === r ? ' selected' : ''}>${r}</option>`).join('');
     const influenceOptions = CREATURE_INFLUENCES.map(v => `<option value="${v}"${(n.influence || 'None') === v ? ' selected' : ''}>${v === 'Argent Refrain' ? 'The Argent Refrain' : v}</option>`).join('');
     const joinLines = arr => (arr || []).join('\n');
@@ -349,7 +347,7 @@ const FAMILIAR_GROWTH_PLACEHOLDER = JSON.stringify([
 function familiarFormFields(f = {}) {
     const s = f.base_stats || {};
     const a = s.abilities || {};
-    const templateOptions = npcs.map(n => `<option value="${n.id}"${f.template_npc_id === n.id ? ' selected' : ''}>${escHtml(n.name)}</option>`).join('');
+    const templateOptions = state.npcs.map(n => `<option value="${n.id}"${f.template_npc_id === n.id ? ' selected' : ''}>${escHtml(n.name)}</option>`).join('');
     const growthJson = f.growth_table && f.growth_table.length ? JSON.stringify(f.growth_table, null, 2) : '';
 
     return `
@@ -411,18 +409,13 @@ async function createCreature(event) {
     const data = creaturePayloadFromForm(event);
 
     try {
-        const response = await fetch(`${API_BASE}/npcs`, {
+        await apiFetch(`${API_BASE}/npcs`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-
-        if (response.ok) {
-            closeModal();
-            await loadNpcs();
-        } else {
-            showToast('Error creating creature');
-        }
+        closeModal();
+        await loadNpcs();
     } catch (error) {
         console.error('Error:', error);
         showToast('Error creating creature');
@@ -431,10 +424,10 @@ async function createCreature(event) {
 
 // Create Session Modal
 function showCreateSessionModal() {
-    const nextNum = sessions.length > 0 ? Math.max(...sessions.map(s => s.session_number)) + 1 : 1;
+    const nextNum = state.sessions.length > 0 ? Math.max(...state.sessions.map(s => s.session_number)) + 1 : 1;
     const today   = new Date().toISOString().split('T')[0];
 
-    const charChecks = characters.map(c =>
+    const charChecks = state.characters.map(c =>
         `<label style="display:block;margin-bottom:4px;cursor:pointer">
             <input type="checkbox" class="char-check" value="${c.id}">
             ${escHtml(c.name)}${c.player_name ? ` <span style="color:#999;font-size:0.85em">(${escHtml(c.player_name)})</span>` : ''}
@@ -494,12 +487,11 @@ async function createSession(event) {
     data.chapter_ids   = [...form.querySelectorAll('.chapter-check:checked')].map(el => +el.value);
 
     try {
-        const res = await fetch(`${API_BASE}/sessions`, {
+        await apiFetch(`${API_BASE}/sessions`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-        if (!res.ok) throw new Error((await res.json()).error || 'Error creating session');
         closeModal();
         await loadSessions();
     } catch (err) {
@@ -509,9 +501,9 @@ async function createSession(event) {
 
 // Add Progress Modal
 function showAddProgressModal() {
-    const charOptions = characters.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
-    const sessionOptions = sessions.map(s => `<option value="${s.id}">Session ${s.session_number}: ${s.session_title || 'Untitled'}</option>`).join('');
-    const shadowOptions = shadows.map(s => `<option value="${s.id}">${escHtml(s.name)}</option>`).join('');
+    const charOptions = state.characters.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    const sessionOptions = state.sessions.map(s => `<option value="${s.id}">Session ${s.session_number}: ${s.session_title || 'Untitled'}</option>`).join('');
+    const shadowOptions = state.shadows.map(s => `<option value="${s.id}">${escHtml(s.name)}</option>`).join('');
 
     showModal('Add Progress Entry', `
         <form onsubmit="addProgress(event)">
@@ -583,19 +575,14 @@ async function addProgress(event) {
     data.is_solo_session = formData.has('is_solo_session');
 
     try {
-        const response = await fetch(`${API_BASE}/progress`, {
+        await apiFetch(`${API_BASE}/progress`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-
-        if (response.ok) {
-            closeModal();
-            await loadProgress();
-            await loadCharacters(); // Reload to update feat counts
-        } else {
-            showToast('Error adding progress');
-        }
+        closeModal();
+        await loadProgress();
+        await loadCharacters(); // Reload to update feat counts
     } catch (error) {
         console.error('Error:', error);
         showToast('Error adding progress');
@@ -607,15 +594,11 @@ async function deleteCharacter(id) {
     if (!confirm('Are you sure you want to delete this character?')) return;
 
     try {
-        const response = await fetch(`${API_BASE}/characters/${id}`, { method: 'DELETE' });
-        if (response.ok) {
-            await loadCharacters();
-        } else {
-            showToast(`Failed to delete character: ${(await response.json().catch(() => ({}))).error || response.statusText}`);
-        }
+        await apiFetch(`${API_BASE}/characters/${id}`, { method: 'DELETE' });
+        await loadCharacters();
     } catch (error) {
         console.error('Error:', error);
-        showToast('Failed to delete character: connection error');
+        showToast(`Failed to delete character: ${error.message}`);
     }
 }
 
@@ -623,15 +606,11 @@ async function deleteShadow(id) {
     if (!confirm('Are you sure you want to delete this shadow?')) return;
 
     try {
-        const response = await fetch(`${API_BASE}/shadows/${id}`, { method: 'DELETE' });
-        if (response.ok) {
-            await loadShadows();
-        } else {
-            showToast(`Failed to delete shadow: ${(await response.json().catch(() => ({}))).error || response.statusText}`);
-        }
+        await apiFetch(`${API_BASE}/shadows/${id}`, { method: 'DELETE' });
+        await loadShadows();
     } catch (error) {
         console.error('Error:', error);
-        showToast('Failed to delete shadow: connection error');
+        showToast(`Failed to delete shadow: ${error.message}`);
     }
 }
 
@@ -639,15 +618,11 @@ async function deleteCreature(id) {
     if (!confirm('Are you sure you want to delete this creature/NPC?')) return;
 
     try {
-        const response = await fetch(`${API_BASE}/npcs/${id}`, { method: 'DELETE' });
-        if (response.ok) {
-            await loadNpcs();
-        } else {
-            showToast(`Failed to delete creature: ${(await response.json().catch(() => ({}))).error || response.statusText}`);
-        }
+        await apiFetch(`${API_BASE}/npcs/${id}`, { method: 'DELETE' });
+        await loadNpcs();
     } catch (error) {
         console.error('Error:', error);
-        showToast('Failed to delete creature: connection error');
+        showToast(`Failed to delete creature: ${error.message}`);
     }
 }
 
@@ -655,15 +630,11 @@ async function deleteSession(id) {
     if (!confirm('Are you sure you want to delete this session?')) return;
 
     try {
-        const response = await fetch(`${API_BASE}/sessions/${id}`, { method: 'DELETE' });
-        if (response.ok) {
-            await loadSessions();
-        } else {
-            showToast(`Failed to delete session: ${(await response.json().catch(() => ({}))).error || response.statusText}`);
-        }
+        await apiFetch(`${API_BASE}/sessions/${id}`, { method: 'DELETE' });
+        await loadSessions();
     } catch (error) {
         console.error('Error:', error);
-        showToast('Failed to delete session: connection error');
+        showToast(`Failed to delete session: ${error.message}`);
     }
 }
 
@@ -671,15 +642,29 @@ async function deleteProgress(id) {
     if (!confirm('Are you sure you want to delete this progress entry?')) return;
 
     try {
-        const response = await fetch(`${API_BASE}/progress/${id}`, { method: 'DELETE' });
-        if (response.ok) {
-            await loadProgress();
-        } else {
-            showToast(`Failed to delete progress entry: ${(await response.json().catch(() => ({}))).error || response.statusText}`);
-        }
+        await apiFetch(`${API_BASE}/progress/${id}`, { method: 'DELETE' });
+        await loadProgress();
     } catch (error) {
         console.error('Error:', error);
-        showToast('Failed to delete progress entry: connection error');
+        showToast(`Failed to delete progress entry: ${error.message}`);
     }
 }
+
+// Referenced from generated onclick="..."/onsubmit="..." HTML — inline
+// event attributes always run in the global scope regardless of module
+// boundaries, so every function invoked that way needs this explicit
+// bridge (see ADR-001).
+Object.assign(window, {
+    addProgress, closeModal, createCharacter, createCreature, createSession,
+    createShadow, deleteCharacter, deleteCreature, deleteProgress, deleteSession,
+    deleteShadow, showAddProgressModal, showCreateCharacterModal,
+    showCreateCreatureModal, showCreateSessionModal, showCreateShadowModal,
+    viewShadowLore,
+});
+
+// Used by dm-editors.js.
+export {
+    closeModal, showModal, creatureFormFields, creaturePayloadFromForm,
+    familiarFormFields, familiarPayloadFromForm,
+};
 

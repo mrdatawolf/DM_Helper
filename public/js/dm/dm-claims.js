@@ -9,8 +9,7 @@ async function loadClaimsRankings() {
     container.innerHTML = '<div class="loading">Loading claims rankings...</div>';
 
     try {
-        const response = await fetch('/api/claims/rankings/all/with-best');
-        const rankings = await response.json();
+        const rankings = await apiFetch('/api/claims/rankings/all/with-best');
 
         if (Object.keys(rankings).length === 0) {
             container.innerHTML = '<div style="text-align: center; color: #999; padding: 40px; font-style: italic;">No attribute claims have been made yet.</div>';
@@ -134,4 +133,7 @@ async function loadClaimsRankings() {
         `;
     }
 }
+
+// Referenced from generated onclick="..." HTML (see ADR-001).
+window.loadClaimsRankings = loadClaimsRankings;
 

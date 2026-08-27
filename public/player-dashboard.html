@@ -1362,22 +1362,29 @@
         </div>
     </div>
 
-    <!-- Player dashboard scripts (load order matters: shared state/helpers first) -->
+    <!-- Player dashboard scripts. toast.js/api.js/dom-utils.js stay classic
+         scripts (read as ordinary globals from the modules below, see
+         ADR-001); the player-*.js files are real ES modules — the browser
+         auto-defers them and resolves execution order from their import
+         graph, not from the order these tags appear in. -->
     <script src="/js/toast.js"></script>
-    <script src="/js/player/player-core.js"></script>
-    <script src="/js/player/player-characters.js"></script>
-    <script src="/js/player/player-gear-powers.js"></script>
-    <script src="/js/player/player-familiars.js"></script>
-    <script src="/js/player/player-wizard-data.js"></script>
-    <script src="/js/player/player-wizard-core.js"></script>
-    <script src="/js/player/player-wizard-steps.js"></script>
-    <script src="/js/player/player-account.js"></script>
-    <script src="/js/player/player-journal.js"></script>
-    <script src="/js/player/player-edit-form.js"></script>
-    <script src="/js/player/player-claims.js"></script>
-    <script src="/js/player/player-dice.js"></script>
-    <script src="/js/player/player-session-tracker.js"></script>
-    <script src="/js/player/player-shadows.js"></script>
-    <script src="/js/player/player-creatures.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/dom-utils.js"></script>
+    <script type="module" src="/js/player/player-state.js"></script>
+    <script type="module" src="/js/player/player-core.js"></script>
+    <script type="module" src="/js/player/player-characters.js"></script>
+    <script type="module" src="/js/player/player-gear-powers.js"></script>
+    <script type="module" src="/js/player/player-familiars.js"></script>
+    <script type="module" src="/js/player/player-wizard-data.js"></script>
+    <script type="module" src="/js/player/player-wizard-core.js"></script>
+    <script type="module" src="/js/player/player-wizard-steps.js"></script>
+    <script type="module" src="/js/player/player-account.js"></script>
+    <script type="module" src="/js/player/player-journal.js"></script>
+    <script type="module" src="/js/player/player-edit-form.js"></script>
+    <script type="module" src="/js/player/player-claims.js"></script>
+    <script type="module" src="/js/player/player-dice.js"></script>
+    <script type="module" src="/js/player/player-session-tracker.js"></script>
+    <script type="module" src="/js/player/player-shadows.js"></script>
+    <script type="module" src="/js/player/player-creatures.js"></script>
 </body>
 </html>

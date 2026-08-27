@@ -1,27 +1,11 @@
 // dm-core.js — split from app.js (behavior unchanged)
-// API Base URL
-const API_BASE = '/api';
-
-// State
-let currentUser = JSON.parse(localStorage.getItem('user') || 'null');
-let characters = [];
-let shadows = [];
-let shadowActiveFilter = 'All';
-let shadowSearchQuery  = '';
-let creatureActiveFilter = 'All';
-let sessions = [];
-let progress = [];
-let journalEntries = [];
-let primalPatterns = [];
-let activePatternId = null;
-const openSections = new Set();
-let sectionGrantsCache = {};
-
-let storyArcs = [];
-let activeArcId = null;
-let beats = [];
-let npcs  = [];
-let grandNarrative = {};
+import { state, API_BASE } from './dm-state.js';
+import { verifyDmSession } from './dm-auth-guard.js';
+import { loadCharacters, loadShadows, loadSessions, loadProgress, renderCreatures } from './dm-lists.js';
+import { loadDMScenes } from './dm-scenes-combats.js';
+import { loadJournalEntries } from './dm-journal.js';
+import { loadPrimalPatterns } from './dm-primal-patterns.js';
+import { loadStoryArcs } from './dm-story-arcs.js';
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', async () => {
@@ -88,31 +72,28 @@ async function loadAllData() {
 
 async function loadBeats() {
     try {
-        const r = await fetch(`${API_BASE}/beats`);
-        beats = await r.json();
+        state.beats = await apiFetch(`${API_BASE}/beats`);
     } catch (e) { console.error('Error loading beats:', e); }
 }
 
 async function loadNpcs() {
     try {
-        const r = await fetch(`${API_BASE}/npcs`);
-        npcs = await r.json();
-        if (typeof renderCreatures === 'function') renderCreatures();
+        state.npcs = await apiFetch(`${API_BASE}/npcs`);
+        renderCreatures();
     } catch (e) { console.error('Error loading npcs:', e); }
 }
 
 async function prefetchArcs() {
     try {
-        const r = await fetch(`${API_BASE}/arcs`);
-        storyArcs = await r.json();
+        state.storyArcs = await apiFetch(`${API_BASE}/arcs`);
     } catch (e) { console.error('Error prefetching arcs:', e); }
 }
 
 function buildChapterPicker(selectedIds = new Set()) {
-    if (!storyArcs.length) return '<em style="color:#999">No arcs yet — create arcs and chapters first.</em>';
+    if (!state.storyArcs.length) return '<em style="color:#999">No arcs yet — create arcs and chapters first.</em>';
 
     const byChar = {};
-    for (const arc of storyArcs) {
+    for (const arc of state.storyArcs) {
         if (!(arc.chapters || []).length) continue;
         const key = arc.character_name || 'World / General';
         if (!byChar[key]) byChar[key] = [];
@@ -139,3 +120,10 @@ function buildChapterPicker(selectedIds = new Set()) {
     `).join('');
 }
 
+// showGuide is currently unreferenced anywhere (pre-existing dead code,
+// unrelated to this migration — left as-is rather than removed).
+
+// buildChapterPicker and loadNpcs are called from dm-editors.js. Nothing
+// outside this file needs initTabs/switchTab/loadAllData — they're wired
+// entirely from this file's own DOMContentLoaded handler above.
+export { buildChapterPicker, loadNpcs };

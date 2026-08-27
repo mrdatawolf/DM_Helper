@@ -1,4 +1,7 @@
 // player-wizard-core.js — split from player-dashboard.js (behavior unchanged)
+import { STAT_KEYS, FIELD_INFO, IMPRINT_LORE, WIZARD_STEP_INFO, CLASSES_5E } from './player-wizard-data.js';
+import { wizardRenderClass, wizardRenderFlaws, wizardRenderReview, wizardRenderStats } from './player-wizard-steps.js';
+
 // Wizard state
 let wiz = {};
 
@@ -202,8 +205,7 @@ async function wizardPopulateShadows() {
     const sel = document.getElementById('w-shadow');
     if (sel.options.length > 1) return; // already loaded
     try {
-        const res = await fetch('/api/shadows');
-        const shadows = await res.json();
+        const shadows = await apiFetch('/api/shadows');
         shadows.forEach(s => {
             const o = document.createElement('option');
             o.value = s.id;
@@ -495,4 +497,17 @@ function wizardRenderAmberMods() {
     // If we're already on step 3, refresh stat display too
     if (wiz.step === 3) wizardRenderStats();
 }
+
+// Referenced from generated onclick="..."/onmouseenter="..." HTML (see ADR-001).
+Object.assign(window, {
+    acknowledgeGuide, closeCreateCharacter, hoverClass, openCreateCharacter, showGuideReminder,
+    wizardAmberUpdate, wizardBack, wizardImprintChange, wizardNext, wizardOCUpdate, wizardRevertInfoPanel,
+});
+
+// Used by other player-*.js modules.
+export {
+    applyGuideGate, closeCreateCharacter, wizardFocusField, wizardBlurField, _fieldInfoForElement,
+    _classLore, calcAmberMods, classGateStatus, getFinalStats, getRecommendedClasses,
+    isTrumpEligible, wiz, wizardCollectStep, wizardPinInfoPanel, wizardShowInfoPanel,
+};
 

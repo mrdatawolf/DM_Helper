@@ -2,6 +2,7 @@
 // ============================================
 // DICE ROLLER FUNCTIONALITY
 // ============================================
+import { commonAttributes } from './player-claims.js';
 
 // Dice Roller State
 let diceSelectedCharacter = null;
@@ -34,11 +35,9 @@ async function loadDiceCharacters() {
     const token = localStorage.getItem('token');
 
     try {
-        const response = await fetch('/api/characters', {
+        const characters = await apiFetch('/api/characters', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-
-        const characters = await response.json();
         const select = document.getElementById('dice-character-select');
 
         select.innerHTML = '<option value="">Choose a character...</option>';
@@ -59,11 +58,9 @@ async function loadDiceCharacterData(characterId) {
 
     try {
         // Load character's claims
-        const claimsResponse = await fetch(`/api/claims/character/${characterId}`, {
+        const claims = await apiFetch(`/api/claims/character/${characterId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-
-        const claims = await claimsResponse.json();
         diceCharacterClaims = {};
         claims.forEach(claim => {
             diceCharacterClaims[claim.attribute_name] = claim;
@@ -214,7 +211,7 @@ async function rollD20WithClaims() {
     const baseRoll = Math.floor(Math.random() * 20) + 1;
 
     // Call API to resolve bonuses
-    const response = await fetch('/api/claims/resolve', {
+    const result = await apiFetch('/api/claims/resolve', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -226,12 +223,6 @@ async function rollD20WithClaims() {
             roll_result: baseRoll
         })
     });
-
-    if (!response.ok) {
-        throw new Error('Failed to resolve roll');
-    }
-
-    const result = await response.json();
 
     return {
         system: 'd20',
@@ -444,4 +435,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+// Referenced from generated onclick="..." HTML (see ADR-001).
+Object.assign(window, { rollDice, selectDiceSystem });
 

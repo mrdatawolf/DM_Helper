@@ -14,7 +14,11 @@ async function checkAuthStatus() {
 
     if (token && userStr) {
         try {
-            // Verify token is still valid
+            // Verify token is still valid. Kept on raw fetch rather than
+            // apiFetch: an invalid/expired token (!response.ok) and a real
+            // network error are deliberately handled differently below —
+            // only the former clears localStorage — and apiFetch would
+            // collapse both into the same catch block.
             const response = await fetch('/api/auth/me', {
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -74,6 +78,10 @@ async function handleNavLogout() {
     const token = localStorage.getItem('token');
 
     try {
+        // Kept on raw fetch rather than apiFetch: navigation.js is loaded on
+        // index.html and guide.html too, and only the two dashboards load
+        // api.js — using apiFetch here would throw ReferenceError on those
+        // other pages and silently skip the server-side logout call.
         await fetch('/api/auth/logout', {
             method: 'POST',
             headers: {

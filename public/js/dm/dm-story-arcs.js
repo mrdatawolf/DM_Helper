@@ -1,4 +1,7 @@
 // dm-story-arcs.js — split from app.js (behavior unchanged)
+import { state } from './dm-state.js';
+import { closeModal, showModal } from './dm-modals.js';
+
 // STORY ARCS
 // ═══════════════════════════════════════════════════════════════
 
@@ -7,24 +10,21 @@ const CHAPTER_STATUS_LABELS = { planned: 'Planned', active: 'Active', completed:
 
 async function loadStoryArcs() {
     try {
-        const [arcsRes, beatsRes, gnRes] = await Promise.all([
-            fetch('/api/arcs'),
-            fetch('/api/beats'),
-            fetch('/api/arcs/grand-narrative'),
+        [state.storyArcs, state.beats, state.grandNarrative] = await Promise.all([
+            apiFetch('/api/arcs'),
+            apiFetch('/api/beats'),
+            apiFetch('/api/arcs/grand-narrative'),
         ]);
-        storyArcs      = await arcsRes.json();
-        beats          = await beatsRes.json();
-        grandNarrative = await gnRes.json();
 
         renderGrandNarrative();
         renderArcRows();
         renderBeatsPool();
 
-        if (activeArcId) {
-            const still = storyArcs.find(a => a.id === activeArcId);
-            if (still) selectArc(activeArcId);
+        if (state.activeArcId) {
+            const still = state.storyArcs.find(a => a.id === state.activeArcId);
+            if (still) selectArc(state.activeArcId);
             else {
-                activeArcId = null;
+                state.activeArcId = null;
                 const dv = document.getElementById('arc-detail-view');
                 if (dv) dv.innerHTML = '';
             }
@@ -39,7 +39,7 @@ async function loadStoryArcs() {
 function renderGrandNarrative() {
     const section = document.getElementById('grand-narrative-section');
     if (!section) return;
-    const gn = grandNarrative || {};
+    const gn = state.grandNarrative || {};
     section.innerHTML = `
     <div class="grand-narrative-panel">
         <div class="gn-header" onclick="toggleGrandNarrative()">
@@ -96,12 +96,11 @@ async function saveGrandNarrative() {
     const factions = document.getElementById('gn-factions-input')?.value?.trim();
     const dm_notes = document.getElementById('gn-notes-input')?.value?.trim();
     try {
-        const res = await fetch('/api/arcs/grand-narrative', {
+        state.grandNarrative = await apiFetch('/api/arcs/grand-narrative', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ title, summary, factions, dm_notes })
         });
-        grandNarrative = await res.json();
     } catch (err) {
         console.error('Failed to save grand narrative:', err);
     }
@@ -115,14 +114,14 @@ function renderArcRows() {
 
     // Group arcs by character
     const byChar = {};
-    storyArcs.forEach(a => {
+    state.storyArcs.forEach(a => {
         const key = a.character_id || 0;
         if (!byChar[key]) byChar[key] = { name: a.character_name || 'Unassigned', id: a.character_id || 0, arcs: [] };
         byChar[key].arcs.push(a);
     });
 
     // Include characters with no arcs yet
-    characters.forEach(c => {
+    state.characters.forEach(c => {
         if (!byChar[c.id]) byChar[c.id] = { name: c.name, id: c.id, arcs: [] };
     });
 
@@ -144,7 +143,7 @@ function renderArcRows() {
                     const total    = a.chapter_total || 0;
                     const done     = a.chapter_done  || 0;
                     const pct      = total ? Math.round((done / total) * 100) : 0;
-                    const isActive = a.id === activeArcId;
+                    const isActive = a.id === state.activeArcId;
                     return `<div class="arc-card${isActive ? ' active' : ''}" onclick="selectArc(${a.id})">
                         <div class="arc-status arc-status-${a.status}">${ARC_STATUS_LABELS[a.status] || a.status}</div>
                         <div class="arc-card-title">${escHtml(a.title)}</div>
@@ -160,11 +159,10 @@ function renderArcRows() {
 // ── Arc Detail ─────────────────────────────────────────────────
 
 async function selectArc(id) {
-    activeArcId = id;
+    state.activeArcId = id;
     renderArcRows();
     try {
-        const res = await fetch(`/api/arcs/${id}`);
-        const arc = await res.json();
+        const arc = await apiFetch(`/api/arcs/${id}`);
         renderArcDetail(arc);
         document.getElementById('arc-detail-view')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } catch (err) {
@@ -256,7 +254,7 @@ function renderChapterItem(arcId, ch, index) {
 // ── Arc CRUD ───────────────────────────────────────────────────
 
 function openCreateArcModal(presetCharId) {
-    const charOptions = characters.map(c =>
+    const charOptions = state.characters.map(c =>
         `<option value="${c.id}"${c.id === presetCharId ? ' selected' : ''}>${escHtml(c.name)}</option>`
     ).join('');
     showModal('New Story Arc', `
@@ -311,13 +309,11 @@ async function handleCreateArc() {
     if (!title) { showToast('Title is required'); return; }
 
     try {
-        const res = await fetch('/api/arcs', {
+        const newArc = await apiFetch('/api/arcs', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ character_id, title, theme, status, description, dm_notes })
         });
-        if (!res.ok) throw new Error((await res.json()).error || 'Create failed');
-        const newArc = await res.json();
         closeModal();
         await loadStoryArcs();
         selectArc(newArc.id);
@@ -327,9 +323,9 @@ async function handleCreateArc() {
 }
 
 async function openEditArcModal(arcId) {
-    const arc = storyArcs.find(a => a.id === arcId);
+    const arc = state.storyArcs.find(a => a.id === arcId);
     if (!arc) return;
-    const charOptions = characters.map(c =>
+    const charOptions = state.characters.map(c =>
         `<option value="${c.id}"${c.id === arc.character_id ? ' selected' : ''}>${escHtml(c.name)}</option>`
     ).join('');
     showModal('Edit Arc', `
@@ -383,12 +379,11 @@ async function handleEditArc(arcId) {
     if (!title) { showToast('Title is required'); return; }
 
     try {
-        const res = await fetch(`/api/arcs/${arcId}`, {
+        await apiFetch(`/api/arcs/${arcId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ character_id, title, theme, status, description, dm_notes })
         });
-        if (!res.ok) throw new Error((await res.json()).error || 'Update failed');
         closeModal();
         await loadStoryArcs();
         selectArc(arcId);
@@ -398,10 +393,10 @@ async function handleEditArc(arcId) {
 }
 
 async function updateArcStatus(arcId, status) {
-    const arc = storyArcs.find(a => a.id === arcId);
+    const arc = state.storyArcs.find(a => a.id === arcId);
     if (!arc) return;
     try {
-        await fetch(`/api/arcs/${arcId}`, {
+        await apiFetch(`/api/arcs/${arcId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ character_id: arc.character_id, title: arc.title,
@@ -415,10 +410,10 @@ async function updateArcStatus(arcId, status) {
 }
 
 async function saveArcField(arcId, field, value) {
-    const arc = storyArcs.find(a => a.id === arcId);
+    const arc = state.storyArcs.find(a => a.id === arcId);
     if (!arc) return;
     try {
-        await fetch(`/api/arcs/${arcId}`, {
+        await apiFetch(`/api/arcs/${arcId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ character_id: arc.character_id, title: arc.title,
@@ -431,12 +426,11 @@ async function saveArcField(arcId, field, value) {
 }
 
 async function deleteArc(arcId) {
-    const arc = storyArcs.find(a => a.id === arcId);
+    const arc = state.storyArcs.find(a => a.id === arcId);
     if (!confirm(`Delete arc "${arc?.title || ''}" and all its chapters? This cannot be undone.`)) return;
     try {
-        const res = await fetch(`/api/arcs/${arcId}`, { method: 'DELETE' });
-        if (!res.ok) throw new Error('Delete failed');
-        activeArcId = null;
+        await apiFetch(`/api/arcs/${arcId}`, { method: 'DELETE' });
+        state.activeArcId = null;
         document.getElementById('arc-detail-view').innerHTML = '';
         await loadStoryArcs();
     } catch (err) {
@@ -475,12 +469,11 @@ async function handleAddChapter(arcId) {
     if (!title) { showToast('Title is required'); return; }
 
     try {
-        const res = await fetch(`/api/arcs/${arcId}/chapters`, {
+        await apiFetch(`/api/arcs/${arcId}/chapters`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ title, description, dm_notes })
         });
-        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
         closeModal();
         await loadStoryArcs();
         selectArc(arcId);
@@ -491,7 +484,7 @@ async function handleAddChapter(arcId) {
 
 async function updateChapterStatus(arcId, chapterId, status) {
     try {
-        await fetch(`/api/arcs/${arcId}/chapters/${chapterId}`, {
+        await apiFetch(`/api/arcs/${arcId}/chapters/${chapterId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status })
@@ -505,8 +498,7 @@ async function updateChapterStatus(arcId, chapterId, status) {
 
 async function deleteChapter(arcId, chapterId) {
     try {
-        const res = await fetch(`/api/arcs/${arcId}/chapters/${chapterId}`, { method: 'DELETE' });
-        if (!res.ok) throw new Error('Delete failed');
+        await apiFetch(`/api/arcs/${arcId}/chapters/${chapterId}`, { method: 'DELETE' });
         await loadStoryArcs();
         selectArc(arcId);
     } catch (err) {
@@ -516,8 +508,7 @@ async function deleteChapter(arcId, chapterId) {
 
 async function openEditChapterModal(arcId, chapterId) {
     try {
-        const res = await fetch(`/api/arcs/${arcId}`);
-        const arc = await res.json();
+        const arc = await apiFetch(`/api/arcs/${arcId}`);
         const ch  = arc.chapters.find(c => c.id === chapterId);
         if (!ch) return;
 
@@ -562,12 +553,11 @@ async function handleEditChapter(arcId, chapterId) {
     const dm_notes    = document.getElementById('ch-edit-notes')?.value.trim();
     if (!title) { showToast('Title is required'); return; }
     try {
-        const res = await fetch(`/api/arcs/${arcId}/chapters/${chapterId}`, {
+        await apiFetch(`/api/arcs/${arcId}/chapters/${chapterId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ title, status, description, dm_notes })
         });
-        if (!res.ok) throw new Error('Save failed');
         closeModal();
         await loadStoryArcs();
         selectArc(arcId);
@@ -589,9 +579,9 @@ function renderBeatsPool() {
             <span class="beats-pool-subtitle">Plot events to place when the moment is right</span>
             <button class="btn-primary btn-sm" onclick="openCreateBeatModal()">+ New Beat</button>
         </div>
-        ${beats.length ? `
+        ${state.beats.length ? `
         <div class="beat-pool-list">
-            ${beats.map(b => `
+            ${state.beats.map(b => `
             <div class="beat-pool-item${b.is_completed ? ' done' : ''}">
                 <div class="beat-pool-main">
                     <label class="beat-pool-check">
@@ -623,7 +613,7 @@ function renderBeatsPool() {
 }
 
 function openCreateBeatModal() {
-    const chapterOptions = storyArcs.flatMap(arc =>
+    const chapterOptions = state.storyArcs.flatMap(arc =>
         (arc.chapters || []).map(ch =>
             `<option value="${ch.id}">${escHtml(arc.character_name || 'Unassigned')} — ${escHtml(arc.title)} — ${escHtml(ch.title)}</option>`
         )
@@ -665,15 +655,14 @@ async function handleCreateBeat() {
     if (!title) { showToast('Title is required'); return; }
 
     try {
-        const res = await fetch('/api/beats', {
+        await apiFetch('/api/beats', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ title, description, dm_notes, chapter_id })
         });
-        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
         closeModal();
         await loadStoryArcs();
-        if (activeArcId) selectArc(activeArcId);
+        if (state.activeArcId) selectArc(state.activeArcId);
     } catch (err) {
         showToast('Failed to create beat: ' + err.message);
     }
@@ -681,13 +670,13 @@ async function handleCreateBeat() {
 
 async function toggleBeatComplete(beatId, completed) {
     try {
-        await fetch(`/api/beats/${beatId}`, {
+        await apiFetch(`/api/beats/${beatId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ is_completed: completed })
         });
         await loadStoryArcs();
-        if (activeArcId) selectArc(activeArcId);
+        if (state.activeArcId) selectArc(state.activeArcId);
     } catch (err) {
         console.error('Failed to toggle beat:', err);
     }
@@ -695,8 +684,7 @@ async function toggleBeatComplete(beatId, completed) {
 
 async function cloneBeat(beatId) {
     try {
-        const res = await fetch(`/api/beats/${beatId}/clone`, { method: 'POST' });
-        if (!res.ok) throw new Error('Clone failed');
+        await apiFetch(`/api/beats/${beatId}/clone`, { method: 'POST' });
         await loadStoryArcs();
     } catch (err) {
         showToast('Failed to clone beat: ' + err.message);
@@ -705,20 +693,19 @@ async function cloneBeat(beatId) {
 
 async function deleteBeat(beatId) {
     try {
-        const res = await fetch(`/api/beats/${beatId}`, { method: 'DELETE' });
-        if (!res.ok) throw new Error('Delete failed');
+        await apiFetch(`/api/beats/${beatId}`, { method: 'DELETE' });
         await loadStoryArcs();
-        if (activeArcId) selectArc(activeArcId);
+        if (state.activeArcId) selectArc(state.activeArcId);
     } catch (err) {
         showToast('Failed to delete beat: ' + err.message);
     }
 }
 
 function openAssignBeatModal(beatId) {
-    const beat     = beats.find(b => b.id === beatId);
+    const beat     = state.beats.find(b => b.id === beatId);
     const assigned = new Set((beat?.assignments || []).map(a => a.chapter_id));
 
-    const chapterOptions = storyArcs.flatMap(arc =>
+    const chapterOptions = state.storyArcs.flatMap(arc =>
         (arc.chapters || [])
             .filter(ch => !assigned.has(ch.id))
             .map(ch =>
@@ -750,15 +737,14 @@ async function handleAssignBeat(beatId) {
     const chapter_id = document.getElementById('assign-chapter-id').value;
     if (!chapter_id) { showToast('Select a chapter'); return; }
     try {
-        const res = await fetch(`/api/beats/${beatId}/assign`, {
+        await apiFetch(`/api/beats/${beatId}/assign`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ chapter_id })
         });
-        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
         closeModal();
         await loadStoryArcs();
-        if (activeArcId) selectArc(activeArcId);
+        if (state.activeArcId) selectArc(state.activeArcId);
     } catch (err) {
         showToast('Failed to assign beat: ' + err.message);
     }
@@ -766,9 +752,9 @@ async function handleAssignBeat(beatId) {
 
 function openAssignBeatToChapterModal(chapterId, arcId) {
     const alreadyHere = new Set(
-        beats.filter(b => b.assignments.some(a => a.chapter_id === chapterId)).map(b => b.id)
+        state.beats.filter(b => b.assignments.some(a => a.chapter_id === chapterId)).map(b => b.id)
     );
-    const available = beats.filter(b => !alreadyHere.has(b.id) && !b.is_completed);
+    const available = state.beats.filter(b => !alreadyHere.has(b.id) && !b.is_completed);
 
     if (!available.length) {
         showToast('No available beats. All beats are assigned here already, completed, or none exist. Create a new beat first.');
@@ -791,12 +777,11 @@ async function handleAssignBeatToChapter(chapterId, arcId) {
     const beatId = document.getElementById('assign-beat-id').value;
     if (!beatId) { showToast('Select a beat'); return; }
     try {
-        const res = await fetch(`/api/beats/${beatId}/assign`, {
+        await apiFetch(`/api/beats/${beatId}/assign`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ chapter_id: chapterId })
         });
-        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
         closeModal();
         await loadStoryArcs();
         selectArc(arcId);
@@ -807,10 +792,24 @@ async function handleAssignBeatToChapter(chapterId, arcId) {
 
 async function unassignBeat(beatId, chapterId) {
     try {
-        await fetch(`/api/beats/${beatId}/chapters/${chapterId}`, { method: 'DELETE' });
+        await apiFetch(`/api/beats/${beatId}/chapters/${chapterId}`, { method: 'DELETE' });
         await loadStoryArcs();
-        if (activeArcId) selectArc(activeArcId);
+        if (state.activeArcId) selectArc(state.activeArcId);
     } catch (err) {
         console.error('Failed to unassign beat:', err);
     }
 }
+
+// Referenced from generated onclick="..."/onchange="..." HTML (see ADR-001).
+Object.assign(window, {
+    cloneBeat, deleteArc, deleteBeat, deleteChapter, handleAddChapter,
+    handleAssignBeat, handleAssignBeatToChapter, handleCreateArc, handleCreateBeat,
+    handleEditArc, handleEditChapter, openAddChapterModal, openAssignBeatModal,
+    openAssignBeatToChapterModal, openCreateArcModal, openCreateBeatModal,
+    openEditArcModal, openEditChapterModal, saveArcField, saveGrandNarrative,
+    selectArc, toggleBeatComplete, toggleGrandNarrative, unassignBeat,
+    updateArcStatus, updateChapterStatus,
+});
+
+// Used by dm-core.js.
+export { loadStoryArcs };

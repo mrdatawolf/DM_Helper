@@ -1,4 +1,14 @@
 // player-wizard-steps.js — split from player-dashboard.js (behavior unchanged)
+import { state } from './player-state.js';
+import { CLASSES_5E, FIELD_INFO, FLAW_TRAIT_PAIRS, STAT_FULL, STAT_KEYS } from './player-wizard-data.js';
+import {
+    _classLore, calcAmberMods, classGateStatus, closeCreateCharacter, getFinalStats,
+    getRecommendedClasses, isTrumpEligible, wiz, wizardCollectStep, wizardFocusField,
+    wizardPinInfoPanel, wizardShowInfoPanel,
+} from './player-wizard-core.js';
+import { loadCharacters } from './player-characters.js';
+import { openEditCharacter } from './player-edit-form.js';
+
 // ── Step 3: stat assignment ──────────────────────────────────
 
 function wizardRenderStats() {
@@ -53,8 +63,11 @@ function selectChip(el) {
 function assignStat(stat) {
     const info = FIELD_INFO['stat-' + stat];
     if (info) {
-        _wizardInfoFocused = { title: info.title, sections: info };
-        wizardShowInfoPanel(info.title, info);
+        // Same effect as focusing the field directly (see wizardFocusField):
+        // a plain reassignment of wizard-core.js's internal
+        // _wizardInfoFocused isn't possible across a real ES module import
+        // boundary, so this goes through the existing setter instead.
+        wizardFocusField(info);
     }
     if (wiz.selectedChipVal === null) {
         // Clicking an occupied slot without a chip selected: return value to pool
@@ -277,7 +290,7 @@ function buildCharacterDescription() {
     const lines = [];
 
     // Opening
-    lines.push(`${escHtmlP(wiz.name)} of the ${escHtmlP(wiz.race)} is a ${levelDesc} ${className} — ${statPhrases[topStat]}, and shaped by choices that leave a mark on the soul.`);
+    lines.push(`${escHtml(wiz.name)} of the ${escHtml(wiz.race)} is a ${levelDesc} ${className} — ${statPhrases[topStat]}, and shaped by choices that leave a mark on the soul.`);
 
     // Blood & alignment
     const purityOpener = wiz.bloodPurity === 'PureBlood' ? 'Of pure Amber lineage' :
@@ -369,8 +382,8 @@ function wizardRenderReview() {
         </div>
         <div class="review-section">
             <h4>Identity</h4>
-            <div class="review-row"><span>Name</span><span>${escHtmlP(wiz.name)}</span></div>
-            <div class="review-row"><span>Race</span><span>${escHtmlP(wiz.race)}</span></div>
+            <div class="review-row"><span>Name</span><span>${escHtml(wiz.name)}</span></div>
+            <div class="review-row"><span>Race</span><span>${escHtml(wiz.race)}</span></div>
             <div class="review-row"><span>Class</span><span>${wiz.classType}${clsData ? ` (d${clsData.hitDie})` : ''} — Level ${wiz.level}</span></div>
             <div class="review-row"><span>Trump Artist</span><span>${wiz.trumpArtist ? 'Yes' : 'No'}</span></div>
             <div class="review-row"><span>Starting HP</span><span>${Math.max(1, (clsData?.hitDie || 8) + Math.floor((finals.CON - 10) / 2))} (d${clsData?.hitDie || 8} + CON mod)</span></div>
@@ -471,20 +484,15 @@ async function wizardSubmit(continueToEdit = false) {
         shadow_origin_id: wiz.shadowId || null,
         amber_flaws:    flawsArr,
         amber_traits:   flawsArr.map(f => f.trait),
-        user_id:        currentUser.id
+        user_id:        state.currentUser.id
     };
 
     try {
-        const res = await fetch('/api/characters', {
+        const newChar = await apiFetch('/api/characters', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify(payload)
         });
-        if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.error || 'Failed to create character');
-        }
-        const newChar = await res.json();
         closeCreateCharacter();
         await loadCharacters();
         if (continueToEdit) {
@@ -500,4 +508,13 @@ async function wizardSubmit(continueToEdit = false) {
         btnEdit.textContent = 'Save & Continue Editing →';
     }
 }
+
+// Referenced from generated onclick="..."/onmouseenter="..." HTML (see ADR-001).
+Object.assign(window, {
+    assignStat, selectChip, selectClass, wizardFlavorChange, wizardFlawToggle, wizardSubmit,
+    wizardHoverFlawPair, wizardHoverNoImprint,
+});
+
+// Used by player-wizard-core.js.
+export { wizardRenderClass, wizardRenderFlaws, wizardRenderReview, wizardRenderStats };
 

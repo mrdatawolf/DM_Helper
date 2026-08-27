@@ -1,19 +1,21 @@
 // player-edit-form.js — split from player-dashboard.js (behavior unchanged)
+import { state } from './player-state.js';
+import { loadCharacters, viewCharacter } from './player-characters.js';
+
 // Open edit character view
 async function openEditCharacter(characterId) {
     const token = localStorage.getItem('token');
 
     try {
-        const [charRes, shadowsRes] = await Promise.all([
-            fetch(`/api/characters/${characterId}`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        // shadowsRes is kept on raw fetch: a non-ok response there degrades
+        // gracefully to an empty list rather than failing the whole form.
+        const [character, shadowsRes] = await Promise.all([
+            apiFetch(`/api/characters/${characterId}`, { headers: { 'Authorization': `Bearer ${token}` } }),
             fetch('/api/shadows')
         ]);
 
-        if (!charRes.ok) throw new Error('Failed to load character');
-
-        const character = await charRes.json();
-        playerAllShadows = shadowsRes.ok ? await shadowsRes.json() : [];
-        currentCharacter = character;
+        state.playerAllShadows = shadowsRes.ok ? await shadowsRes.json() : [];
+        state.currentCharacter = character;
 
         displayCharacterEditForm(character);
 
@@ -35,7 +37,7 @@ function displayCharacterEditForm(character) {
     container.innerHTML = `
         <div class="character-sheet-header">
             <div>
-                <h2>Edit: ${escHtmlP(character.name)}</h2>
+                <h2>Edit: ${escHtml(character.name)}</h2>
                 <p>Update your character information</p>
             </div>
             <button class="back-button" onclick="viewCharacter(${character.id})">← Cancel & View Character</button>
@@ -81,7 +83,7 @@ function closeEditCharacter() {
     // Go back to character list
     document.getElementById('character-details').style.display = 'none';
     document.getElementById('characters-list').style.display = 'grid';
-    currentCharacter = null;
+    state.currentCharacter = null;
 }
 
 // Generate Basic Info Tab HTML
@@ -91,19 +93,19 @@ function generateBasicInfoTab(char) {
             <div class="form-grid">
                 <div class="form-group">
                     <label for="edit-char-name">Character Name *</label>
-                    <input type="text" id="edit-char-name" required value="${escHtmlP(char.name)}">
+                    <input type="text" id="edit-char-name" required value="${escHtml(char.name)}">
                 </div>
                 <div class="form-group">
                     <label for="edit-char-species">Species *</label>
-                    <input type="text" id="edit-char-species" required value="${escHtmlP(char.species || char.race)}" placeholder="Human, Elf, Dwarf, etc.">
+                    <input type="text" id="edit-char-species" required value="${escHtml(char.species || char.race)}" placeholder="Human, Elf, Dwarf, etc.">
                 </div>
                 <div class="form-group">
                     <label for="edit-char-class">Class *</label>
-                    <input type="text" id="edit-char-class" required value="${escHtmlP(char.class_type)}">
+                    <input type="text" id="edit-char-class" required value="${escHtml(char.class_type)}">
                 </div>
                 <div class="form-group">
                     <label for="edit-char-subclass">Subclass</label>
-                    <input type="text" id="edit-char-subclass" value="${escHtmlP(char.subclass)}">
+                    <input type="text" id="edit-char-subclass" value="${escHtml(char.subclass)}">
                 </div>
                 <div class="form-group">
                     <label for="edit-char-level">Level</label>
@@ -111,7 +113,7 @@ function generateBasicInfoTab(char) {
                 </div>
                 <div class="form-group">
                     <label for="edit-char-background">Background</label>
-                    <input type="text" id="edit-char-background" value="${escHtmlP(char.background)}" placeholder="Soldier, Noble, etc.">
+                    <input type="text" id="edit-char-background" value="${escHtml(char.background)}" placeholder="Soldier, Noble, etc.">
                 </div>
                 <div class="form-group">
                     <label for="edit-char-size">Size</label>
@@ -196,7 +198,7 @@ function generateBasicInfoTab(char) {
                     <label for="edit-char-shadow-origin">Home Shadow</label>
                     <select id="edit-char-shadow-origin">
                         <option value="">— None —</option>
-                        ${playerAllShadows.map(s => `<option value="${s.id}"${char.shadow_origin_id == s.id ? ' selected' : ''}>${escHtmlP(s.name)}</option>`).join('')}
+                        ${state.playerAllShadows.map(s => `<option value="${s.id}"${char.shadow_origin_id == s.id ? ' selected' : ''}>${escHtml(s.name)}</option>`).join('')}
                     </select>
                     <small>The shadow where your character's story began.</small>
                 </div>
@@ -318,7 +320,7 @@ function generateCombatTab(char) {
                 </div>
                 <div class="form-group">
                     <label for="edit-char-hit-dice">Hit Dice (e.g., 5d8)</label>
-                    <input type="text" id="edit-char-hit-dice" value="${escHtmlP(char.hit_dice_total) || '1d8'}">
+                    <input type="text" id="edit-char-hit-dice" value="${escHtml(char.hit_dice_total) || '1d8'}">
                 </div>
                 <div class="form-group">
                     <label for="edit-char-death-successes">Death Save Successes</label>
@@ -378,7 +380,7 @@ function generateCombatTab(char) {
 
             <div class="form-group">
                 <label for="edit-char-tools">Tool Proficiencies</label>
-                <textarea id="edit-char-tools" rows="2" placeholder="Comma-separated list, e.g., Thieves' Tools, Smith's Tools">${escHtmlP(char.tools_proficiency)}</textarea>
+                <textarea id="edit-char-tools" rows="2" placeholder="Comma-separated list, e.g., Thieves' Tools, Smith's Tools">${escHtml(char.tools_proficiency)}</textarea>
             </div>
         </div>
     `;
@@ -482,7 +484,7 @@ function generateEquipmentTab(char) {
 
             <div class="form-group">
                 <label for="edit-char-languages">Languages</label>
-                <textarea id="edit-char-languages" rows="2" placeholder="Common, Elvish, Draconic, etc.">${escHtmlP(char.languages)}</textarea>
+                <textarea id="edit-char-languages" rows="2" placeholder="Common, Elvish, Draconic, etc.">${escHtml(char.languages)}</textarea>
                 <small>Comma-separated list</small>
             </div>
 
@@ -497,17 +499,17 @@ function generateFeaturesTab(char) {
         <div id="edit-tab-features" class="char-edit-tab" style="display: none;">
             <div class="form-group">
                 <label for="edit-char-class-features">Class Features</label>
-                <textarea id="edit-char-class-features" rows="6" placeholder="List your class features here...">${escHtmlP(char.class_features)}</textarea>
+                <textarea id="edit-char-class-features" rows="6" placeholder="List your class features here...">${escHtml(char.class_features)}</textarea>
             </div>
 
             <div class="form-group">
                 <label for="edit-char-species-traits">Species Traits</label>
-                <textarea id="edit-char-species-traits" rows="6" placeholder="List your species traits here...">${escHtmlP(char.species_traits)}</textarea>
+                <textarea id="edit-char-species-traits" rows="6" placeholder="List your species traits here...">${escHtml(char.species_traits)}</textarea>
             </div>
 
             <div class="form-group">
                 <label for="edit-char-feats">Feats</label>
-                <textarea id="edit-char-feats" rows="6" placeholder="List your feats here...">${escHtmlP(char.feats)}</textarea>
+                <textarea id="edit-char-feats" rows="6" placeholder="List your feats here...">${escHtml(char.feats)}</textarea>
             </div>
         </div>
     `;
@@ -519,17 +521,17 @@ function generateDetailsTab(char) {
         <div id="edit-tab-details" class="char-edit-tab" style="display: none;">
             <div class="form-group">
                 <label for="edit-char-appearance">Appearance</label>
-                <textarea id="edit-char-appearance" rows="4" placeholder="Describe your character's physical appearance...">${escHtmlP(char.appearance)}</textarea>
+                <textarea id="edit-char-appearance" rows="4" placeholder="Describe your character's physical appearance...">${escHtml(char.appearance)}</textarea>
             </div>
 
             <div class="form-group">
                 <label for="edit-char-personality">Personality & Traits</label>
-                <textarea id="edit-char-personality" rows="4" placeholder="Describe your character's personality...">${escHtmlP(char.personality)}</textarea>
+                <textarea id="edit-char-personality" rows="4" placeholder="Describe your character's personality...">${escHtml(char.personality)}</textarea>
             </div>
 
             <div class="form-group">
                 <label for="edit-char-backstory">Backstory</label>
-                <textarea id="edit-char-backstory" rows="6" placeholder="Tell your character's story...">${escHtmlP(char.backstory)}</textarea>
+                <textarea id="edit-char-backstory" rows="6" placeholder="Tell your character's story...">${escHtml(char.backstory)}</textarea>
             </div>
         </div>
     `;
@@ -696,7 +698,7 @@ async function handleEditCharacter(event) {
     };
 
     try {
-        const response = await fetch(`/api/characters/${currentCharacter.id}`, {
+        await apiFetch(`/api/characters/${state.currentCharacter.id}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
@@ -704,11 +706,6 @@ async function handleEditCharacter(event) {
             },
             body: JSON.stringify(characterData)
         });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Failed to update character');
-        }
 
         // Close modal
         closeEditCharacter();
@@ -718,7 +715,7 @@ async function handleEditCharacter(event) {
 
         // If viewing character sheet, reload it
         if (document.getElementById('character-details').style.display === 'block') {
-            await viewCharacter(currentCharacter.id);
+            await viewCharacter(state.currentCharacter.id);
         }
 
         // Show success message
@@ -732,6 +729,12 @@ async function handleEditCharacter(event) {
         submitButton.textContent = 'Save Changes';
     }
 }
+
+// Referenced from generated onclick="..." HTML (see ADR-001).
+Object.assign(window, { closeEditCharacter, openEditCharacter, switchCharEditTab });
+
+// Used by other player-*.js modules.
+export { closeEditCharacter, openEditCharacter };
 
 // ========== CLAIMS FUNCTIONS ==========
 

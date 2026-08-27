@@ -1,9 +1,11 @@
 // player-shadows.js — split from player-dashboard.js (behavior unchanged)
 // ── Known Shadows ─────────────────────────────────────────────────────────────
+import { state } from './player-state.js';
+import { wizardFocusField, wizardBlurField, _fieldInfoForElement } from './player-wizard-core.js';
 
 async function loadVisitedShadows() {
     const container = document.getElementById('player-shadows-list');
-    if (!currentCharacter) {
+    if (!state.currentCharacter) {
         container.innerHTML = '<div class="info-message"><p>Select a character from "My Characters" to see the shadows they have felt.</p></div>';
         return;
     }
@@ -11,24 +13,20 @@ async function loadVisitedShadows() {
     try {
         const token = localStorage.getItem('token');
         const fetches = [
-            fetch(`/api/shadows/character/${currentCharacter.id}/visited`, {
+            apiFetch(`/api/shadows/character/${state.currentCharacter.id}/visited`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             })
         ];
-        if (currentCharacter.shadow_origin_id) {
-            fetches.push(fetch(`/api/shadows/${currentCharacter.shadow_origin_id}`));
+        if (state.currentCharacter.shadow_origin_id) {
+            fetches.push(apiFetch(`/api/shadows/${state.currentCharacter.shadow_origin_id}`));
         }
-        const currentIsDifferent = currentCharacter.current_shadow_id &&
-            currentCharacter.current_shadow_id !== currentCharacter.shadow_origin_id;
+        const currentIsDifferent = state.currentCharacter.current_shadow_id &&
+            state.currentCharacter.current_shadow_id !== state.currentCharacter.shadow_origin_id;
         if (currentIsDifferent) {
-            fetches.push(fetch(`/api/shadows/${currentCharacter.current_shadow_id}`));
+            fetches.push(apiFetch(`/api/shadows/${state.currentCharacter.current_shadow_id}`));
         }
-        const [visitedRes, originRes, currentRes] = await Promise.all(fetches);
-        if (!visitedRes.ok) throw new Error('Failed to load visited shadows');
-        const visited = await visitedRes.json();
-        const originShadow = originRes ? await originRes.json() : null;
-        const currentShadow = currentRes ? await currentRes.json() : null;
-        renderVisitedShadows(visited, originShadow, currentShadow);
+        const [visited, originShadow, currentShadow] = await Promise.all(fetches);
+        renderVisitedShadows(visited, originShadow || null, currentShadow || null);
     } catch (err) {
         console.error('Error loading visited shadows:', err);
         container.innerHTML = '<div class="info-message"><p>Could not load shadow data.</p></div>';
@@ -73,13 +71,13 @@ function renderVisitedShadows(visited, originShadow, currentShadow) {
             const visitText = s.visit_count === 1 ? '1 session' : `${s.visit_count} sessions`;
             const card = `
             <div class="shadow-player-card" style="${style}">
-                <h3>${escHtmlP(s.name)}</h3>
+                <h3>${escHtml(s.name)}</h3>
                 <span class="shadow-depth-badge">${depth.label}</span>
                 <p class="shadow-depth-flavor">${depth.flavor}</p>
-                ${s.description ? `<p class="shadow-desc">${escHtmlP(s.description)}</p>` : ''}
+                ${s.description ? `<p class="shadow-desc">${escHtml(s.description)}</p>` : ''}
                 <div style="display:flex;align-items:center;gap:10px;margin:8px 0">
-                    <span class="shadow-influence-tag">${escHtmlP(infLabel)}</span>
-                    ${s.corruption_status ? `<span style="font-size:0.8rem;color:#c0392b;font-style:italic">${escHtmlP(s.corruption_status)}</span>` : ''}
+                    <span class="shadow-influence-tag">${escHtml(infLabel)}</span>
+                    ${s.corruption_status ? `<span style="font-size:0.8rem;color:#c0392b;font-style:italic">${escHtml(s.corruption_status)}</span>` : ''}
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
                     <span style="font-size:0.8rem;color:#888;white-space:nowrap">${visitedBarLabel(s)}</span>
@@ -113,13 +111,13 @@ function renderOriginShadowCard(s) {
     const balanceBar = visitedBalanceBar(s);
     return `
     <div class="shadow-player-card" style="${style}border-top:3px solid gold;">
-        <h3>${escHtmlP(s.name)}</h3>
+        <h3>${escHtml(s.name)}</h3>
         <span class="shadow-depth-badge" style="background:rgba(184,134,11,0.3);color:#c8a000">Home Shadow</span>
         <p class="shadow-depth-flavor">This is where your story began.</p>
-        ${s.description ? `<p class="shadow-desc">${escHtmlP(s.description)}</p>` : ''}
+        ${s.description ? `<p class="shadow-desc">${escHtml(s.description)}</p>` : ''}
         <div style="display:flex;align-items:center;gap:10px;margin:8px 0">
-            <span class="shadow-influence-tag">${escHtmlP(infLabel)}</span>
-            ${s.corruption_status ? `<span style="font-size:0.8rem;color:#c0392b;font-style:italic">${escHtmlP(s.corruption_status)}</span>` : ''}
+            <span class="shadow-influence-tag">${escHtml(infLabel)}</span>
+            ${s.corruption_status ? `<span style="font-size:0.8rem;color:#c0392b;font-style:italic">${escHtml(s.corruption_status)}</span>` : ''}
         </div>
         ${(s.order_level || s.chaos_level || s.dream_level) ? `
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
@@ -135,13 +133,13 @@ function renderCurrentShadowCard(s) {
     const balanceBar = visitedBalanceBar(s);
     return `
     <div class="shadow-player-card" style="${style}border-top:3px solid #2980b9;">
-        <h3>${escHtmlP(s.name)}</h3>
+        <h3>${escHtml(s.name)}</h3>
         <span class="shadow-depth-badge" style="background:rgba(41,128,185,0.2);color:#2980b9">Current Location</span>
         <p class="shadow-depth-flavor">Your character is here now.</p>
-        ${s.description ? `<p class="shadow-desc">${escHtmlP(s.description)}</p>` : ''}
+        ${s.description ? `<p class="shadow-desc">${escHtml(s.description)}</p>` : ''}
         <div style="display:flex;align-items:center;gap:10px;margin:8px 0">
-            <span class="shadow-influence-tag">${escHtmlP(infLabel)}</span>
-            ${s.corruption_status ? `<span style="font-size:0.8rem;color:#c0392b;font-style:italic">${escHtmlP(s.corruption_status)}</span>` : ''}
+            <span class="shadow-influence-tag">${escHtml(infLabel)}</span>
+            ${s.corruption_status ? `<span style="font-size:0.8rem;color:#c0392b;font-style:italic">${escHtml(s.corruption_status)}</span>` : ''}
         </div>
         ${(s.order_level || s.chaos_level || s.dream_level) ? `
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
@@ -155,9 +153,12 @@ async function showAddKnownShadowPanel() {
     const container = document.getElementById('player-shadows-list');
     container.innerHTML = '<div class="loading">Loading shadows…</div>';
     try {
+        // Kept on raw fetch rather than apiFetch: a non-ok response here
+        // degrades gracefully to an empty option list (panel still
+        // renders), a distinct behavior from apiFetch's throw-and-skip.
         const res = await fetch('/api/shadows');
         const allShadows = res.ok ? await res.json() : [];
-        const options = allShadows.map(s => `<option value="${s.id}">${escHtmlP(s.name)}</option>`).join('');
+        const options = allShadows.map(s => `<option value="${s.id}">${escHtml(s.name)}</option>`).join('');
         container.innerHTML = `
             <div class="add-known-shadow-panel" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:24px;max-width:560px">
                 <h4 style="margin:0 0 16px">Add Known Shadow</h4>
@@ -197,13 +198,11 @@ async function createAndSetKnownShadow() {
     const description = document.getElementById('new-shadow-desc').value.trim();
     const token = localStorage.getItem('token');
     try {
-        const res = await fetch('/api/shadows', {
+        const newShadow = await apiFetch('/api/shadows', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({ name, description })
         });
-        if (!res.ok) throw new Error('Failed to create shadow');
-        const newShadow = await res.json();
         await setHomeShadow(newShadow.id);
     } catch (err) {
         showToast(`Failed to create shadow: ${err.message}`);
@@ -213,13 +212,12 @@ async function createAndSetKnownShadow() {
 async function setHomeShadow(shadowId) {
     const token = localStorage.getItem('token');
     try {
-        const res = await fetch(`/api/characters/${currentCharacter.id}`, {
+        await apiFetch(`/api/characters/${state.currentCharacter.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({ shadow_origin_id: shadowId })
         });
-        if (!res.ok) throw new Error('Failed to update character');
-        currentCharacter = { ...currentCharacter, shadow_origin_id: shadowId };
+        state.currentCharacter = { ...state.currentCharacter, shadow_origin_id: shadowId };
         await loadVisitedShadows();
     } catch (err) {
         showToast(`Failed to set home shadow: ${err.message}`);
@@ -293,10 +291,7 @@ function visitedBalanceBar(s) {
     return `background:linear-gradient(90deg,#3498db ${o}%,#e74c3c ${o}%)`;
 }
 
-function escHtmlP(str) {
-    if (!str) return '';
-    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+// escHtml now comes from /js/dom-utils.js (loaded before this file).
 
 // ── Wizard field-focus delegation (runs once at page load) ────
 (function () {
@@ -311,3 +306,12 @@ function escHtmlP(str) {
         if (!_fieldInfoForElement(e.relatedTarget)) wizardBlurField();
     });
 }());
+
+// Referenced from generated onclick="..." HTML (see ADR-001).
+Object.assign(window, {
+    addKnownShadow, createAndSetKnownShadow, enableSpoilers, loadVisitedShadows,
+    showAddKnownShadowPanel, toggleSpoilers,
+});
+
+// Used by other player-*.js modules.
+export { syncSpoilerButton, loadVisitedShadows, visitedInfluenceLabel, visitedShadowCardStyle };

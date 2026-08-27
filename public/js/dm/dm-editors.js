@@ -1,10 +1,17 @@
 // dm-editors.js — split from app.js (behavior unchanged)
+import { state, API_BASE } from './dm-state.js';
+import { buildChapterPicker, loadNpcs } from './dm-core.js';
+import {
+    closeModal, creatureFormFields, creaturePayloadFromForm,
+    familiarFormFields, familiarPayloadFromForm, showModal,
+} from './dm-modals.js';
+import { dmLoadSessionCombats } from './dm-scenes-combats.js';
+import { loadCharacters, loadSessions, loadShadows } from './dm-lists.js';
+
 // Placeholder functions for view/edit (to be implemented)
 async function viewCharacter(id) {
     try {
-        const response = await fetch(`${API_BASE}/characters/${id}`);
-        if (!response.ok) throw new Error('Failed to load character');
-        const c = await response.json();
+        const c = await apiFetch(`${API_BASE}/characters/${id}`);
 
         const modifierStr = v => { const m = Math.floor((v - 10) / 2); return (m >= 0 ? '+' : '') + m; };
         const statBlock = ['strength','dexterity','constitution','intelligence','wisdom','charisma']
@@ -118,12 +125,11 @@ async function dmAddGear(characterId) {
     const description = prompt('Description (optional):') || null;
 
     try {
-        const res = await fetch(`${API_BASE}/characters/${characterId}/gear`, {
+        await apiFetch(`${API_BASE}/characters/${characterId}/gear`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ item_name, item_type, quantity, magical_properties, description })
         });
-        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
         await viewCharacter(characterId);
     } catch (err) {
         showToast(`Failed to add gear: ${err.message}`);
@@ -133,8 +139,7 @@ async function dmAddGear(characterId) {
 async function dmDeleteGear(characterId, gearId) {
     if (!confirm('Remove this item?')) return;
     try {
-        const res = await fetch(`${API_BASE}/characters/${characterId}/gear/${gearId}`, { method: 'DELETE' });
-        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
+        await apiFetch(`${API_BASE}/characters/${characterId}/gear/${gearId}`, { method: 'DELETE' });
         await viewCharacter(characterId);
     } catch (err) {
         showToast(`Failed to remove gear: ${err.message}`);
@@ -151,12 +156,11 @@ async function dmGrantPower(characterId) {
     const description = prompt('Description (optional):') || null;
 
     try {
-        const res = await fetch(`${API_BASE}/characters/${characterId}/powers`, {
+        await apiFetch(`${API_BASE}/characters/${characterId}/powers`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ power_name, power_type, power_level, uses_per_day, description })
         });
-        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
         showToast(`Power granted: ${power_name}`);
         await viewCharacter(characterId);
     } catch (err) {
@@ -166,7 +170,7 @@ async function dmGrantPower(characterId) {
 
 async function dmEditPower(characterId, powerId) {
     try {
-        const c = await (await fetch(`${API_BASE}/characters/${characterId}`)).json();
+        const c = await apiFetch(`${API_BASE}/characters/${characterId}`);
         const p = (c.powers || []).find(x => x.id === powerId);
         if (!p) return;
 
@@ -178,7 +182,7 @@ async function dmEditPower(characterId, powerId) {
         const uses_per_day = usesInput && !isNaN(parseInt(usesInput, 10)) ? parseInt(usesInput, 10) : null;
         const description = prompt('Description:', p.description || '') || null;
 
-        const res = await fetch(`${API_BASE}/characters/${characterId}/powers/${powerId}`, {
+        await apiFetch(`${API_BASE}/characters/${characterId}/powers/${powerId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -186,7 +190,6 @@ async function dmEditPower(characterId, powerId) {
                 current_uses: uses_per_day
             })
         });
-        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
         await viewCharacter(characterId);
     } catch (err) {
         showToast(`Failed to edit power: ${err.message}`);
@@ -206,12 +209,11 @@ async function handleBondFamiliar(event, characterId) {
     event.preventDefault();
     try {
         const data = familiarPayloadFromForm(event);
-        const res = await fetch(`${API_BASE}/characters/${characterId}/familiars`, {
+        await apiFetch(`${API_BASE}/characters/${characterId}/familiars`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
         showToast(`Familiar bonded: ${data.name}`);
         await viewCharacter(characterId);
     } catch (err) {
@@ -221,7 +223,7 @@ async function handleBondFamiliar(event, characterId) {
 
 async function editFamiliar(characterId, familiarId) {
     try {
-        const c = await (await fetch(`${API_BASE}/characters/${characterId}`)).json();
+        const c = await apiFetch(`${API_BASE}/characters/${characterId}`);
         const f = (c.familiars || []).find(x => x.id === familiarId);
         if (!f) return;
 
@@ -240,12 +242,11 @@ async function handleEditFamiliar(event, characterId, familiarId) {
     event.preventDefault();
     try {
         const data = familiarPayloadFromForm(event);
-        const res = await fetch(`${API_BASE}/characters/${characterId}/familiars/${familiarId}`, {
+        await apiFetch(`${API_BASE}/characters/${characterId}/familiars/${familiarId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
         closeModal();
         await viewCharacter(characterId);
     } catch (err) {
@@ -256,8 +257,7 @@ async function handleEditFamiliar(event, characterId, familiarId) {
 async function dmDeleteFamiliar(characterId, familiarId) {
     if (!confirm('Release this familiar\'s bond?')) return;
     try {
-        const res = await fetch(`${API_BASE}/characters/${characterId}/familiars/${familiarId}`, { method: 'DELETE' });
-        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
+        await apiFetch(`${API_BASE}/characters/${characterId}/familiars/${familiarId}`, { method: 'DELETE' });
         await viewCharacter(characterId);
     } catch (err) {
         showToast(`Failed to release familiar: ${err.message}`);
@@ -267,8 +267,7 @@ async function dmDeleteFamiliar(characterId, familiarId) {
 async function dmDeletePower(characterId, powerId) {
     if (!confirm('Revoke this power?')) return;
     try {
-        const res = await fetch(`${API_BASE}/characters/${characterId}/powers/${powerId}`, { method: 'DELETE' });
-        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
+        await apiFetch(`${API_BASE}/characters/${characterId}/powers/${powerId}`, { method: 'DELETE' });
         await viewCharacter(characterId);
     } catch (err) {
         showToast(`Failed to revoke power: ${err.message}`);
@@ -277,14 +276,12 @@ async function dmDeletePower(characterId, powerId) {
 
 async function editCharacter(id) {
     try {
-        const response = await fetch(`${API_BASE}/characters/${id}`);
-        if (!response.ok) throw new Error('Failed to load character');
-        const c = await response.json();
+        const c = await apiFetch(`${API_BASE}/characters/${id}`);
 
-        const shadowOptions = shadows.map(s =>
+        const shadowOptions = state.shadows.map(s =>
             `<option value="${s.id}"${c.shadow_origin_id == s.id ? ' selected' : ''}>${escHtml(s.name)}</option>`
         ).join('');
-        const locationOptions = shadows.map(s =>
+        const locationOptions = state.shadows.map(s =>
             `<option value="${s.id}"${c.current_shadow_id == s.id ? ' selected' : ''}>${escHtml(s.name)}</option>`
         ).join('');
 
@@ -405,12 +402,11 @@ async function handleEditCharacter(event, id) {
     if (!data.current_shadow_id) delete data.current_shadow_id;
 
     try {
-        const response = await fetch(`${API_BASE}/characters/${id}`, {
+        await apiFetch(`${API_BASE}/characters/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-        if (!response.ok) throw new Error('Failed to save character');
         closeModal();
         await loadCharacters();
     } catch (err) {
@@ -420,9 +416,7 @@ async function handleEditCharacter(event, id) {
 
 async function editShadow(id) {
     try {
-        const response = await fetch(`${API_BASE}/shadows/${id}`);
-        if (!response.ok) throw new Error('Failed to load shadow');
-        const s = await response.json();
+        const s = await apiFetch(`${API_BASE}/shadows/${id}`);
 
         const influenceOptions = ['None','Pattern','Argent Refrain','Logrus','Mixed','Nexus']
             .map(v => `<option value="${v}"${s.pattern_influence === v ? ' selected' : ''}>${v === 'Argent Refrain' ? 'The Argent Refrain' : v}</option>`)
@@ -492,12 +486,11 @@ async function handleEditShadow(event, id) {
     data.is_starting_shadow = parseInt(data.is_starting_shadow) || 0;
 
     try {
-        const response = await fetch(`${API_BASE}/shadows/${id}`, {
+        await apiFetch(`${API_BASE}/shadows/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-        if (!response.ok) throw new Error('Failed to save shadow');
         closeModal();
         await loadShadows();
     } catch (err) {
@@ -507,9 +500,7 @@ async function handleEditShadow(event, id) {
 
 async function editCreature(id) {
     try {
-        const response = await fetch(`${API_BASE}/npcs/${id}`);
-        if (!response.ok) throw new Error('Failed to load creature');
-        const n = await response.json();
+        const n = await apiFetch(`${API_BASE}/npcs/${id}`);
 
         showModal(`Edit: ${escHtml(n.name)}`, `
             <form onsubmit="handleEditCreature(event, ${id})">
@@ -527,12 +518,11 @@ async function handleEditCreature(event, id) {
     const data = creaturePayloadFromForm(event);
 
     try {
-        const response = await fetch(`${API_BASE}/npcs/${id}`, {
+        await apiFetch(`${API_BASE}/npcs/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-        if (!response.ok) throw new Error('Failed to save creature');
         closeModal();
         await loadNpcs();
     } catch (err) {
@@ -542,16 +532,14 @@ async function handleEditCreature(event, id) {
 
 async function editSession(id) {
     try {
-        const res = await fetch(`${API_BASE}/sessions/${id}`);
-        if (!res.ok) throw new Error('Failed to load session');
-        const s = await res.json();
+        const s = await apiFetch(`${API_BASE}/sessions/${id}`);
 
         const linkedChapterIds = new Set((s.session_chapters || []).map(c => c.chapter_id));
 
         const linkedCharIds = new Set((s.session_characters || []).map(c => c.id));
         const attendanceMap  = Object.fromEntries((s.session_characters || []).map(c => [c.id, c.attendance]));
         const attendanceColors = { expected:'#8a7a5a', attended:'#27ae60', absent:'#e74c3c' };
-        const charRows = characters.map(c => {
+        const charRows = state.characters.map(c => {
             const linked = linkedCharIds.has(c.id);
             const att    = attendanceMap[c.id] || 'expected';
             const color  = attendanceColors[att] || '#888';
@@ -575,7 +563,7 @@ async function editSession(id) {
              </div>`
         ).join('') || '<em style="color:#999;font-size:0.9em">No beats linked</em>';
 
-        const unlinkedBeats = beats.filter(b => !linkedBeatIds.has(b.id));
+        const unlinkedBeats = state.beats.filter(b => !linkedBeatIds.has(b.id));
         const beatSelect = unlinkedBeats.length
             ? `<div style="display:flex;gap:8px;margin-top:8px">
                    <select id="beat-add-select-${id}" style="flex:1">
@@ -593,7 +581,7 @@ async function editSession(id) {
              </div>`
         ).join('') || '<em style="color:#999;font-size:0.9em">No NPCs linked</em>';
 
-        const unlinkedNpcs = npcs.filter(n => !linkedNpcIds.has(n.id));
+        const unlinkedNpcs = state.npcs.filter(n => !linkedNpcIds.has(n.id));
         const npcSelect = unlinkedNpcs.length
             ? `<div style="display:flex;gap:8px;margin-top:8px">
                    <select id="npc-add-select-${id}" style="flex:1">
@@ -695,12 +683,11 @@ async function handleEditSession(event, id) {
     event.preventDefault();
     const data = Object.fromEntries(new FormData(event.target));
     try {
-        const res = await fetch(`${API_BASE}/sessions/${id}`, {
+        await apiFetch(`${API_BASE}/sessions/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-        if (!res.ok) throw new Error((await res.json()).error || 'Save failed');
         await loadSessions();
     } catch (err) {
         showToast(`Failed to save session: ${err.message}`);
@@ -712,67 +699,103 @@ async function saveSessionChapters(sessionId, btn) {
     const checked = new Set([...section.querySelectorAll('.chapter-check:checked')].map(el => +el.value));
     const unchecked = [...section.querySelectorAll('.chapter-check:not(:checked)')].map(el => +el.value);
 
-    await Promise.all([
-        ...checked  ? [...checked].map(cid  => fetch(`${API_BASE}/sessions/${sessionId}/chapters`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({chapter_id:cid}) })) : [],
-        ...unchecked.map(cid => fetch(`${API_BASE}/sessions/${sessionId}/chapters/${cid}`, { method:'DELETE' }))
-    ]);
+    try {
+        await Promise.all([
+            ...checked  ? [...checked].map(cid  => apiFetch(`${API_BASE}/sessions/${sessionId}/chapters`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({chapter_id:cid}) })) : [],
+            ...unchecked.map(cid => apiFetch(`${API_BASE}/sessions/${sessionId}/chapters/${cid}`, { method:'DELETE' }))
+        ]);
+    } catch (err) {
+        console.error('Failed to save chapter links:', err);
+    }
     await loadSessions();
     btn.textContent = 'Saved ✓';
     setTimeout(() => { btn.textContent = 'Save Chapter Links'; }, 2000);
 }
 
+// These previously called bare fetch() with no error handling at all — a
+// failed request was silently ignored and the UI still refreshed as if it
+// had succeeded. apiFetch throws on a non-ok response, so each is now
+// wrapped in a try/catch that logs the error but still refreshes the UI
+// afterward, preserving that original "always refresh" behavior while
+// making failures at least visible in the console instead of fully silent.
+
 async function addSessionChar(sessionId, charId, btn) {
-    await fetch(`${API_BASE}/sessions/${sessionId}/characters`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ character_id: charId })
-    });
+    try {
+        await apiFetch(`${API_BASE}/sessions/${sessionId}/characters`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ character_id: charId })
+        });
+    } catch (err) { console.error('Failed to add character to session:', err); }
     editSession(sessionId);
 }
 
 async function removeSessionChar(sessionId, charId, btn) {
-    await fetch(`${API_BASE}/sessions/${sessionId}/characters/${charId}`, { method: 'DELETE' });
+    try {
+        await apiFetch(`${API_BASE}/sessions/${sessionId}/characters/${charId}`, { method: 'DELETE' });
+    } catch (err) { console.error('Failed to remove character from session:', err); }
     editSession(sessionId);
 }
 
 async function updateSessionCharAttendance(sessionId, charId, attendance) {
-    await fetch(`${API_BASE}/sessions/${sessionId}/characters/${charId}`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ attendance })
-    });
+    try {
+        await apiFetch(`${API_BASE}/sessions/${sessionId}/characters/${charId}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ attendance })
+        });
+    } catch (err) { console.error('Failed to update attendance:', err); }
     await loadSessions();
 }
 
 async function addSessionBeat(sessionId) {
     const sel = document.getElementById(`beat-add-select-${sessionId}`);
     if (!sel) return;
-    await fetch(`${API_BASE}/sessions/${sessionId}/beats`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ beat_id: +sel.value })
-    });
+    try {
+        await apiFetch(`${API_BASE}/sessions/${sessionId}/beats`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ beat_id: +sel.value })
+        });
+    } catch (err) { console.error('Failed to add beat to session:', err); }
     editSession(sessionId);
 }
 
 async function removeSessionBeat(sessionId, beatId, btn) {
-    await fetch(`${API_BASE}/sessions/${sessionId}/beats/${beatId}`, { method: 'DELETE' });
+    try {
+        await apiFetch(`${API_BASE}/sessions/${sessionId}/beats/${beatId}`, { method: 'DELETE' });
+    } catch (err) { console.error('Failed to remove beat from session:', err); }
     editSession(sessionId);
 }
 
 async function addSessionNpc(sessionId) {
     const sel = document.getElementById(`npc-add-select-${sessionId}`);
     if (!sel) return;
-    await fetch(`${API_BASE}/sessions/${sessionId}/npcs`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ npc_id: +sel.value })
-    });
+    try {
+        await apiFetch(`${API_BASE}/sessions/${sessionId}/npcs`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ npc_id: +sel.value })
+        });
+    } catch (err) { console.error('Failed to add NPC to session:', err); }
     editSession(sessionId);
 }
 
 async function removeSessionNpc(sessionId, npcId, btn) {
-    await fetch(`${API_BASE}/sessions/${sessionId}/npcs/${npcId}`, { method: 'DELETE' });
+    try {
+        await apiFetch(`${API_BASE}/sessions/${sessionId}/npcs/${npcId}`, { method: 'DELETE' });
+    } catch (err) { console.error('Failed to remove NPC from session:', err); }
     editSession(sessionId);
 }
 
 function editProgress(id) {
     showToast('Edit progress - to be implemented');
 }
+
+// Referenced from generated onclick="..."/onsubmit="..." HTML (see ADR-001).
+Object.assign(window, {
+    addSessionBeat, addSessionChar, addSessionNpc, dmAddGear, dmBondFamiliar,
+    dmDeleteFamiliar, dmDeleteGear, dmDeletePower, dmEditPower, dmGrantPower,
+    editCharacter, editCreature, editFamiliar, editProgress, editSession,
+    editShadow, handleBondFamiliar, handleEditCharacter, handleEditCreature,
+    handleEditFamiliar, handleEditSession, handleEditShadow, removeSessionBeat,
+    removeSessionChar, removeSessionNpc, saveSessionChapters, toggleStartingWorld,
+    updateSessionCharAttendance, viewCharacter,
+});
 

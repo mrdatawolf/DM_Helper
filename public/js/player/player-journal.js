@@ -1,21 +1,17 @@
 // player-journal.js — split from player-dashboard.js (behavior unchanged)
+import { state } from './player-state.js';
+
 // Load journal entries
 async function loadJournalEntries() {
     const token = localStorage.getItem('token');
     const container = document.getElementById('journal-content');
 
     try {
-        const response = await fetch('/api/journal/user', {
+        const data = await apiFetch('/api/journal/user', {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
         });
-
-        if (!response.ok) {
-            throw new Error('Failed to load journal entries');
-        }
-
-        const data = await response.json();
         const entries = data.entries || [];
 
         if (entries.length === 0) {
@@ -34,18 +30,18 @@ async function loadJournalEntries() {
                 ${entries.map(entry => `
                     <div class="journal-entry-card">
                         <div class="entry-header">
-                            <h3>${escHtmlP(entry.title)}</h3>
+                            <h3>${escHtml(entry.title)}</h3>
                             <span class="entry-meta">
-                                ${escHtmlP(entry.character_name)} • ${new Date(entry.created_at).toLocaleDateString()}
+                                ${escHtml(entry.character_name)} • ${new Date(entry.created_at).toLocaleDateString()}
                                 ${entry.is_public ? '<span class="public-badge">Public</span>' : '<span class="private-badge">Private</span>'}
                             </span>
                         </div>
                         <div class="entry-content">
-                            <p>${escHtmlP(entry.content)}</p>
+                            <p>${escHtml(entry.content)}</p>
                         </div>
                         <div class="entry-footer">
-                            <small>By ${escHtmlP(entry.author_username)}</small>
-                            ${entry.user_id === currentUser.id ? `
+                            <small>By ${escHtml(entry.author_username)}</small>
+                            ${entry.user_id === state.currentUser.id ? `
                                 <button class="btn-secondary btn-sm" onclick="deleteJournalEntry(${entry.id})">Delete</button>
                             ` : ''}
                         </div>
@@ -71,7 +67,7 @@ function openNewJournalEntry() {
 
     // Populate character dropdown
     characterSelect.innerHTML = '<option value="">Select a character...</option>';
-    userCharacters.forEach(char => {
+    state.userCharacters.forEach(char => {
         const option = document.createElement('option');
         option.value = char.id;
         option.textContent = char.name;
@@ -157,7 +153,7 @@ async function handleJournalSubmit(event) {
     console.log('Sending journal entry data:', entryData);
 
     try {
-        const response = await fetch('/api/journal', {
+        await apiFetch('/api/journal', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -165,11 +161,6 @@ async function handleJournalSubmit(event) {
             },
             body: JSON.stringify(entryData)
         });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Failed to create journal entry');
-        }
 
         // Close modal
         closeJournalEntry();
@@ -198,16 +189,12 @@ async function deleteJournalEntry(entryId) {
     const token = localStorage.getItem('token');
 
     try {
-        const response = await fetch(`/api/journal/${entryId}`, {
+        await apiFetch(`/api/journal/${entryId}`, {
             method: 'DELETE',
             headers: {
                 'Authorization': `Bearer ${token}`
             }
         });
-
-        if (!response.ok) {
-            throw new Error('Failed to delete journal entry');
-        }
 
         // Reload journal entries
         await loadJournalEntries();
@@ -219,6 +206,12 @@ async function deleteJournalEntry(entryId) {
         showToast(`Failed to delete journal entry: ${error.message}`);
     }
 }
+
+// Referenced from generated onclick="..." HTML (see ADR-001).
+Object.assign(window, { closeJournalEntry, deleteJournalEntry, openNewJournalEntry });
+
+// Used by other player-*.js modules.
+export { loadJournalEntries, closeJournalEntry };
 
 // ========== CHARACTER EDIT FUNCTIONS ==========
 

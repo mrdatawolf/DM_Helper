@@ -265,17 +265,24 @@
         </div>
     </div>
 
-    <!-- DM dashboard scripts (load order matters: shared state/helpers first) -->
+    <!-- toast.js/api.js/dom-utils.js stay plain global scripts (see ADR-001);
+         the dm-*.js modules below reference showToast/apiFetch/escHtml as
+         ordinary globals. Module scripts are deferred automatically and
+         resolve their own dependency graph via import/export, so tag order
+         among the modules no longer matters — kept in the original order
+         here for readability only. -->
     <script src="/js/toast.js"></script>
-    <script src="/js/dm/dm-auth-guard.js"></script>
-    <script src="/js/dm/dm-core.js"></script>
-    <script src="/js/dm/dm-lists.js"></script>
-    <script src="/js/dm/dm-modals.js"></script>
-    <script src="/js/dm/dm-journal.js"></script>
-    <script src="/js/dm/dm-editors.js"></script>
-    <script src="/js/dm/dm-claims.js"></script>
-    <script src="/js/dm/dm-primal-patterns.js"></script>
-    <script src="/js/dm/dm-story-arcs.js"></script>
-    <script src="/js/dm/dm-scenes-combats.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/dom-utils.js"></script>
+    <script type="module" src="/js/dm/dm-auth-guard.js"></script>
+    <script type="module" src="/js/dm/dm-core.js"></script>
+    <script type="module" src="/js/dm/dm-lists.js"></script>
+    <script type="module" src="/js/dm/dm-modals.js"></script>
+    <script type="module" src="/js/dm/dm-journal.js"></script>
+    <script type="module" src="/js/dm/dm-editors.js"></script>
+    <script type="module" src="/js/dm/dm-claims.js"></script>
+    <script type="module" src="/js/dm/dm-primal-patterns.js"></script>
+    <script type="module" src="/js/dm/dm-story-arcs.js"></script>
+    <script type="module" src="/js/dm/dm-scenes-combats.js"></script>
 </body>
 </html>

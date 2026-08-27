@@ -1,15 +1,18 @@
 // player-core.js — split from player-dashboard.js (behavior unchanged)
 // Player Dashboard JavaScript
 
-let currentUser = null;
-let currentCharacter = null;
-let userCharacters = [];
-let playerAllShadows = [];
+import { state } from './player-state.js';
+import { loadCharacters, loadClaims, loadProgress } from './player-characters.js';
+import { applyGuideGate } from './player-wizard-core.js';
+import { loadJournalEntries } from './player-journal.js';
+import { syncSpoilerButton, loadVisitedShadows } from './player-shadows.js';
+import { syncCreatureSpoilerButton, loadCreatures } from './player-creatures.js';
+import { loadStoryTimeline } from './player-session-tracker.js';
 
 // Human label for imprint values: 0/1 booleans or legacy strings like "Basic"
 function imprintLabel(v) {
     if (!v) return 'None';
-    return typeof v === 'string' ? escHtmlP(v) : 'Yes';
+    return typeof v === 'string' ? escHtml(v) : 'Yes';
 }
 
 // Initialize dashboard
@@ -25,10 +28,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Get user from localStorage (already validated by navigation.js)
     try {
-        currentUser = JSON.parse(userStr);
+        state.currentUser = JSON.parse(userStr);
 
         // Admin belongs in the admin panel, not here
-        if (currentUser.is_admin || currentUser.username === 'admin') {
+        if (state.currentUser.is_admin || state.currentUser.username === 'admin') {
             window.location.href = '/admin.html';
             return;
         }
@@ -36,7 +39,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Display username (backup if navigation hasn't loaded yet)
         const usernameEl = document.getElementById('username-display');
         if (usernameEl) {
-            usernameEl.textContent = currentUser.username;
+            usernameEl.textContent = state.currentUser.username;
         }
 
         // Unlock "Create New Character" if the player has acknowledged the guide
@@ -89,9 +92,9 @@ function switchTab(tabName) {
     // Load tab-specific data
     if (tabName === 'journal') {
         loadJournalEntries();
-    } else if (tabName === 'claims' && currentCharacter) {
+    } else if (tabName === 'claims' && state.currentCharacter) {
         loadClaims();
-    } else if (tabName === 'progress' && currentCharacter) {
+    } else if (tabName === 'progress' && state.currentCharacter) {
         loadProgress();
     } else if (tabName === 'shadows') {
         syncSpoilerButton();
@@ -103,4 +106,7 @@ function switchTab(tabName) {
         loadStoryTimeline();
     }
 }
+
+// Referenced from other player-*.js modules.
+export { switchTab, imprintLabel };
 

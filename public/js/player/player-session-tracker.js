@@ -3,6 +3,7 @@
 // drafted by the player and approved into the timeline by the DM.
 // Notes and combat encounters live on the server and carry a visibility level
 // controlling what other characters' books can see.
+import { state } from './player-state.js';
 
 let storyDetailContext = null; // { type: 'session'|'scene', id, title }
 
@@ -38,22 +39,25 @@ async function loadStoryTimeline() {
     document.getElementById('story-detail').style.display = 'none';
     container.style.display = 'block';
 
-    if (!currentCharacter) {
+    if (!state.currentCharacter) {
         container.innerHTML = '<div class="info-message"><p>Select a character from "My Characters" to see their story.</p></div>';
         return;
     }
     container.innerHTML = '<div class="loading">Loading story…</div>';
 
     try {
+        // Kept on raw fetch rather than apiFetch: a non-ok response for
+        // either degrades gracefully to an empty list rather than failing
+        // the whole timeline view (same pattern as openStoryEntry below).
         const [sessionsRes, scenesRes] = await Promise.all([
             fetch('/api/sessions', { headers: trackerHeaders() }),
-            fetch(`/api/scenes?character_id=${currentCharacter.id}`, { headers: trackerHeaders() })
+            fetch(`/api/scenes?character_id=${state.currentCharacter.id}`, { headers: trackerHeaders() })
         ]);
         const sessions = sessionsRes.ok ? await sessionsRes.json() : [];
         const scenes = scenesRes.ok ? await scenesRes.json() : [];
 
         const mySessions = sessions.filter(s =>
-            (s.session_characters || []).some(c => c.id === currentCharacter.id)
+            (s.session_characters || []).some(c => c.id === state.currentCharacter.id)
         );
 
         const entries = [
@@ -74,7 +78,7 @@ function renderStoryTimeline(entries) {
     if (!entries.length) {
         container.innerHTML = `
             <div class="info-message">
-                <p>${escHtmlP(currentCharacter.name)}'s story hasn't started yet.
+                <p>${escHtml(state.currentCharacter.name)}'s story hasn't started yet.
                 Sessions appear here once the DM adds this character to them —
                 or draft a scene of your own to begin a solo issue.</p>
             </div>`;
@@ -82,7 +86,7 @@ function renderStoryTimeline(entries) {
     }
 
     container.innerHTML = `
-        <h3 style="margin-bottom:12px">${escHtmlP(currentCharacter.name)} — Issues</h3>
+        <h3 style="margin-bottom:12px">${escHtml(state.currentCharacter.name)} — Issues</h3>
         ${entries.map(e => e.type === 'session'
             ? storySessionCard(e.data)
             : storySceneCard(e.data)).join('')}`;
@@ -90,17 +94,17 @@ function renderStoryTimeline(entries) {
 
 function storySessionCard(s) {
     const teammates = (s.session_characters || [])
-        .filter(c => c.id !== currentCharacter.id)
-        .map(c => escHtmlP(c.character_name));
+        .filter(c => c.id !== state.currentCharacter.id)
+        .map(c => escHtml(c.character_name));
     const teamUp = teammates.length
         ? `<div style="font-size:0.85rem;color:#8a7a5a;margin-top:4px">⚔ Team-up with ${teammates.join(', ')}</div>`
         : '<div style="font-size:0.85rem;color:#999;margin-top:4px">Solo issue</div>';
-    const status = s.session_status ? `<span class="badge" style="font-size:0.75rem">${escHtmlP(s.session_status)}</span>` : '';
+    const status = s.session_status ? `<span class="badge" style="font-size:0.75rem">${escHtml(s.session_status)}</span>` : '';
 
     return `
         <div class="session-history-item" onclick="openStoryEntry('session', ${s.id})" style="cursor:pointer">
             <div class="session-history-header">
-                <div class="session-history-title">#${s.session_number} — ${escHtmlP(s.session_title || 'Untitled Session')} ${status}</div>
+                <div class="session-history-title">#${s.session_number} — ${escHtml(s.session_title || 'Untitled Session')} ${status}</div>
                 <div class="session-history-date">${s.session_date ? new Date(s.session_date).toLocaleDateString() : ''}</div>
             </div>
             ${teamUp}
@@ -116,17 +120,17 @@ function storySceneCard(sc) {
     return `
         <div class="session-history-item" onclick="openStoryEntry('scene', ${sc.id})" style="cursor:pointer;${draft ? 'opacity:0.75;border-left:3px solid #f0ad4e' : 'border-left:3px solid #8a7a5a'}">
             <div class="session-history-header">
-                <div class="session-history-title">${escHtmlP(sc.title)} ${badge}</div>
+                <div class="session-history-title">${escHtml(sc.title)} ${badge}</div>
                 <div class="session-history-date">${sc.scene_date ? new Date(sc.scene_date).toLocaleDateString() : ''}</div>
             </div>
-            ${sc.summary ? `<div style="font-size:0.85rem;color:#888;margin-top:4px">${escHtmlP(sc.summary)}</div>` : ''}
+            ${sc.summary ? `<div style="font-size:0.85rem;color:#888;margin-top:4px">${escHtml(sc.summary)}</div>` : ''}
         </div>`;
 }
 
 // ── Draft a scene ────────────────────────────────────────────────────────────
 
 function openDraftSceneForm() {
-    if (!currentCharacter) {
+    if (!state.currentCharacter) {
         showToast('Select a character first.');
         return;
     }
@@ -134,7 +138,7 @@ function openDraftSceneForm() {
     panel.style.display = 'block';
     panel.innerHTML = `
         <div class="session-card" style="margin-bottom:20px">
-            <h3>Draft a Scene for ${escHtmlP(currentCharacter.name)}</h3>
+            <h3>Draft a Scene for ${escHtml(state.currentCharacter.name)}</h3>
             <p style="font-size:0.85rem;color:#888">A solo issue in your character's story. The DM reviews drafts and approves them into the timeline.</p>
             <div class="form-group">
                 <label>Title *</label>
@@ -158,17 +162,16 @@ async function submitDraftScene() {
     if (!title) { showToast('A title is required.'); return; }
 
     try {
-        const res = await fetch('/api/scenes', {
+        await apiFetch('/api/scenes', {
             method: 'POST',
             headers: trackerHeaders(),
             body: JSON.stringify({
-                character_id: currentCharacter.id,
+                character_id: state.currentCharacter.id,
                 title,
                 summary: document.getElementById('draft-scene-summary').value.trim() || null,
                 scene_date: document.getElementById('draft-scene-date').value || null
             })
         });
-        if (!res.ok) throw new Error((await res.json()).error || 'Failed to create scene');
         document.getElementById('story-draft-form').style.display = 'none';
         showToast('Scene drafted — the DM will review it.');
         await loadStoryTimeline();
@@ -180,8 +183,7 @@ async function submitDraftScene() {
 async function deleteScene(sceneId) {
     if (!confirm('Delete this scene and everything in it?')) return;
     try {
-        const res = await fetch(`/api/scenes/${sceneId}`, { method: 'DELETE', headers: trackerHeaders() });
-        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
+        await apiFetch(`/api/scenes/${sceneId}`, { method: 'DELETE', headers: trackerHeaders() });
         showToast('Scene deleted.');
         await loadStoryTimeline();
     } catch (err) {
@@ -194,6 +196,9 @@ async function deleteScene(sceneId) {
 async function openStoryEntry(type, id) {
     const param = type === 'session' ? `session_id=${id}` : `scene_id=${id}`;
     try {
+        // Notes/combats kept on raw fetch rather than apiFetch: a non-ok
+        // response for either degrades gracefully to an empty list rather
+        // than failing the whole entry view.
         const [notesRes, combatsRes] = await Promise.all([
             fetch(`/api/session-notes?${param}`, { headers: trackerHeaders() }),
             fetch(`/api/combats?${param}`, { headers: trackerHeaders() })
@@ -203,12 +208,12 @@ async function openStoryEntry(type, id) {
 
         let title, subtitle = '', ownScene = null;
         if (type === 'session') {
-            const s = await (await fetch(`/api/sessions/${id}`, { headers: trackerHeaders() })).json();
+            const s = await apiFetch(`/api/sessions/${id}`, { headers: trackerHeaders() });
             title = `#${s.session_number} — ${s.session_title || 'Untitled Session'}`;
-            const teammates = (s.session_characters || []).map(c => escHtmlP(c.character_name));
+            const teammates = (s.session_characters || []).map(c => escHtml(c.character_name));
             subtitle = `${s.session_date ? new Date(s.session_date).toLocaleDateString() : ''}${teammates.length ? ' · ' + teammates.join(', ') : ''}`;
         } else {
-            const scenes = await (await fetch(`/api/scenes?character_id=${currentCharacter.id}`, { headers: trackerHeaders() })).json();
+            const scenes = await apiFetch(`/api/scenes?character_id=${state.currentCharacter.id}`, { headers: trackerHeaders() });
             const sc = scenes.find(x => x.id === id) || {};
             ownScene = sc;
             title = sc.title || 'Scene';
@@ -229,11 +234,11 @@ function renderStoryDetail(title, subtitle, notes, combats, ownScene) {
     detail.style.display = 'block';
 
     const noteCards = notes.length ? notes.map(n => {
-        const mine = n.user_id === currentUser.id;
+        const mine = n.user_id === state.currentUser.id;
         return `
         <div class="session-card" style="padding:12px;margin-bottom:10px">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-                <strong style="font-size:0.9rem">${escHtmlP(n.character_name || n.author_username)}</strong>
+                <strong style="font-size:0.9rem">${escHtml(n.character_name || n.author_username)}</strong>
                 <span style="display:flex;gap:8px;align-items:center">
                     ${mine
                         ? `<select onchange="updateNoteVisibility(${n.id}, this.value)" style="font-size:0.75rem">
@@ -243,7 +248,7 @@ function renderStoryDetail(title, subtitle, notes, combats, ownScene) {
                         : visibilityTag(n.visibility)}
                 </span>
             </div>
-            <p style="margin:8px 0 0;white-space:pre-wrap">${escHtmlP(n.content)}</p>
+            <p style="margin:8px 0 0;white-space:pre-wrap">${escHtml(n.content)}</p>
             <div style="font-size:0.75rem;color:#999;margin-top:6px">${new Date(n.created_at).toLocaleString()}</div>
         </div>`;
     }).join('') : '<p style="color:#999;font-style:italic">No notes yet.</p>';
@@ -256,10 +261,10 @@ function renderStoryDetail(title, subtitle, notes, combats, ownScene) {
         <div class="session-card" style="margin-top:12px">
             <div style="display:flex;justify-content:space-between;align-items:start;gap:10px">
                 <div>
-                    <h3 style="margin:0">${escHtmlP(title)}</h3>
+                    <h3 style="margin:0">${escHtml(title)}</h3>
                     <div style="font-size:0.85rem;color:#888">${subtitle}</div>
                 </div>
-                ${ownScene && ownScene.created_by === currentUser.id
+                ${ownScene && ownScene.created_by === state.currentUser.id
                     ? `<button class="btn-secondary btn-sm btn-danger" onclick="deleteScene(${ownScene.id})">Delete Scene</button>` : ''}
             </div>
         </div>
@@ -267,7 +272,7 @@ function renderStoryDetail(title, subtitle, notes, combats, ownScene) {
         <h4 style="margin:20px 0 10px">Notes</h4>
         <div id="story-notes">${noteCards}</div>
         <div class="session-card" style="padding:12px">
-            <textarea id="new-note-content" rows="3" placeholder="What happened from ${escHtmlP(currentCharacter.name)}'s point of view?" style="width:100%;box-sizing:border-box"></textarea>
+            <textarea id="new-note-content" rows="3" placeholder="What happened from ${escHtml(state.currentCharacter.name)}'s point of view?" style="width:100%;box-sizing:border-box"></textarea>
             <div style="display:flex;gap:10px;align-items:center;margin-top:8px">
                 ${visibilitySelect('new-note-visibility', 'session')}
                 <button class="btn-primary btn-sm" onclick="addStoryNote()">Add Note</button>
@@ -284,17 +289,16 @@ async function addStoryNote() {
     if (!content) { showToast('Write something first.'); return; }
 
     const body = {
-        character_id: currentCharacter.id,
+        character_id: state.currentCharacter.id,
         content,
         visibility: document.getElementById('new-note-visibility').value
     };
     body[storyDetailContext.type === 'session' ? 'session_id' : 'scene_id'] = storyDetailContext.id;
 
     try {
-        const res = await fetch('/api/session-notes', {
+        await apiFetch('/api/session-notes', {
             method: 'POST', headers: trackerHeaders(), body: JSON.stringify(body)
         });
-        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
         await openStoryEntry(storyDetailContext.type, storyDetailContext.id);
     } catch (err) {
         showToast(`Failed to add note: ${err.message}`);
@@ -303,10 +307,9 @@ async function addStoryNote() {
 
 async function updateNoteVisibility(noteId, visibility) {
     try {
-        const res = await fetch(`/api/session-notes/${noteId}`, {
+        await apiFetch(`/api/session-notes/${noteId}`, {
             method: 'PUT', headers: trackerHeaders(), body: JSON.stringify({ visibility })
         });
-        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
         showToast('Note visibility updated.');
     } catch (err) {
         showToast(`Failed to update visibility: ${err.message}`);
@@ -316,8 +319,7 @@ async function updateNoteVisibility(noteId, visibility) {
 async function deleteStoryNote(noteId) {
     if (!confirm('Delete this note?')) return;
     try {
-        const res = await fetch(`/api/session-notes/${noteId}`, { method: 'DELETE', headers: trackerHeaders() });
-        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
+        await apiFetch(`/api/session-notes/${noteId}`, { method: 'DELETE', headers: trackerHeaders() });
         await openStoryEntry(storyDetailContext.type, storyDetailContext.id);
     } catch (err) {
         showToast(`Failed to delete note: ${err.message}`);
@@ -336,13 +338,13 @@ function renderCombatCard(e) {
         <div class="combatant-card ${cb.combatant_type === 'pc' ? 'player' : 'enemy'} ${isTurn ? 'active-turn' : ''}">
             <div class="combatant-info">
                 <div class="combatant-initiative">${cb.initiative}</div>
-                <div class="combatant-name">${escHtmlP(cb.name)}${isTurn ? ' 👉' : ''}</div>
+                <div class="combatant-name">${escHtml(cb.name)}${isTurn ? ' 👉' : ''}</div>
                 <div class="combatant-hp">
                     <div class="hp-bar"><div class="hp-bar-fill ${hpPercent < 30 ? 'low' : ''}" style="width:${hpPercent}%"></div></div>
                     <div class="hp-text">${cb.current_hp} / ${cb.max_hp}</div>
                 </div>
                 <div class="combatant-conditions">
-                    ${conditions.map(c => `<span class="condition-tag">${escHtmlP(c)}</span>`).join('')}
+                    ${conditions.map(c => `<span class="condition-tag">${escHtml(c)}</span>`).join('')}
                 </div>
             </div>
             ${active ? `
@@ -357,7 +359,7 @@ function renderCombatCard(e) {
     return `
     <div class="session-card" style="margin-bottom:14px" id="combat-${e.id}">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
-            <h4 style="margin:0">${escHtmlP(e.title)}
+            <h4 style="margin:0">${escHtml(e.title)}
                 <span class="badge" style="font-size:0.75rem;${active ? 'background:#c0392b;color:#fff' : ''}">${active ? `Round ${e.round}` : 'Completed'}</span>
                 ${visibilityTag(e.visibility)}
             </h4>
@@ -367,7 +369,7 @@ function renderCombatCard(e) {
                 <button class="btn-danger btn-sm" onclick="combatEnd(${e.id})">End Combat</button>
             </span>` : ''}
         </div>
-        ${e.summary ? `<p style="font-size:0.9rem;color:#888;font-style:italic;margin:8px 0 0">${escHtmlP(e.summary)}</p>` : ''}
+        ${e.summary ? `<p style="font-size:0.9rem;color:#888;font-style:italic;margin:8px 0 0">${escHtml(e.summary)}</p>` : ''}
         <div class="initiative-tracker" style="margin-top:10px">${combatantRows || '<p style="color:#999">No combatants yet.</p>'}</div>
     </div>`;
 }
@@ -382,9 +384,7 @@ async function refreshCombats() {
 }
 
 async function fetchCombat(encounterId) {
-    const res = await fetch(`/api/combats/${encounterId}`, { headers: trackerHeaders() });
-    if (!res.ok) throw new Error('Failed to load encounter');
-    return res.json();
+    return apiFetch(`/api/combats/${encounterId}`, { headers: trackerHeaders() });
 }
 
 async function combatAdjustHP(encounterId, combatantId, direction) {
@@ -399,10 +399,9 @@ async function combatAdjustHP(encounterId, combatantId, direction) {
             ? Math.max(0, cb.current_hp - amount)
             : Math.min(cb.max_hp, cb.current_hp + amount);
 
-        const res = await fetch(`/api/combats/${encounterId}/combatants/${combatantId}`, {
+        await apiFetch(`/api/combats/${encounterId}/combatants/${combatantId}`, {
             method: 'PUT', headers: trackerHeaders(), body: JSON.stringify({ current_hp: newHP })
         });
-        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
         await refreshCombats();
     } catch (err) {
         showToast(`Failed to update HP: ${err.message}`);
@@ -420,10 +419,9 @@ async function combatAddCondition(encounterId, combatantId) {
         const conditions = parseConditions(cb.conditions);
         conditions.push(condition.trim());
 
-        const res = await fetch(`/api/combats/${encounterId}/combatants/${combatantId}`, {
+        await apiFetch(`/api/combats/${encounterId}/combatants/${combatantId}`, {
             method: 'PUT', headers: trackerHeaders(), body: JSON.stringify({ conditions })
         });
-        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
         await refreshCombats();
     } catch (err) {
         showToast(`Failed to add condition: ${err.message}`);
@@ -439,10 +437,9 @@ async function combatNextTurn(encounterId) {
         let round = e.round || 1;
         if (turn === 0) round += 1;
 
-        const res = await fetch(`/api/combats/${encounterId}`, {
+        await apiFetch(`/api/combats/${encounterId}`, {
             method: 'PUT', headers: trackerHeaders(), body: JSON.stringify({ turn_index: turn, round })
         });
-        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
         await refreshCombats();
     } catch (err) {
         showToast(`Failed to advance turn: ${err.message}`);
@@ -454,14 +451,23 @@ async function combatEnd(encounterId) {
     const summary = prompt('How did it go? (optional summary)') || null;
 
     try {
-        const res = await fetch(`/api/combats/${encounterId}`, {
+        await apiFetch(`/api/combats/${encounterId}`, {
             method: 'PUT', headers: trackerHeaders(),
             body: JSON.stringify({ status: 'completed', ...(summary ? { summary } : {}) })
         });
-        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
         showToast('Combat ended.');
         await refreshCombats();
     } catch (err) {
         showToast(`Failed to end combat: ${err.message}`);
     }
 }
+
+// Referenced from generated onclick="..." HTML (see ADR-001).
+Object.assign(window, {
+    addStoryNote, combatAddCondition, combatAdjustHP, combatEnd, combatNextTurn,
+    deleteScene, deleteStoryNote, loadStoryTimeline, openDraftSceneForm, openStoryEntry,
+    submitDraftScene, updateNoteVisibility,
+});
+
+// Used by player-core.js.
+export { loadStoryTimeline };

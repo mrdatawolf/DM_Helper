@@ -26,7 +26,7 @@ function authHeader() {
 
 async function adminLogout() {
     try {
-        await fetch('/api/auth/logout', { method: 'POST', headers: authHeader() });
+        await apiFetch('/api/auth/logout', { method: 'POST', headers: authHeader() });
     } catch (_) {}
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -37,9 +37,7 @@ async function adminLogout() {
 
 async function loadUsers() {
     try {
-        const res = await fetch('/api/admin/users', { headers: authHeader() });
-        if (!res.ok) throw new Error('Failed to load users');
-        const { users } = await res.json();
+        const { users } = await apiFetch('/api/admin/users', { headers: authHeader() });
         renderStats(users);
         renderTable(users);
     } catch (err) {
@@ -116,12 +114,11 @@ function renderTable(users) {
 
 async function setDM(id, makeDM) {
     try {
-        const res = await fetch(`/api/admin/users/${id}`, {
+        await apiFetch(`/api/admin/users/${id}`, {
             method: 'PUT',
             headers: authHeader(),
             body: JSON.stringify({ is_dm: makeDM })
         });
-        if (!res.ok) throw new Error((await res.json()).error || 'Update failed');
         showToast(makeDM ? 'DM role granted' : 'DM role removed', 'success');
         loadUsers();
     } catch (err) {
@@ -131,11 +128,10 @@ async function setDM(id, makeDM) {
 
 async function archiveUser(id, username) {
     try {
-        const res = await fetch(`/api/admin/users/${id}`, {
+        await apiFetch(`/api/admin/users/${id}`, {
             method: 'DELETE',
             headers: authHeader()
         });
-        if (!res.ok) throw new Error((await res.json()).error || 'Archive failed');
         showToast(`"${username}" archived`, 'success');
         loadUsers();
     } catch (err) {
@@ -145,11 +141,10 @@ async function archiveUser(id, username) {
 
 async function restoreUser(id, username) {
     try {
-        const res = await fetch(`/api/admin/users/${id}/restore`, {
+        await apiFetch(`/api/admin/users/${id}/restore`, {
             method: 'POST',
             headers: authHeader()
         });
-        if (!res.ok) throw new Error((await res.json()).error || 'Restore failed');
         showToast(`"${username}" restored`, 'success');
         loadUsers();
     } catch (err) {
@@ -179,12 +174,11 @@ async function submitPasswordReset() {
         return;
     }
     try {
-        const res = await fetch(`/api/admin/users/${resetTargetId}/reset-password`, {
+        await apiFetch(`/api/admin/users/${resetTargetId}/reset-password`, {
             method: 'POST',
             headers: authHeader(),
             body: JSON.stringify({ password })
         });
-        if (!res.ok) throw new Error((await res.json()).error || 'Reset failed');
         showToast('Password reset successfully', 'success');
         closeResetModal();
     } catch (err) {
@@ -197,14 +191,7 @@ document.getElementById('reset-modal').addEventListener('click', function(e) {
 });
 
 // ── Utilities ─────────────────────────────────────────────────
-
-function escHtml(str) {
-    return String(str ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-}
+// escHtml now comes from /js/dom-utils.js (loaded before this file).
 
 function fmtDate(iso) {
     const d = new Date(iso);

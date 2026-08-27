@@ -1,4 +1,7 @@
 // dm-journal.js — split from app.js (behavior unchanged)
+import { state, API_BASE } from './dm-state.js';
+import { closeModal, showModal } from './dm-modals.js';
+
 // ========== JOURNAL FUNCTIONS ==========
 
 // Update journal filter dropdown
@@ -7,7 +10,7 @@ function updateJournalFilter() {
     if (!select) return;
 
     select.innerHTML = '<option value="">All Characters</option>' +
-        characters.map(char => `<option value="${char.id}">${escHtml(char.name)}</option>`).join('');
+        state.characters.map(char => `<option value="${char.id}">${escHtml(char.name)}</option>`).join('');
 }
 
 // Load journal entries
@@ -17,17 +20,11 @@ async function loadJournalEntries() {
     const publicOnlyFilter = document.getElementById('journal-filter-public')?.checked || false;
 
     try {
-        const response = await fetch(`${API_BASE}/journal/user`, {
+        const data = await apiFetch(`${API_BASE}/journal/user`, {
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
             }
         });
-
-        if (!response.ok) {
-            throw new Error('Failed to load journal entries');
-        }
-
-        const data = await response.json();
         let entries = data.entries || [];
 
         // Apply filters
@@ -38,7 +35,7 @@ async function loadJournalEntries() {
             entries = entries.filter(e => e.is_public === 1);
         }
 
-        journalEntries = entries;
+        state.journalEntries = entries;
         renderJournalEntries();
 
     } catch (error) {
@@ -56,7 +53,7 @@ async function loadJournalEntries() {
 function renderJournalEntries() {
     const container = document.getElementById('journal-content');
 
-    if (journalEntries.length === 0) {
+    if (state.journalEntries.length === 0) {
         container.innerHTML = `
             <div class="empty-state">
                 <h3>No Journal Entries</h3>
@@ -68,7 +65,7 @@ function renderJournalEntries() {
 
     container.innerHTML = `
         <div class="journal-entries">
-            ${journalEntries.map(entry => `
+            ${state.journalEntries.map(entry => `
                 <div class="journal-entry-card">
                     <div class="entry-header">
                         <div>
@@ -103,7 +100,7 @@ function openNewJournalEntry() {
                 <label for="journal-character">Character *</label>
                 <select id="journal-character" required>
                     <option value="">Select a character...</option>
-                    ${characters.map(char => `<option value="${char.id}">${escHtml(char.name)}</option>`).join('')}
+                    ${state.characters.map(char => `<option value="${char.id}">${escHtml(char.name)}</option>`).join('')}
                 </select>
             </div>
             <div class="form-group">
@@ -174,7 +171,7 @@ async function handleJournalSubmit(event) {
     console.log('Sending journal entry data:', entryData);
 
     try {
-        const response = await fetch(`${API_BASE}/journal`, {
+        await apiFetch(`${API_BASE}/journal`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -182,11 +179,6 @@ async function handleJournalSubmit(event) {
             },
             body: JSON.stringify(entryData)
         });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Failed to create journal entry');
-        }
 
         closeModal();
         await loadJournalEntries();
@@ -204,7 +196,7 @@ async function handleJournalSubmit(event) {
 
 // Edit journal entry
 async function editJournalEntry(entryId) {
-    const entry = journalEntries.find(e => e.id === entryId);
+    const entry = state.journalEntries.find(e => e.id === entryId);
     if (!entry) {
         showToast('Journal entry not found');
         return;
@@ -216,7 +208,7 @@ async function editJournalEntry(entryId) {
                 <label for="edit-journal-character">Character *</label>
                 <select id="edit-journal-character" required>
                     <option value="">Select a character...</option>
-                    ${characters.map(char => `<option value="${char.id}" ${char.id === entry.character_id ? 'selected' : ''}>${escHtml(char.name)}</option>`).join('')}
+                    ${state.characters.map(char => `<option value="${char.id}" ${char.id === entry.character_id ? 'selected' : ''}>${escHtml(char.name)}</option>`).join('')}
                 </select>
             </div>
             <div class="form-group">
@@ -259,7 +251,7 @@ async function handleJournalUpdate(event, entryId) {
     };
 
     try {
-        const response = await fetch(`${API_BASE}/journal/${entryId}`, {
+        await apiFetch(`${API_BASE}/journal/${entryId}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
@@ -267,11 +259,6 @@ async function handleJournalUpdate(event, entryId) {
             },
             body: JSON.stringify(entryData)
         });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Failed to update journal entry');
-        }
 
         closeModal();
         await loadJournalEntries();
@@ -293,16 +280,12 @@ async function deleteJournalEntry(entryId) {
     }
 
     try {
-        const response = await fetch(`${API_BASE}/journal/${entryId}`, {
+        await apiFetch(`${API_BASE}/journal/${entryId}`, {
             method: 'DELETE',
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
             }
         });
-
-        if (!response.ok) {
-            throw new Error('Failed to delete journal entry');
-        }
 
         await loadJournalEntries();
         showToast('Journal entry deleted successfully!');
@@ -312,4 +295,14 @@ async function deleteJournalEntry(entryId) {
         showToast(`Failed to delete journal entry: ${error.message}`);
     }
 }
+
+// Referenced from generated onclick="..."/onsubmit="..." HTML and the
+// dashboard's own static HTML (see ADR-001).
+Object.assign(window, {
+    deleteJournalEntry, editJournalEntry, handleJournalSubmit, handleJournalUpdate,
+    loadJournalEntries, openNewJournalEntry,
+});
+
+// Used by dm-core.js (loadJournalEntries) and dm-lists.js (updateJournalFilter).
+export { loadJournalEntries, updateJournalFilter };
 

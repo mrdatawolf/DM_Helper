@@ -15,7 +15,10 @@ async function loadCharacterClaims(characterId) {
     claimSelectedCharacter = characterId;
 
     try {
-        // Load claim pool
+        // Load claim pool. Kept on raw fetch rather than apiFetch: a
+        // non-ok response here means "no pool exists yet" and falls back to
+        // a default, a distinct, expected case rather than an error —
+        // apiFetch would throw and skip the rest of this function.
         const poolResponse = await fetch(`/api/claims/pool/${characterId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -28,10 +31,9 @@ async function loadCharacterClaims(characterId) {
         }
 
         // Load existing claims
-        const claimsResponse = await fetch(`/api/claims/character/${characterId}`, {
+        const claims = await apiFetch(`/api/claims/character/${characterId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        const claims = await claimsResponse.json();
 
         currentClaims = {};
         claims.forEach(claim => {
@@ -80,7 +82,7 @@ function displayClaimsInterface() {
             </div>
         </div>
 
-        <h3>Your Claims for ${escHtmlP(character.name)}</h3>
+        <h3>Your Claims for ${escHtml(character.name)}</h3>
         <div class="claims-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; margin: 20px 0;">
             ${commonAttributes.map(attr => {
                 const claim = currentClaims[attr];
@@ -94,7 +96,7 @@ function displayClaimsInterface() {
                         </h3>
                         ${claim ? `
                             <div style="background: #f5f5f5; padding: 10px; border-radius: 4px; font-size: 14px; margin: 10px 0; font-style: italic;">
-                                "${escHtmlP(claim.justification)}"
+                                "${escHtml(claim.justification)}"
                             </div>
                         ` : ''}
                         ${availablePoints > 0 ? `
@@ -185,7 +187,7 @@ async function handleClaimSubmit(event) {
     const justification = document.getElementById('claim-justification').value;
 
     try {
-        const response = await fetch('/api/claims/allocate', {
+        await apiFetch('/api/claims/allocate', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -198,11 +200,6 @@ async function handleClaimSubmit(event) {
                 justification: justification
             })
         });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Failed to allocate points');
-        }
 
         // Reload claims
         await loadCharacterClaims(claimSelectedCharacter);
@@ -222,4 +219,10 @@ window.addEventListener('click', (event) => {
         closeClaimModal();
     }
 });
+
+// Referenced from generated onclick="..." HTML (see ADR-001).
+Object.assign(window, { closeClaimModal, openClaimModal });
+
+// Used by player-characters.js / player-dice.js.
+export { commonAttributes, loadCharacterClaims };
 

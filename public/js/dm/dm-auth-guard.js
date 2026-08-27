@@ -1,5 +1,7 @@
 // dm-auth-guard.js — real session verification + auth-aware fetch for the DM
-// dashboard. Loaded first, before dm-core.js and every other DM script.
+// dashboard. dm-core.js imports verifyDmSession from here, which guarantees
+// this module's top-level code (including the window.fetch wrapper below)
+// runs first, regardless of <script type="module"> tag order in the HTML.
 //
 // Two jobs:
 //   1. verifyDmSession() replaces the old localStorage-only page guard with a
@@ -10,7 +12,15 @@
 //      the single choke point that stops an expired session from silently
 //      corrupting tab data or eating edit/delete clicks.
 
-async function verifyDmSession() {
+// Both functions below are kept on raw fetch rather than apiFetch:
+// verifyDmSession has a deliberate network-error-vs-confirmed-invalid-session
+// distinction (see the catch block) that apiFetch would collapse, and
+// installAuthAwareFetch IS the thing that wraps window.fetch globally —
+// apiFetch calls fetch() internally, so using apiFetch inside the wrapper
+// that fetch() eventually becomes would be circular. This wrapper is also
+// why DM-side apiFetch calls elsewhere don't need to attach an Authorization
+// header themselves: this file adds it to every /api/ call transparently.
+export async function verifyDmSession() {
     const token = localStorage.getItem('token');
     if (!token) {
         window.location.href = '/player-login.html';
