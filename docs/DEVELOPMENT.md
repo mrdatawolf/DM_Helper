@@ -98,6 +98,37 @@ missing, and prints a freshly generated one to copy in.
 - **Secrets**: never hardcode credentials, keys, hosts, or ports. Use `.env`,
   documented in `.env.example`.
 
+## Error handling
+
+Route handlers don't catch their own errors — `src/middleware/errorHandler.js`
+does it centrally. Wrap a handler in `asyncHandler` (or let Express 5 forward
+it automatically, which it does natively for both thrown errors and rejected
+promises) and just `throw`; the centralized `errorHandler` middleware, mounted
+last in `src/server.js`, turns it into the JSON response.
+
+**Status-code policy (decided 2026-08-26, TASK-010): trust upstream status
+codes as-is.** `errorHandler` responds with `err.status || err.statusCode ||
+500`. Any error object — from `express.json()`'s body-parser on a malformed
+request, a route that explicitly sets `err.status`, a future `http-errors`-style
+library, or anything else — gets to pick its own status code by setting that
+property; anything that doesn't collapses to `500`. This was chosen over
+maintaining an allowlist of "which sources may set a non-500 status" or
+forcing everything to `500` by default, on the reasoning that it's the
+simplest option, matches the wider Express/Connect ecosystem's own convention
+for how middleware communicates a status code, and the two error sources that
+currently exist in this codebase (body-parser's own 400s, and the deliberate
+`clientMessage`-carrying errors in `auth.js`/`journal.js`) already rely on it.
+The tradeoff, accepted as low-risk for this app's size: a future dependency
+that sets `.status` on a thrown error would silently change a route's response
+code without an explicit per-route decision. If that ever causes a real
+problem, revisit this policy rather than special-casing it quietly.
+
+A malformed JSON request body is the concrete example this policy was decided
+against: `express.json()` rejects it with `err.status = 400` before any route
+runs, so the response is `400 { error: '<parse error>' }` — not the `500`
+that a naive centralized handler might default to. See
+`tests/error-handling.test.js` for the regression test.
+
 ## Testing philosophy
 
 - Tests run via Node's built-in test runner (`node --test`), no separate test
