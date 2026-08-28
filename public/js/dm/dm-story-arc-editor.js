@@ -85,6 +85,7 @@ function renderArcDetail(arc) {
                     `<option value="${s}"${arc.status===s?' selected':''}>${ARC_STATUS_LABELS[s]}</option>`
                 ).join('')}
             </select>
+            <a class="btn-primary btn-sm" href="/dm-arc-sheet.html?arc=${arc.id}">Open Sheet</a>
             <button class="btn-secondary btn-sm" onclick="openEditArcModal(${arc.id})">Edit</button>
             <button class="btn-danger btn-sm"    onclick="deleteArc(${arc.id})">Delete</button>
         </div>

@@ -72,10 +72,15 @@ function renderChapters() {
 }
 
 function renderShadowFilters() {
-    const defaults = new Set(DEFAULT_SHADOWS_BY_ARC[arc.id] || []);
-    document.getElementById('shadow-filters').innerHTML = shadows.map(shadow => `
-        <label><input type="checkbox" value="${shadow.id}" ${defaults.has(shadow.id) ? 'checked' : ''}> ${escHtml(shadow.name)}</label>
-    `).join('');
+    const hasCuratedDefaults = Object.hasOwn(DEFAULT_SHADOWS_BY_ARC, arc.id);
+    const defaults = new Set(DEFAULT_SHADOWS_BY_ARC[arc.id] || shadows.map(shadow => shadow.id));
+    document.getElementById('shadow-filters').innerHTML = `
+        ${shadows.map(shadow => `
+            <label><input type="checkbox" value="${shadow.id}" ${defaults.has(shadow.id) ? 'checked' : ''}> ${escHtml(shadow.name)}</label>
+        `).join('')}
+        <button class="btn-secondary btn-sm" type="button" data-shadow-filter="all">Show All</button>
+        ${hasCuratedDefaults ? '<button class="btn-secondary btn-sm" type="button" data-shadow-filter="curated">Curated Only</button>' : ''}
+    `;
 }
 
 function renderBestiary() {
@@ -108,6 +113,17 @@ async function advanceChapter(chapterId, nextStatus, button) {
 
 function installHandlers() {
     document.getElementById('shadow-filters').addEventListener('change', renderBestiary);
+    document.getElementById('shadow-filters').addEventListener('click', event => {
+        const control = event.target.closest('[data-shadow-filter]');
+        if (!control) return;
+        const selectedIds = control.dataset.shadowFilter === 'all'
+            ? new Set(shadows.map(shadow => shadow.id))
+            : new Set(DEFAULT_SHADOWS_BY_ARC[arc.id]);
+        document.querySelectorAll('#shadow-filters input[type="checkbox"]').forEach(input => {
+            input.checked = selectedIds.has(Number(input.value));
+        });
+        renderBestiary();
+    });
     document.getElementById('chapter-walkthrough').addEventListener('click', event => {
         const advance = event.target.closest('[data-advance-chapter]');
         if (advance) {
