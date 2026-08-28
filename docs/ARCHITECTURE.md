@@ -36,24 +36,28 @@ designed to be run by one operator (the DM) for one campaign at a time.
   `legacy/*.js` are historical one-off scripts, confirmed to have zero
   references from `src/` or `package.json` — dead code kept only for reference
   (see `src/database/legacy/README.md`).
-- **`src/controllers/`, `src/models/`**: present as empty directories.
-  Abandoned scaffolding from an earlier, unrealized intent to add a
-  controller/model layer between routes and the database. Not currently part
-  of the request path.
-- **`src/utils/familiars.js`**: the one existing example of domain logic
-  (familiar serialization) extracted out of a route file into a reusable,
-  independently testable module — treated as the reference pattern for future
-  extraction work (see `tasks/proposed/TASK-002-*`, `TASK-003-*`, `TASK-005-*`).
+- **No data-access/model layer, by deliberate decision**: `src/controllers/`
+  and `src/models/` — empty scaffolding from an earlier, unrealized intent —
+  were removed per `docs/decisions/ADR-002-data-access-layer.md`. Routes
+  remain the data-access layer; extract shared logic into `src/utils/` on a
+  per-case basis (see below) rather than through a model/controller layer.
+- **`src/utils/familiars.js`, `src/utils/buildUpdateQuery.js`**: the
+  established pattern for extracting domain/data-access logic that's
+  genuinely duplicated or complex enough to warrant its own reusable,
+  independently testable module — a plain function, not a class or a new
+  architectural layer. Reach for this per-case rather than building a
+  general model layer (see ADR-002).
 - **`public/dm-dashboard.html`, `public/player-dashboard.html`**: the two main
   views, each loading a sequence of plain `<script>` tags (no bundler, no
   `type="module"`).
 - **`public/js/dm/*.js`, `public/js/player/*.js`**: per-dashboard frontend
-  logic. `dm-core.js` declares shared mutable state (`characters`, `shadows`,
-  `storyArcs`, `sessions`, `progress`, etc.) at global scope; every other
-  `dm-*.js` file reads and mutates these globals directly. Correctness depends
-  on `<script>` tag order in `dm-dashboard.html` matching each file's implicit
-  expectations about what has already run. There is no explicit
-  import/export/dependency graph (see `tasks/proposed/TASK-008-*`).
+  logic, loaded via `<script type="module">` (`TASK-008`, `ADR-001`). Each
+  dashboard has one `*-state.js` module exporting a single mutable `state`
+  object (`dm-state.js`, `player-state.js`); every other file `import`s what
+  it needs explicitly instead of reading implicit globals. Functions invoked
+  from generated inline HTML (`onclick=` etc., which always run in the
+  global scope regardless of module boundaries) are explicitly bridged onto
+  `window` at their definition site.
 
 ## Data flow
 
@@ -63,15 +67,21 @@ designed to be run by one operator (the DM) for one campaign at a time.
    check verifies a valid session (calling an auth API route) before rendering
    protected content.
 3. Frontend scripts call JSON API routes under `/api/...` (mounted per resource
-   in `server.js`) using hand-rolled `fetch()` calls (no shared HTTP client
-   module yet — see `tasks/proposed/TASK-007-*`).
-4. Route handlers in `src/routes/*.js` authenticate/authorize the request via
+   in `server.js`) via the shared `apiFetch` wrapper (`public/js/api.js`,
+   `TASK-007`), which handles JSON parsing and error surfacing consistently
+   (a small number of call sites deliberately keep raw `fetch()` where they
+   need a behavior `apiFetch` doesn't provide — documented inline at each).
+4. Route handlers in `src/routes/*.js` (or `src/routes/characters/*.js` for
+   character sub-resources) authenticate/authorize the request via
    `src/middleware/auth.js`, run SQL directly against the `better-sqlite3`
-   connection, and return JSON. Errors are handled per-route via near-identical
-   repeated `try/catch` blocks (see `tasks/proposed/TASK-001-*`).
-5. On success, frontend code mutates the relevant global state in `dm-core.js`
-   (or a player-side equivalent) and re-renders the affected DOM sections via
-   HTML-string templating functions.
+   connection (no data-access layer — see `ADR-002`), and either return JSON
+   or `throw`/reject; `src/middleware/errorHandler.js`'s `asyncHandler` +
+   centralized `errorHandler` middleware turn any error into the JSON error
+   response (`TASK-001`; status-code policy documented in
+   `docs/DEVELOPMENT.md`, decided in `TASK-010`).
+5. On success, frontend code updates the relevant dashboard's `state` object
+   and re-renders the affected DOM sections via HTML-string templating
+   functions.
 
 ## Trust boundaries
 
@@ -87,23 +97,26 @@ designed to be run by one operator (the DM) for one campaign at a time.
 
 ## Known architectural gaps
 
-These are documented in detail as tasks in `tasks/proposed/` rather than here,
-since they represent proposed future states, not the current one:
+`TASK-001`, `TASK-003` through `TASK-008`, and `TASK-010` (see
+`tasks/completed/`) have resolved the gaps originally listed here —
+centralized error handling, the data-access-layer question, duplicated
+partial-update SQL, duplicated permission checks, the oversized
+`characters.js` route file, dead legacy scripts, shared frontend
+fetch/escaping utilities, the frontend ES-module migration, and the
+error-handler status-code policy, respectively.
 
-- No centralized error handling (`TASK-001`).
-- No data-access/model layer despite the empty scaffolding suggesting one was
-  planned (`TASK-002` — flagged as needing an ADR before implementation).
-- Duplicated partial-update SQL pattern across seven route files (`TASK-003`).
-- Duplicated permission-check logic instead of shared middleware (`TASK-004`).
-- An oversized multi-resource route file, `characters.js` (`TASK-005`).
-- Dead code in `src/database/legacy/` (`TASK-006`).
-- No shared frontend fetch wrapper or DOM/escaping utilities (`TASK-007`).
-- Global mutable state and implicit script-load-order coupling on the frontend,
-  blocking frontend unit testing (`TASK-008` — flagged as needing an ADR).
+Remaining, tracked in `tasks/approved/`:
+
 - Several oversized, multi-concern frontend files (`TASK-009`).
+- Five `buildUpdateQuery`-pattern call sites found during `TASK-003` but left
+  out of its scope — gear/powers/familiars sub-routes and `combats.js`
+  (`TASK-011`).
 
 ## Related decisions
 
-No ADRs have been accepted yet. `docs/decisions/` is scaffolded and ready for
-use once `TASK-002` and/or `TASK-008` reach the point of an architectural
-decision.
+- `docs/decisions/ADR-001-frontend-module-migration.md` (Accepted,
+  2026-08-27): native ES modules for the frontend, no bundler; see
+  `TASK-008`.
+- `docs/decisions/ADR-002-data-access-layer.md` (Accepted, 2026-08-27): no
+  general model/controller layer; routes remain the data-access layer,
+  shared logic extracted into `src/utils/` per case. See `TASK-002`.

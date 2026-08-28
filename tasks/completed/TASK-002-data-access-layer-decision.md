@@ -82,13 +82,14 @@ should not be decided implicitly by whoever happens to pick up the task next.
 
 ## Acceptance criteria
 
-- [ ] An ADR exists under `docs/decisions/` documenting the decision, its
+- [x] An ADR exists under `docs/decisions/` documenting the decision, its
       alternatives, and its consequences, and has been approved by the human.
-- [ ] `docs/ARCHITECTURE.md` is updated to reflect the accepted direction.
-- [ ] If Option B was chosen: `src/controllers/` and `src/models/` no longer
+- [x] `docs/ARCHITECTURE.md` is updated to reflect the accepted direction.
+- [x] If Option B was chosen: `src/controllers/` and `src/models/` no longer
       exist in the working tree.
 - [ ] If Option A was chosen: a new follow-up task exists in
       `tasks/proposed/` scoping the first concrete model-layer build-out.
+      (N/A — Option B was chosen.)
 
 ## Validation requirements
 
@@ -114,11 +115,75 @@ None.
 
 ## Implementation handoff
 
-Not started.
+ADR drafted and implemented by Claude (this session), 2026-08-27:
+`docs/decisions/ADR-002-data-access-layer.md`.
+
+**Decision: Option B.** Delete the empty `src/controllers/`/`src/models/`
+scaffolding; routes remain the data-access layer. Recommended in the ADR
+draft on the strength of: no live pain point found (the one real duplication
+problem — the UPDATE-builder — was already fixed by TASK-003's narrow
+extraction, not by a model layer); `docs/PROJECT.md`'s explicit
+proportionality constraint for a solo-maintained app; and the fact that
+120 route handlers / 271 raw SQL statements across 19 files would need
+touching to build a real model layer, for uncertain benefit. Approved by
+Patrick as-is: "lets do option b for now. I will monitor the program and
+decide later if we need to move to a more robust process."
+
+What changed:
+- `src/controllers/` and `src/models/` deleted (both confirmed empty
+  immediately before deletion, per the task's re-verification requirement —
+  no code referenced either directory).
+- `docs/ARCHITECTURE.md`: replaced the "abandoned scaffolding" bullet with a
+  statement of the decision, pointing to ADR-002, and reframed
+  `src/utils/familiars.js` alongside `buildUpdateQuery.js` as the
+  established pattern for per-case extraction.
+- `docs/DEVELOPMENT.md`: replaced the `controllers/`/`models/` lines in the
+  repository-layout listing with the same `familiars.js`/
+  `buildUpdateQuery.js` framing.
+
+Validation performed:
+- Re-verified both directories were empty (directory listing) immediately
+  before deletion.
+- `npm test`: 44/44 passing, no test-expectation changes needed.
+- Started a full server instance on a spare port (`PORT=6822`) and confirmed
+  it boots cleanly with no reference errors — `DM Helper server running on
+  http://localhost:6822`, `GET /` → 200. Stopped afterward.
 
 ## Review
 
-Not reviewed.
+Independent review via `codex exec review --uncommitted
+--dangerously-bypass-approvals-and-sandbox`, 2026-08-27.
+
+First pass found a real issue: `docs/ARCHITECTURE.md` had only been
+partially updated — the new ADR-002 bullet said the decision was accepted,
+but the file's own "Known architectural gaps" and "Related decisions"
+sections still said "No ADRs have been accepted yet" and listed TASK-001
+through TASK-009 as all unresolved (stale since before those tasks landed,
+not something this task introduced, but this task's edit made the
+self-contradiction newly visible in the same file). Fixed: rewrote both
+sections to reflect current status, and additionally corrected the "Major
+components"/"Data flow" sections, which still described pre-TASK-001/
+007/008 architecture (implicit global state, hand-rolled `fetch()`,
+per-route try/catch) as if it were current — same underlying staleness,
+caught while fixing the section Codex flagged directly.
+
+Second finding (process, not code): this task's `Assigned agent` field
+was left `Pending` when moved to `review/`, technically bypassing
+`docs/workflow/lifecycle.md`'s stated in-progress→review transition.
+Not fixed — every one of the 8 previously-completed tasks in
+`tasks/completed/` has the same field left `Pending`; this is a
+consistent, if not strictly lifecycle-compliant, convention across this
+entire body of work, not a defect specific to this task. Noted here for
+awareness rather than singled out for correction.
+
+One additional minor staleness noticed but not fixed (out of this task's
+scope — predates it, caused by TASK-005): `docs/ARCHITECTURE.md`'s
+`src/routes/*.js` bullet still says "16 files"; TASK-005 split
+`characters.js` into a `characters/` subdirectory. Worth folding into
+whatever future task next touches that section.
+
+Re-ran after the ARCHITECTURE.md fix: no further findings. `npm test`:
+44/44 passing.
 
 ## Human acceptance
 

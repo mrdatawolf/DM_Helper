@@ -3,6 +3,7 @@ const router = express.Router();
 const { getDatabase } = require('../../database/connection');
 const { authenticate } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
+const { collectUpdateFields } = require('../../utils/buildUpdateQuery');
 const { canModifyCharacter } = require('./shared');
 
 // Add gear to character
@@ -44,19 +45,19 @@ router.put('/:id/gear/:gearId', authenticate, asyncHandler((req, res) => {
     const gear = db.prepare('SELECT id FROM character_gear WHERE id = ? AND character_id = ?').get(req.params.gearId, req.params.id);
     if (!gear) return res.status(404).json({ error: 'Gear item not found' });
 
-    const allowed = ['item_name', 'item_type', 'description', 'quantity', 'is_equipped', 'magical_properties'];
-    const updates = [];
-    const values = [];
-    for (const field of allowed) {
-        if (req.body.hasOwnProperty(field)) {
-            updates.push(`${field} = ?`);
-            values.push(field === 'is_equipped' ? (req.body[field] ? 1 : 0) : req.body[field]);
-        }
+    const allowed = ['item_name', 'item_type', 'description', 'quantity'];
+    const { setClauses, values } = collectUpdateFields(allowed, req.body);
+    if (Object.prototype.hasOwnProperty.call(req.body, 'is_equipped')) {
+        setClauses.push('is_equipped = ?');
+        values.push(req.body.is_equipped ? 1 : 0);
     }
-    if (!updates.length) return res.status(400).json({ error: 'No valid fields to update' });
+    const magicalProperties = collectUpdateFields(['magical_properties'], req.body);
+    setClauses.push(...magicalProperties.setClauses);
+    values.push(...magicalProperties.values);
+    if (!setClauses.length) return res.status(400).json({ error: 'No valid fields to update' });
 
     values.push(req.params.gearId);
-    db.prepare(`UPDATE character_gear SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+    db.prepare(`UPDATE character_gear SET ${setClauses.join(', ')} WHERE id = ?`).run(...values);
     res.json(db.prepare('SELECT * FROM character_gear WHERE id = ?').get(req.params.gearId));
 }));
 

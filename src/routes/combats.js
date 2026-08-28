@@ -7,6 +7,7 @@ const {
     recordVisible, parentIsVisibleDraftSafe,
 } = require('./tracker-shared');
 const { computeFamiliarPower } = require('../utils/familiars');
+const { collectUpdateFields } = require('../utils/buildUpdateQuery');
 const { asyncHandler } = require('../middleware/errorHandler');
 
 router.use(authenticate);
@@ -153,20 +154,13 @@ router.put('/:id', asyncHandler((req, res) => {
         ? ['title', 'status', 'round', 'turn_index', 'summary', 'visibility']
         : ['status', 'round', 'turn_index', 'summary'];
 
-    const updates = [];
-    const values = [];
-    for (const field of allowed) {
-        if (req.body.hasOwnProperty(field)) {
-            updates.push(`${field} = ?`);
-            values.push(req.body[field]);
-        }
-    }
-    if (!updates.length) return res.status(400).json({ error: 'No valid fields to update' });
+    const { setClauses, values } = collectUpdateFields(allowed, req.body);
+    if (!setClauses.length) return res.status(400).json({ error: 'No valid fields to update' });
 
-    if (req.body.status === 'completed') updates.push('ended_at = CURRENT_TIMESTAMP');
+    if (req.body.status === 'completed') setClauses.push('ended_at = CURRENT_TIMESTAMP');
 
     values.push(req.params.id);
-    db.prepare(`UPDATE combat_encounters SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+    db.prepare(`UPDATE combat_encounters SET ${setClauses.join(', ')} WHERE id = ?`).run(...values);
 
     const updated = db.prepare('SELECT * FROM combat_encounters WHERE id = ?').get(req.params.id);
     attachCombatants(db, [updated]);
@@ -198,18 +192,16 @@ router.put('/:id/combatants/:cid', asyncHandler((req, res) => {
         ? ['name', 'combatant_type', 'initiative', 'max_hp', 'current_hp', 'conditions']
         : ['current_hp', 'conditions'];
 
-    const updates = [];
-    const values = [];
-    for (const field of allowed) {
-        if (req.body.hasOwnProperty(field)) {
-            updates.push(`${field} = ?`);
-            values.push(field === 'conditions' ? JSON.stringify(req.body[field]) : req.body[field]);
-        }
+    const standardFields = allowed.filter(field => field !== 'conditions');
+    const { setClauses, values } = collectUpdateFields(standardFields, req.body);
+    if (allowed.includes('conditions') && Object.prototype.hasOwnProperty.call(req.body, 'conditions')) {
+        setClauses.push('conditions = ?');
+        values.push(JSON.stringify(req.body.conditions));
     }
-    if (!updates.length) return res.status(400).json({ error: 'No valid fields to update' });
+    if (!setClauses.length) return res.status(400).json({ error: 'No valid fields to update' });
 
     values.push(req.params.cid);
-    db.prepare(`UPDATE combatants SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+    db.prepare(`UPDATE combatants SET ${setClauses.join(', ')} WHERE id = ?`).run(...values);
     res.json(db.prepare('SELECT * FROM combatants WHERE id = ?').get(req.params.cid));
 }));
 

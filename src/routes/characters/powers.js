@@ -3,6 +3,7 @@ const router = express.Router();
 const { getDatabase } = require('../../database/connection');
 const { authenticate, isDMOrAdmin } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
+const { buildUpdateQuery } = require('../../utils/buildUpdateQuery');
 const { canModifyCharacter, requireDMUser } = require('./shared');
 
 // Powers are earned at the table: only the DM grants, edits, or revokes them.
@@ -48,18 +49,10 @@ router.put('/:id/powers/:powerId', authenticate, asyncHandler((req, res) => {
         ? ['power_name', 'power_type', 'description', 'power_level', 'uses_per_day', 'current_uses']
         : ['current_uses'];
 
-    const updates = [];
-    const values = [];
-    for (const field of allowed) {
-        if (req.body.hasOwnProperty(field)) {
-            updates.push(`${field} = ?`);
-            values.push(req.body[field]);
-        }
-    }
-    if (!updates.length) return res.status(400).json({ error: 'No valid fields to update' });
+    const query = buildUpdateQuery('character_powers', allowed, req.body, req.params.powerId, { touchUpdatedAt: false });
+    if (!query) return res.status(400).json({ error: 'No valid fields to update' });
 
-    values.push(req.params.powerId);
-    db.prepare(`UPDATE character_powers SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+    db.prepare(query.sql).run(...query.values);
     res.json(db.prepare('SELECT * FROM character_powers WHERE id = ?').get(req.params.powerId));
 }));
 

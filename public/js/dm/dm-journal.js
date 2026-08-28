@@ -1,6 +1,6 @@
 // dm-journal.js — split from app.js (behavior unchanged)
 import { state, API_BASE } from './dm-state.js';
-import { closeModal, showModal } from './dm-modals.js';
+import { closeModal, showModal } from './dm-modal-utils.js';
 
 // ========== JOURNAL FUNCTIONS ==========
 

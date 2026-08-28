@@ -240,7 +240,8 @@ The contract designer does not implement code.
 
 Primary role:
 
-Implementation specialist.
+Implementation specialist. **Default assignee for approved coding tasks**
+(decided 2026-08-27) — invoked as the Codex CLI (`codex exec`).
 
 Responsibilities:
 
@@ -259,7 +260,8 @@ The implementation agent should avoid making architectural decisions unless nece
 
 Primary role:
 
-Frontend and user experience specialist.
+Frontend and user experience specialist, available for frontend/UX-specific
+implementation work distinct from `openai-coder`'s general default.
 
 Responsibilities:
 
@@ -277,7 +279,14 @@ The UX agent focuses on user-facing behavior rather than general backend impleme
 
 Primary role:
 
-Independent reviewer.
+Independent reviewer. **Performed by Claude directly** (decided
+2026-08-27) whenever `openai-coder` is the implementer, since the same
+agent cannot credibly review its own patch — this is *why* the coder and
+reviewer roles are assigned to different agents rather than a fixed rule
+about which agent reviews. If Claude ever implements a task instead (e.g.
+`claude-ux-coder`, or architecture-adjacent work with no clean coder/
+reviewer split), the Codex CLI review invocation used throughout this
+project's history remains the fallback independent reviewer.
 
 Responsibilities:
 

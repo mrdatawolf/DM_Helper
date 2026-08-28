@@ -40,12 +40,11 @@ src/
                                  migration runner existed. Kept for historical
                                  reference only — not run, not referenced by any
                                  code path. See legacy/README.md.
-  controllers/            Currently empty — abandoned scaffolding, not wired
-                          into any route. See TASK-002 in tasks/proposed/.
-  models/                 Currently empty — same as above.
-  utils/familiars.js      The one example of business logic properly extracted
-                          out of a route file; a reference pattern for future
-                          extraction work.
+  utils/familiars.js,     Business logic extracted out of route files into
+    buildUpdateQuery.js    reusable, independently testable modules — the
+                          established pattern for shared logic (see ADR-002:
+                          no general model/controller layer, extract per-case
+                          instead).
 
 public/
   dm-dashboard.html        Main DM view

@@ -3,6 +3,7 @@ const router = express.Router();
 const { getDatabase } = require('../../database/connection');
 const { authenticate, isDMOrAdmin } = require('../../middleware/auth');
 const { serializeFamiliar } = require('../../utils/familiars');
+const { collectUpdateFields } = require('../../utils/buildUpdateQuery');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { canModifyCharacter, requireDMUser } = require('./shared');
 
@@ -92,27 +93,20 @@ router.put('/:id/familiars/:familiarId', authenticate, asyncHandler((req, res) =
     const dm = isDMOrAdmin(req.user);
     const allowed = dm ? FAMILIAR_DM_FIELDS : FAMILIAR_OWNER_FIELDS;
 
-    const updates = [];
-    const values = [];
-    for (const field of allowed) {
-        if (Object.prototype.hasOwnProperty.call(req.body, field)) {
-            updates.push(`${field} = ?`);
-            values.push(req.body[field]);
-        }
-    }
+    const { setClauses, values } = collectUpdateFields(allowed, req.body);
     if (dm && Object.prototype.hasOwnProperty.call(req.body, 'base_stats')) {
-        updates.push('base_stats = ?');
+        setClauses.push('base_stats = ?');
         values.push(req.body.base_stats ? JSON.stringify(req.body.base_stats) : null);
     }
     if (dm && Object.prototype.hasOwnProperty.call(req.body, 'growth_table')) {
-        updates.push('growth_table = ?');
+        setClauses.push('growth_table = ?');
         values.push(JSON.stringify(req.body.growth_table || []));
     }
-    if (!updates.length) return res.status(400).json({ error: 'No valid fields to update' });
+    if (!setClauses.length) return res.status(400).json({ error: 'No valid fields to update' });
 
-    updates.push('updated_at = CURRENT_TIMESTAMP');
+    setClauses.push('updated_at = CURRENT_TIMESTAMP');
     values.push(req.params.familiarId);
-    db.prepare(`UPDATE familiars SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+    db.prepare(`UPDATE familiars SET ${setClauses.join(', ')} WHERE id = ?`).run(...values);
 
     const updated = db.prepare('SELECT * FROM familiars WHERE id = ?').get(req.params.familiarId);
     res.json(serializeFamiliar(updated, character.level, dm));
