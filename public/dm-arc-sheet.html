@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DM Story Arc Sheet</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/navigation.css">
+    <link rel="stylesheet" href="/css/dark-theme.css">
+    <style>
+        .sheet-header { margin-bottom: 28px; }
+        .sheet-header h1 { margin-bottom: 8px; }
+        .sheet-theme { max-width: 900px; font-family: Georgia, serif; font-style: italic; color: #c8d0da; }
+        .sheet-section { margin-top: 30px; }
+        .sheet-section-title { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,.12); padding-bottom: 10px; }
+        .chapter-walkthrough { display: flex; flex-direction: column; gap: 14px; }
+        .chapter-card { padding: 18px 20px; }
+        .chapter-summary { display: flex; align-items: center; gap: 12px; }
+        .chapter-summary h3 { flex: 1; margin: 0; }
+        .chapter-card.collapsed { padding: 12px 20px; cursor: pointer; opacity: .75; }
+        .chapter-card.collapsed:hover { opacity: 1; }
+        .chapter-detail { margin-top: 14px; }
+        .chapter-notes { line-height: 1.6; }
+        .chapter-actions { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+        .status-badge { display: inline-block; padding: 3px 9px; border-radius: 12px; font-size: .72rem; font-weight: 700; text-transform: uppercase; }
+        .status-planned { background: rgba(21,101,192,.25); color: #75b5ee; }
+        .status-active { background: rgba(46,125,50,.25); color: #75c879; }
+        .status-completed { background: rgba(117,117,117,.3); color: #bbb; }
+        .shadow-filter-list { display: flex; flex-wrap: wrap; gap: 10px 18px; margin: 16px 0 20px; }
+        .shadow-filter-list label { cursor: pointer; }
+        .sheet-error { color: #e98080; padding: 20px 0; }
+        @media (max-width: 600px) { .sheet-section-title { align-items: flex-start; flex-direction: column; gap: 8px; } }
+    </style>
+</head>
+<body data-user-role="dm">
+    <script src="/js/load-navigation.js"></script>
+    <script src="/js/navigation.js"></script>
+
+    <main class="container">
+        <header class="sheet-header" id="arc-header">
+            <p class="loading">Loading story arc…</p>
+        </header>
+
+        <section class="sheet-section" aria-labelledby="walkthrough-heading">
+            <div class="sheet-section-title">
+                <h2 id="walkthrough-heading">Story Walkthrough</h2>
+            </div>
+            <div id="chapter-walkthrough" class="chapter-walkthrough"></div>
+        </section>
+
+        <section class="sheet-section" aria-labelledby="bestiary-heading">
+            <div class="sheet-section-title">
+                <h2 id="bestiary-heading">Bestiary</h2>
+                <span>Filter by shadow</span>
+            </div>
+            <div id="shadow-filters" class="shadow-filter-list"></div>
+            <div id="arc-bestiary" class="grid"></div>
+        </section>
+    </main>
+
+    <script src="/js/toast.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/dom-utils.js"></script>
+    <script type="module" src="/js/dm/dm-arc-sheet.js"></script>
+</body>
+</html>
