@@ -108,8 +108,8 @@ function openNewJournalEntry() {
                 <input type="text" id="journal-title" required placeholder="What happened?">
             </div>
             <div class="form-group">
-                <label for="journal-content">Entry *</label>
-                <textarea id="journal-content" rows="8" required></textarea>
+                <label for="journal-entry-content">Entry *</label>
+                <textarea id="journal-entry-content" rows="8" required></textarea>
             </div>
             <div class="form-group">
                 <label>
@@ -137,7 +137,7 @@ async function handleJournalSubmit(event) {
 
     const characterId = parseInt(document.getElementById('journal-character').value);
     const title = document.getElementById('journal-title').value;
-    const content = document.getElementById('journal-content').value;
+    const content = document.getElementById('journal-entry-content').value;
 
     // Client-side validation
     if (!characterId || isNaN(characterId)) {
