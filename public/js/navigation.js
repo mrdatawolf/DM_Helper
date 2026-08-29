@@ -29,10 +29,11 @@ async function checkAuthStatus() {
                 const data = await response.json();
                 // Update localStorage with fresh user data (now includes is_admin)
                 localStorage.setItem('user', JSON.stringify(data.user));
-                // Redirect admin away from non-admin pages
+                // Redirect admin away from non-admin pages (but allow DM dashboard)
                 if (data.user.is_admin) {
                     const path = window.location.pathname;
-                    if (path !== '/admin.html') {
+                    const adminAllowed = ['/admin.html', '/dm-dashboard.html', '/dm'];
+                    if (!adminAllowed.includes(path)) {
                         window.location.href = '/admin.html';
                         return;
                     }

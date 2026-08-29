@@ -129,6 +129,7 @@ function openEditPatternModal(patternId) {
     if (!pattern) return;
 
     const roleOptions = ['unknown', 'mother', 'father', 'embodiment', 'guardian', 'avatar', 'bound'];
+    const catOptions = ['Pattern', 'Logrus', 'Liminal'];
 
     showModal('Edit Pattern', `
         <form onsubmit="handleEditPattern(event, ${patternId}); return false;">
@@ -155,6 +156,12 @@ function openEditPatternModal(patternId) {
                 </select>
             </div>
             <div class="form-group">
+                <label>Category</label>
+                <select id="edit-pat-category">
+                    ${catOptions.map(c => `<option value="${c}" ${(pattern.category || 'Pattern') === c ? 'selected' : ''}>${c}</option>`).join('')}
+                </select>
+            </div>
+            <div class="form-group">
                 <label>Display Order</label>
                 <input type="number" id="edit-pat-order" value="${pattern.display_order || 0}" min="0">
             </div>
@@ -174,6 +181,7 @@ async function handleEditPattern(event, patternId) {
         origin_figure: document.getElementById('edit-pat-origin').value.trim() || null,
         spirit_animal: document.getElementById('edit-pat-animal').value.trim() || null,
         spirit_animal_role: document.getElementById('edit-pat-role').value,
+        category: document.getElementById('edit-pat-category').value,
         display_order: parseInt(document.getElementById('edit-pat-order').value) || 0
     };
 
@@ -192,6 +200,7 @@ async function handleEditPattern(event, patternId) {
 
 function openCreatePatternModal() {
     const roleOptions = ['unknown', 'mother', 'father', 'embodiment', 'guardian', 'avatar', 'bound'];
+    const catOptions = ['Pattern', 'Logrus', 'Liminal'];
 
     showModal('Create New Pattern', `
         <form onsubmit="handleCreatePattern(event); return false;">
@@ -217,6 +226,12 @@ function openCreatePatternModal() {
                     ${roleOptions.map(r => `<option value="${r}">${r}</option>`).join('')}
                 </select>
             </div>
+            <div class="form-group">
+                <label>Category</label>
+                <select id="new-pat-category">
+                    ${catOptions.map(c => `<option value="${c}">${c}</option>`).join('')}
+                </select>
+            </div>
             <div class="form-actions">
                 <button type="button" class="btn-secondary" onclick="closeModal()">Cancel</button>
                 <button type="submit" class="btn-primary">Create Pattern</button>
@@ -232,7 +247,8 @@ async function handleCreatePattern(event) {
         also_known_as: document.getElementById('new-pat-aka').value.trim() || null,
         origin_figure: document.getElementById('new-pat-origin').value.trim() || null,
         spirit_animal: document.getElementById('new-pat-animal').value.trim() || null,
-        spirit_animal_role: document.getElementById('new-pat-role').value
+        spirit_animal_role: document.getElementById('new-pat-role').value,
+        category: document.getElementById('new-pat-category').value
     };
 
     if (!data.name) { showToast('Name is required.'); return; }

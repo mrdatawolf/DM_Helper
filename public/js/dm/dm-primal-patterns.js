@@ -178,18 +178,23 @@ function renderSectionPanels(sections, patternId) {
                     </div>
                 </div>
                 <div id="sec-body-${s.id}" style="display:${isOpen ? '' : 'none'};">
-                    <div class="section-body">
-                        <div class="section-col">
-                            <label>DM Notes (full content)</label>
-                            <textarea id="dm-content-${s.id}">${escHtml(s.content)}</textarea>
+                    <div class="section-read-row">
+                        <div class="section-read-col ${isSecrets ? 'section-read-full' : ''}">
+                            <div class="section-read-label">DM Notes</div>
+                            <div class="section-read-content" id="dm-read-${s.id}">${renderSectionMarkdown(s.content)}</div>
+                            <textarea class="section-edit-area" id="dm-content-${s.id}" style="display:none" oninput="autoGrow(this)">${escHtml(s.content)}</textarea>
                         </div>
-                        <div class="section-col player-col">
-                            <label>Player Content (what players see when granted)</label>
-                            <textarea id="player-content-${s.id}">${escHtml(s.player_content)}</textarea>
-                        </div>
+                        ${!isSecrets ? `
+                        <div class="section-read-col">
+                            <div class="section-read-label player-label">Player Content</div>
+                            <div class="section-read-content" id="player-read-${s.id}">${renderSectionMarkdown(s.player_content)}</div>
+                            <textarea class="section-edit-area" id="player-content-${s.id}" style="display:none" oninput="autoGrow(this)">${escHtml(s.player_content)}</textarea>
+                        </div>` : ''}
                     </div>
                     <div class="section-actions">
-                        <button class="btn-primary btn-sm" id="save-btn-${s.id}" onclick="saveSectionContent(${patternId}, ${s.id})">Save</button>
+                        <button class="btn-secondary btn-sm" id="edit-btn-${s.id}" onclick="toggleSectionEdit(${s.id}, ${patternId})">Edit</button>
+                        <button class="btn-primary btn-sm" id="save-btn-${s.id}" style="display:none" onclick="saveSectionContent(${patternId}, ${s.id})">Save</button>
+                        <button class="btn-secondary btn-sm" id="cancel-btn-${s.id}" style="display:none" onclick="cancelSectionEdit(${s.id})">Cancel</button>
                         ${!isSecrets ? `<button class="btn-secondary btn-sm" onclick="openGrantModal(${s.id}, ${patternId})">Grant to Players</button>` : ''}
                         <button class="btn-secondary btn-sm btn-danger" onclick="deleteSection(${patternId}, ${s.id})">Delete Section</button>
                         ${grantsHtml}
@@ -198,6 +203,69 @@ function renderSectionPanels(sections, patternId) {
             </div>
         `;
     }).join('');
+}
+
+function renderSectionMarkdown(md) {
+    if (!md || !md.trim()) return '<span style="color:#bbb; font-style:italic;">Empty</span>';
+    return md
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/^### (.+)$/gm, '<h5>$1</h5>')
+        .replace(/^## (.+)$/gm, '<h4>$1</h4>')
+        .replace(/^# (.+)$/gm, '<h3>$1</h3>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        .replace(/^---$/gm, '<hr>')
+        .replace(/^\s*[-*] (.+)$/gm, '<li>$1</li>')
+        .replace(/(<li>[\s\S]*?<\/li>\n?)+/g, m => `<ul>${m}</ul>`)
+        .replace(/\n{2,}/g, '</p><p>')
+        .replace(/^(?!<)(.+)$/gm, line => `<p>${line}</p>`)
+        .replace(/<p><\/p>/g, '');
+}
+
+function toggleSectionEdit(id, patternId) {
+    const dmRead    = document.getElementById(`dm-read-${id}`);
+    const dmTa      = document.getElementById(`dm-content-${id}`);
+    const plRead    = document.getElementById(`player-read-${id}`);
+    const plTa      = document.getElementById(`player-content-${id}`);
+    const editBtn   = document.getElementById(`edit-btn-${id}`);
+    const saveBtn   = document.getElementById(`save-btn-${id}`);
+    const cancelBtn = document.getElementById(`cancel-btn-${id}`);
+
+    const editing = dmTa && dmTa.style.display !== 'none';
+    if (editing) return;
+
+    if (dmRead)  dmRead.style.display  = 'none';
+    if (dmTa)  { dmTa.style.display   = ''; autoGrow(dmTa); }
+    if (plRead)  plRead.style.display  = 'none';
+    if (plTa)  { plTa.style.display   = ''; autoGrow(plTa); }
+
+    if (editBtn)   editBtn.style.display   = 'none';
+    if (saveBtn)   saveBtn.style.display   = '';
+    if (cancelBtn) cancelBtn.style.display = '';
+}
+
+function cancelSectionEdit(id) {
+    const dmRead    = document.getElementById(`dm-read-${id}`);
+    const dmTa      = document.getElementById(`dm-content-${id}`);
+    const plRead    = document.getElementById(`player-read-${id}`);
+    const plTa      = document.getElementById(`player-content-${id}`);
+    const editBtn   = document.getElementById(`edit-btn-${id}`);
+    const saveBtn   = document.getElementById(`save-btn-${id}`);
+    const cancelBtn = document.getElementById(`cancel-btn-${id}`);
+
+    if (dmRead)  dmRead.style.display  = '';
+    if (dmTa)    dmTa.style.display    = 'none';
+    if (plRead)  plRead.style.display  = '';
+    if (plTa)    plTa.style.display    = 'none';
+
+    if (editBtn)   editBtn.style.display   = '';
+    if (saveBtn)   saveBtn.style.display   = 'none';
+    if (cancelBtn) cancelBtn.style.display = 'none';
+}
+
+function autoGrow(el) {
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
 }
 
 function toggleSection(id) {
@@ -228,16 +296,19 @@ async function saveSectionContent(patternId, sectionId) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ content, player_content: playerContent })
         });
-        if (btn) {
-            btn.textContent = 'Saved!';
-            setTimeout(() => { btn.textContent = 'Save'; btn.disabled = false; }, 1800);
-        }
+
+        // Update read view with saved content then exit edit mode
+        const dmRead = document.getElementById(`dm-read-${sectionId}`);
+        const plRead = document.getElementById(`player-read-${sectionId}`);
+        if (dmRead) dmRead.innerHTML = renderSectionMarkdown(content);
+        if (plRead) plRead.innerHTML = renderSectionMarkdown(playerContent);
+        cancelSectionEdit(sectionId);
     } catch (err) {
         if (btn) { btn.textContent = 'Save'; btn.disabled = false; }
         showToast('Failed to save section: ' + err.message);
     }
 }
 
-Object.assign(window, { saveSectionContent, selectPattern, toggleSection });
+Object.assign(window, { autoGrow, cancelSectionEdit, saveSectionContent, selectPattern, toggleSection, toggleSectionEdit });
 renderPatternActionsBridge();
 export { loadPrimalPatterns, patternInfluenceLabel, renderPatternDetail, selectPattern, shadowBalanceBar, shadowBarClass, shadowBarLabel };

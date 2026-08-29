@@ -63,6 +63,19 @@ router.delete('/sections/:sid/revoke/:characterId', asyncHandler((req, res) => {
     res.json({ message: 'Lore access revoked' });
 }));
 
+// GET all patterns with full sections, grouped by category (DM lore view)
+router.get('/lore', asyncHandler((req, res) => {
+    const db = getDatabase();
+    const patterns = db.prepare(`
+        SELECT * FROM primal_patterns ORDER BY display_order ASC, id ASC
+    `).all();
+    const getSections = db.prepare(`
+        SELECT * FROM primal_pattern_sections WHERE pattern_id = ? ORDER BY section_order ASC
+    `);
+    const result = patterns.map(p => ({ ...p, sections: getSections.all(p.id) }));
+    res.json(result);
+}));
+
 // ── Standard CRUD ──
 
 // GET all patterns (with section count)
@@ -83,15 +96,16 @@ router.post('/', asyncHandler((req, res) => {
     const db = getDatabase();
     const {
         name, also_known_as, origin_figure,
-        spirit_animal, spirit_animal_role = 'unknown', display_order = 0
+        spirit_animal, spirit_animal_role = 'unknown', display_order = 0,
+        category = 'Pattern'
     } = req.body;
     if (!name) return res.status(400).json({ error: 'Name is required' });
 
     const result = db.prepare(`
-        INSERT INTO primal_patterns (name, also_known_as, origin_figure, spirit_animal, spirit_animal_role, display_order)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO primal_patterns (name, also_known_as, origin_figure, spirit_animal, spirit_animal_role, display_order, category)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(name, also_known_as || null, origin_figure || null,
-           spirit_animal || null, spirit_animal_role, display_order);
+           spirit_animal || null, spirit_animal_role, display_order, category);
 
     const created = db.prepare('SELECT * FROM primal_patterns WHERE id = ?').get(result.lastInsertRowid);
     res.status(201).json(created);
@@ -128,7 +142,7 @@ router.put('/:id', asyncHandler((req, res) => {
     const existing = db.prepare('SELECT id FROM primal_patterns WHERE id = ?').get(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Pattern not found' });
 
-    const allowed = ['name', 'also_known_as', 'origin_figure', 'spirit_animal', 'spirit_animal_role', 'display_order'];
+    const allowed = ['name', 'also_known_as', 'origin_figure', 'spirit_animal', 'spirit_animal_role', 'display_order', 'category'];
     const query = buildUpdateQuery('primal_patterns', allowed, req.body, req.params.id);
     if (!query) return res.status(400).json({ error: 'No fields to update' });
 

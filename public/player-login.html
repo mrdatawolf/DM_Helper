@@ -349,10 +349,8 @@
                     showSuccess('Login successful! Redirecting...');
 
                     setTimeout(() => {
-                        if (data.user.is_admin) {
-                            window.location.href = '/admin.html';
-                        } else if (data.user.is_dm) {
-                            window.location.href = '/dm-dashboard.html';
+                        if (data.user.is_admin || data.user.is_dm) {
+                            window.location.href = '/dm';
                         } else {
                             window.location.href = '/player-dashboard.html';
                         }
@@ -442,10 +440,8 @@
                 .then(response => {
                     if (response.ok) {
                         const user = JSON.parse(localStorage.getItem('user') || '{}');
-                        if (user.is_admin) {
-                            window.location.href = '/admin.html';
-                        } else if (user.is_dm) {
-                            window.location.href = '/dm-dashboard.html';
+                        if (user.is_admin || user.is_dm) {
+                            window.location.href = '/dm';
                         } else {
                             window.location.href = '/player-dashboard.html';
                         }
