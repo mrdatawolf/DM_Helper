@@ -1,4 +1,5 @@
 const express = require('express');
+const { dndModifier } = require('../../public/js/ability-conversion');
 const router = express.Router();
 const { getDatabase } = require('../database/connection');
 const { authenticate, requireDM, isDMOrAdmin } = require('../middleware/auth');
@@ -305,10 +306,6 @@ const ATTRIBUTE_ABILITY_MAP = {
     Tactics: 'intelligence'
 };
 
-function abilityModifier(score) {
-    return Math.floor((score - 10) / 2);
-}
-
 // Resolve a claim for an attribute check (returns bonuses for player; no writes)
 router.post('/resolve', authenticate, asyncHandler((req, res) => {
     const db = getDatabase();
@@ -325,7 +322,7 @@ router.post('/resolve', authenticate, asyncHandler((req, res) => {
     if (abilityColumn) {
         const character = db.prepare(`SELECT ${abilityColumn} FROM characters WHERE id = ?`).get(character_id);
         if (character) {
-            abilityBonus = abilityModifier(character[abilityColumn]);
+            abilityBonus = dndModifier(character[abilityColumn]);
         }
     }
 

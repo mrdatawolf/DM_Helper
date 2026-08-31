@@ -1,4 +1,6 @@
+import '../ability-conversion.js';
 import { state } from './player-state.js';
+const { percentileFromScore } = AbilityConversion;
 import { loadCharacters, viewCharacter } from './player-characters.js';
 import { closeEditCharacter } from './player-edit-form.js';
 // Switch tabs within character edit view
@@ -58,12 +60,12 @@ async function handleEditCharacter(event) {
         shadow_origin_id: document.getElementById('edit-char-shadow-origin').value || null,
 
         // Ability Scores
-        strength: parseInt(document.getElementById('edit-char-str').value),
-        dexterity: parseInt(document.getElementById('edit-char-dex').value),
-        constitution: parseInt(document.getElementById('edit-char-con').value),
-        intelligence: parseInt(document.getElementById('edit-char-int').value),
-        wisdom: parseInt(document.getElementById('edit-char-wis').value),
-        charisma: parseInt(document.getElementById('edit-char-cha').value),
+        strength: percentileFromScore(parseInt(document.getElementById('edit-char-str').value)),
+        dexterity: percentileFromScore(parseInt(document.getElementById('edit-char-dex').value)),
+        constitution: percentileFromScore(parseInt(document.getElementById('edit-char-con').value)),
+        intelligence: percentileFromScore(parseInt(document.getElementById('edit-char-int').value)),
+        wisdom: percentileFromScore(parseInt(document.getElementById('edit-char-wis').value)),
+        charisma: percentileFromScore(parseInt(document.getElementById('edit-char-cha').value)),
 
         // Saving Throws
         save_strength: document.getElementById('edit-save-str').checked ? 1 : 0,

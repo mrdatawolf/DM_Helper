@@ -1,9 +1,14 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const Database = require('better-sqlite3');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const { up: unify } = require('../src/database/migrations/001-unify-character-columns');
 const { up: expand } = require('../src/database/migrations/002-expand-character-columns');
+const { up: features } = require('../src/database/migrations/003-feature-tables');
+const { up: universalCoreAttributes } = require('../src/database/migrations/009-universal-core-attributes');
+const { percentileFromScore } = require('../public/js/ability-conversion');
 
 function legacyDb() {
     const db = new Database(':memory:');
@@ -102,4 +107,46 @@ test('002 adds expanded columns to a bare schema and is idempotent', () => {
     assert.strictEqual(y.size, 'Medium');
     assert.strictEqual(y.attunement_slots_max, 3);
     assert.strictEqual(y.spell_save_dc, 8);
+});
+
+test('009 converts core abilities once and creates system-neutral schema', () => {
+    const db = new Database(':memory:');
+    db.exec(fs.readFileSync(path.join(__dirname, '../src/database/schema.sql'), 'utf8'));
+    expand(db);
+    features(db);
+    db.prepare(`
+        INSERT INTO characters
+            (name, species, class_type, strength, dexterity, constitution, intelligence, wisdom, charisma)
+        VALUES ('Corwin', 'Human', 'Fighter', 8, 10, 12, 14, 18, 30)
+    `).run();
+
+    universalCoreAttributes(db);
+    const afterFirstRun = db.prepare(`
+        SELECT strength, dexterity, constitution, intelligence, wisdom, charisma
+        FROM characters WHERE name = 'Corwin'
+    `).get();
+    assert.deepStrictEqual(afterFirstRun, {
+        strength: percentileFromScore(8),
+        dexterity: percentileFromScore(10),
+        constitution: percentileFromScore(12),
+        intelligence: percentileFromScore(14),
+        wisdom: percentileFromScore(18),
+        charisma: percentileFromScore(30)
+    });
+
+    assert.doesNotThrow(() => universalCoreAttributes(db));
+    assert.deepStrictEqual(
+        db.prepare(`
+            SELECT strength, dexterity, constitution, intelligence, wisdom, charisma
+            FROM characters WHERE name = 'Corwin'
+        `).get(),
+        afterFirstRun,
+        'a second run must not convert percentiles as though they were D&D scores'
+    );
+
+    assert.ok(db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'character_system_data'").get());
+    const arcColumns = new Set(db.prepare('PRAGMA table_info(story_arcs)').all().map(column => column.name));
+    assert.ok(arcColumns.has('game_system'));
+    db.prepare("INSERT INTO story_arcs (title) VALUES ('Test arc')").run();
+    assert.strictEqual(db.prepare("SELECT game_system FROM story_arcs WHERE title = 'Test arc'").get().game_system, 'dnd5e');
 });

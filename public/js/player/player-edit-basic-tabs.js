@@ -1,4 +1,6 @@
+import '../ability-conversion.js';
 import { state } from './player-state.js';
+const { scoreFromPercentile } = AbilityConversion;
 
 // Generate Basic Info Tab HTML
 function generateBasicInfoTab(char) {
@@ -129,27 +131,27 @@ function generateAbilitiesTab(char) {
             <div class="form-grid abilities">
                 <div class="form-group">
                     <label for="edit-char-str">Strength</label>
-                    <input type="number" id="edit-char-str" min="1" max="30" value="${char.strength || 10}">
+                    <input type="number" id="edit-char-str" min="1" max="30" value="${scoreFromPercentile(char.strength)}">
                 </div>
                 <div class="form-group">
                     <label for="edit-char-dex">Dexterity</label>
-                    <input type="number" id="edit-char-dex" min="1" max="30" value="${char.dexterity || 10}">
+                    <input type="number" id="edit-char-dex" min="1" max="30" value="${scoreFromPercentile(char.dexterity)}">
                 </div>
                 <div class="form-group">
                     <label for="edit-char-con">Constitution</label>
-                    <input type="number" id="edit-char-con" min="1" max="30" value="${char.constitution || 10}">
+                    <input type="number" id="edit-char-con" min="1" max="30" value="${scoreFromPercentile(char.constitution)}">
                 </div>
                 <div class="form-group">
                     <label for="edit-char-int">Intelligence</label>
-                    <input type="number" id="edit-char-int" min="1" max="30" value="${char.intelligence || 10}">
+                    <input type="number" id="edit-char-int" min="1" max="30" value="${scoreFromPercentile(char.intelligence)}">
                 </div>
                 <div class="form-group">
                     <label for="edit-char-wis">Wisdom</label>
-                    <input type="number" id="edit-char-wis" min="1" max="30" value="${char.wisdom || 10}">
+                    <input type="number" id="edit-char-wis" min="1" max="30" value="${scoreFromPercentile(char.wisdom)}">
                 </div>
                 <div class="form-group">
                     <label for="edit-char-cha">Charisma</label>
-                    <input type="number" id="edit-char-cha" min="1" max="30" value="${char.charisma || 10}">
+                    <input type="number" id="edit-char-cha" min="1" max="30" value="${scoreFromPercentile(char.charisma)}">
                 </div>
             </div>
 

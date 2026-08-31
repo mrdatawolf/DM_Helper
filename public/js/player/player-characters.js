@@ -1,9 +1,12 @@
 // player-characters.js — split from player-dashboard.js (behavior unchanged)
+import '../ability-conversion.js';
 import { state } from './player-state.js';
 import { imprintLabel, switchTab } from './player-core.js';
 import { loadCharacterClaims } from './player-claims.js';
 import { renderFamiliarsSection } from './player-familiars.js';
 import { renderGearSection, renderPowersSection } from './player-gear-powers.js';
+
+const { scoreFromPercentile, dndModifier } = AbilityConversion;
 
 // Load user's characters
 async function loadCharacters() {
@@ -108,8 +111,8 @@ function displayCharacterSheet(character) {
     listContainer.style.display = 'none';
     container.style.display = 'block';
 
-    const modifier = (score) => {
-        const mod = Math.floor((score - 10) / 2);
+    const modifier = (percentile) => {
+        const mod = dndModifier(percentile);
         return mod >= 0 ? `+${mod}` : mod;
     };
 
@@ -130,32 +133,32 @@ function displayCharacterSheet(character) {
             <div class="ability-scores">
                 <div class="ability-score">
                     <div class="label">STR</div>
-                    <div class="value">${character.strength}</div>
+                    <div class="value">${scoreFromPercentile(character.strength)}</div>
                     <div class="modifier">${modifier(character.strength)}</div>
                 </div>
                 <div class="ability-score">
                     <div class="label">DEX</div>
-                    <div class="value">${character.dexterity}</div>
+                    <div class="value">${scoreFromPercentile(character.dexterity)}</div>
                     <div class="modifier">${modifier(character.dexterity)}</div>
                 </div>
                 <div class="ability-score">
                     <div class="label">CON</div>
-                    <div class="value">${character.constitution}</div>
+                    <div class="value">${scoreFromPercentile(character.constitution)}</div>
                     <div class="modifier">${modifier(character.constitution)}</div>
                 </div>
                 <div class="ability-score">
                     <div class="label">INT</div>
-                    <div class="value">${character.intelligence}</div>
+                    <div class="value">${scoreFromPercentile(character.intelligence)}</div>
                     <div class="modifier">${modifier(character.intelligence)}</div>
                 </div>
                 <div class="ability-score">
                     <div class="label">WIS</div>
-                    <div class="value">${character.wisdom}</div>
+                    <div class="value">${scoreFromPercentile(character.wisdom)}</div>
                     <div class="modifier">${modifier(character.wisdom)}</div>
                 </div>
                 <div class="ability-score">
                     <div class="label">CHA</div>
-                    <div class="value">${character.charisma}</div>
+                    <div class="value">${scoreFromPercentile(character.charisma)}</div>
                     <div class="modifier">${modifier(character.charisma)}</div>
                 </div>
             </div>

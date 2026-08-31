@@ -78,6 +78,7 @@ test('a player can create a character with unified field names', async () => {
         token: alice.token,
         body: {
             name: 'Corwin', species: 'Amberite', class_type: 'Fighter',
+            strength: 18,
             max_hp: 15, current_hp: 15, order_chaos_value: 70,
             trump_artist: 1, backstory: 'Woke in Greenwood with no memory.'
         }
@@ -87,6 +88,7 @@ test('a player can create a character with unified field names', async () => {
 
     assert.strictEqual(res.body.species, 'Amberite');
     assert.strictEqual(res.body.class_type, 'Fighter');
+    assert.strictEqual(res.body.strength, 59, 'D&D score 18 is stored as a percentile');
     assert.strictEqual(res.body.max_hp, 15);
     assert.strictEqual(res.body.order_chaos_value, 70);
     assert.strictEqual(res.body.trump_artist, 1);
@@ -206,6 +208,16 @@ test('claim allocation respects character ownership', async () => {
         body: { character_id: charId, attribute_name: 'Warfare', points_to_add: 1, justification: 'Nope' }
     });
     assert.strictEqual(other.status, 403);
+});
+
+test('claim resolution derives its ability bonus from the stored percentile', async () => {
+    const resolved = await api('POST', '/api/claims/resolve', {
+        token: alice.token,
+        body: { character_id: charId, attribute_name: 'Strength', roll_result: 12 }
+    });
+    assert.strictEqual(resolved.status, 200, JSON.stringify(resolved.body));
+    assert.strictEqual(resolved.body.ability_bonus, 4, 'stored percentile 59 converts back to D&D score 18');
+    assert.strictEqual(resolved.body.final_result, 16);
 });
 
 test('/api/auth/characters returns unified column names', async () => {

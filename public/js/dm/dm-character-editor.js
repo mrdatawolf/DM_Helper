@@ -1,15 +1,17 @@
+import '../ability-conversion.js';
 import { state, API_BASE } from './dm-state.js';
 import { closeModal, showModal } from './dm-modal-utils.js';
 import { familiarFormFields, familiarPayloadFromForm } from './dm-creature-modals.js';
 import { loadCharacters } from './dm-lists.js';
+const { scoreFromPercentile, dndModifier } = AbilityConversion;
 // Placeholder functions for view/edit (to be implemented)
 async function viewCharacter(id) {
     try {
         const c = await apiFetch(`${API_BASE}/characters/${id}`);
 
-        const modifierStr = v => { const m = Math.floor((v - 10) / 2); return (m >= 0 ? '+' : '') + m; };
+        const modifierStr = v => { const m = dndModifier(v); return (m >= 0 ? '+' : '') + m; };
         const statBlock = ['strength','dexterity','constitution','intelligence','wisdom','charisma']
-            .map(s => `<div class="stat"><div class="stat-label">${s.slice(0,3).toUpperCase()}</div><div class="stat-value">${c[s]}</div><div class="stat-label">${modifierStr(c[s])}</div></div>`)
+            .map(s => `<div class="stat"><div class="stat-label">${s.slice(0,3).toUpperCase()}</div><div class="stat-value">${scoreFromPercentile(c[s])}</div><div class="stat-label">${modifierStr(c[s])}</div></div>`)
             .join('');
 
         const badges = [

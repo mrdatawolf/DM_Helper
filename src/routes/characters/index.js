@@ -7,6 +7,7 @@ const { asyncHandler } = require('../../middleware/errorHandler');
 const { buildUpdateQuery } = require('../../utils/buildUpdateQuery');
 const { canModifyCharacter } = require('./shared');
 const { CHARACTER_UPDATE_FIELDS } = require('./fields');
+const { percentileFromScore } = require('../../../public/js/ability-conversion');
 
 // Get all characters
 router.get('/', authenticate, asyncHandler((req, res) => {
@@ -120,7 +121,9 @@ router.post('/', authenticate, asyncHandler((req, res) => {
 
     const result = stmt.run(
         name, player_name, finalSpecies, class_type, level,
-        strength, dexterity, constitution, intelligence, wisdom, charisma,
+        percentileFromScore(strength), percentileFromScore(dexterity),
+        percentileFromScore(constitution), percentileFromScore(intelligence),
+        percentileFromScore(wisdom), percentileFromScore(charisma),
         max_hp, current_hp,
         order_chaos_value,
         hasPattern, pattern_type,
