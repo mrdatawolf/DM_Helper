@@ -286,6 +286,29 @@ router.get('/history/:character_id', asyncHandler((req, res) => {
     res.json(history);
 }));
 
+// Which D&D ability score each claim attribute draws its modifier from.
+const ATTRIBUTE_ABILITY_MAP = {
+    Strength: 'strength',
+    Speed: 'dexterity',
+    Combat: 'strength',
+    Stealth: 'dexterity',
+    Intelligence: 'intelligence',
+    Persuasion: 'charisma',
+    Endurance: 'constitution',
+    Archery: 'dexterity',
+    Swordsmanship: 'strength',
+    Magic: 'intelligence',
+    Perception: 'wisdom',
+    Charisma: 'charisma',
+    Wisdom: 'wisdom',
+    Leadership: 'charisma',
+    Tactics: 'intelligence'
+};
+
+function abilityModifier(score) {
+    return Math.floor((score - 10) / 2);
+}
+
 // Resolve a claim for an attribute check (returns bonuses for player; no writes)
 router.post('/resolve', authenticate, asyncHandler((req, res) => {
     const db = getDatabase();
@@ -297,6 +320,15 @@ router.post('/resolve', authenticate, asyncHandler((req, res) => {
         });
     }
 
+    const abilityColumn = ATTRIBUTE_ABILITY_MAP[attribute_name];
+    let abilityBonus = 0;
+    if (abilityColumn) {
+        const character = db.prepare(`SELECT ${abilityColumn} FROM characters WHERE id = ?`).get(character_id);
+        if (character) {
+            abilityBonus = abilityModifier(character[abilityColumn]);
+        }
+    }
+
     // Get this character's claim
     const claim = db.prepare(`
         SELECT * FROM attribute_claims
@@ -304,13 +336,14 @@ router.post('/resolve', authenticate, asyncHandler((req, res) => {
     `).get(character_id, attribute_name);
 
     if (!claim || claim.points_spent === 0) {
-        // No claim made
+        // No claim made — ability modifier still applies
         return res.json({
             base_roll: roll_result,
+            ability_bonus: abilityBonus,
             claim_bonus: 0,
-            total_bonus: 0,
-            final_result: roll_result,
-            message: 'No claim bonus'
+            total_bonus: abilityBonus,
+            final_result: roll_result + abilityBonus,
+            message: abilityBonus !== 0 ? 'Ability bonus applied' : 'No bonus'
         });
     }
 
@@ -328,10 +361,11 @@ router.post('/resolve', authenticate, asyncHandler((req, res) => {
     // Calculate bonuses
     const claimBonus = 1;  // +1 for making a claim
     const hiddenBonus = isBest ? 1 : 0;  // +1 hidden bonus if truly the best
-    const totalBonus = claimBonus + hiddenBonus;
+    const totalBonus = abilityBonus + claimBonus + hiddenBonus;
 
     res.json({
         base_roll: roll_result,
+        ability_bonus: abilityBonus,
         claim_bonus: claimBonus,  // Player sees this
         total_bonus: totalBonus,  // DM sees the full bonus including hidden +1
         final_result: roll_result + totalBonus,

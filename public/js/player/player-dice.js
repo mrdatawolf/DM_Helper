@@ -228,6 +228,8 @@ async function rollD20WithClaims() {
         system: 'd20',
         attribute: diceSelectedAttribute,
         baseRoll: baseRoll,
+        abilityBonus: result.ability_bonus || 0,
+        claimBonus: result.claim_bonus || 0,
         bonus: result.total_bonus,
         total: result.final_result,
         message: result.message,
@@ -318,7 +320,9 @@ function displayRollResult(result) {
             <div class="result-value">${result.total}</div>
             <div class="result-breakdown">
                 <div><strong>Base Roll:</strong> ${result.baseRoll}</div>
-                <div><strong>Bonus:</strong> +${result.bonus}</div>
+                <div><strong>Ability Bonus:</strong> ${result.abilityBonus >= 0 ? '+' : ''}${result.abilityBonus}</div>
+                <div><strong>Claim Bonus:</strong> +${result.claimBonus}</div>
+                <div><strong>Total Bonus:</strong> ${result.bonus >= 0 ? '+' : ''}${result.bonus}</div>
             </div>
             <div class="result-details">${result.message}</div>
             ${result.isCriticalSuccess ? '<div class="result-details">🎉 CRITICAL SUCCESS!</div>' : ''}
@@ -390,7 +394,7 @@ function displayRollHistory() {
 
         if (roll.system === 'd20') {
             displayValue = roll.total;
-            breakdown = `d20: ${roll.baseRoll} + ${roll.bonus} (${roll.attribute})`;
+            breakdown = `d20: ${roll.baseRoll} ${roll.bonus >= 0 ? '+' : ''}${roll.bonus} (${roll.attribute})`;
         } else if (roll.system === 'd10') {
             displayValue = `${roll.successes} succ`;
             breakdown = `${roll.rolls.length}d10: ${roll.rolls.join(', ')} (${roll.purpose})`;
