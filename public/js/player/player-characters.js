@@ -5,6 +5,7 @@ import { loadCharacterClaims } from './player-claims.js';
 import { renderFamiliarsSection } from './player-familiars.js';
 import { renderGearSection, renderPowersSection } from './player-gear-powers.js';
 import { bindDndCharacterSheet, renderDndCharacterSheet } from './player-character-sheet.js';
+import { showModal } from './player-modal-utils.js';
 
 // Load user's characters
 async function loadCharacters() {
@@ -57,6 +58,7 @@ async function loadCharacters() {
                     </div>
                 </div>
                 <div class="character-card-actions" style="margin-top: 10px; display: flex; gap: 8px;">
+                    <button class="btn-secondary btn-sm" onclick="event.stopPropagation(); viewCharacterAs(${char.id})">View As...</button>
                     <button class="btn-secondary btn-sm" onclick="event.stopPropagation(); openEditCharacter(${char.id})">Edit</button>
                 </div>
             </div>
@@ -77,6 +79,19 @@ async function loadCharacters() {
             </div>
         `;
     }
+}
+
+function viewCharacterAs(characterId) {
+    const character = state.userCharacters.find(item => item.id === characterId);
+    if (!character) return;
+    showModal(`View ${character.name} As...`, CharacterSystemRegistry.renderSystemPicker('selectCharacterSystem', characterId));
+}
+
+function selectCharacterSystem(characterId, systemId) {
+    const character = state.userCharacters.find(item => item.id === characterId);
+    const system = CharacterSystemRegistry.getCharacterSystem(systemId);
+    if (!character || !system) return;
+    showModal(`${character.name} — ${system.label}`, system.render(character));
 }
 
 // View character details
@@ -254,7 +269,8 @@ async function loadProgress() {
 
 // Referenced from generated onclick="..." HTML (see ADR-001).
 Object.assign(window, {
-    closeCharacterSheet, viewCharacter, viewCharacterClaims, viewCharacterProgress,
+    closeCharacterSheet, selectCharacterSystem, viewCharacter, viewCharacterAs,
+    viewCharacterClaims, viewCharacterProgress,
 });
 
 // Used by other player-*.js modules.

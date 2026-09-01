@@ -1362,6 +1362,17 @@
         </div>
     </div>
 
+    <!-- Generic read-only/display modal -->
+    <div id="modal-overlay" class="modal-overlay" onclick="closeModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3 id="modal-title">Modal Title</h3>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-body"></div>
+        </div>
+    </div>
+
     <!-- Player dashboard scripts. toast.js/api.js/dom-utils.js stay classic
          scripts (read as ordinary globals from the modules below, see
          ADR-001); the player-*.js files are real ES modules — the browser
@@ -1371,6 +1382,9 @@
     <script src="/js/api.js"></script>
     <script src="/js/dom-utils.js"></script>
     <script src="/js/ability-conversion.js"></script>
+    <script src="/js/faserip-conversion.js"></script>
+    <script src="/js/faserip-sheet.js"></script>
+    <script src="/js/system-registry.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
     <script type="module" src="/js/player/player-state.js"></script>
     <script type="module" src="/js/player/player-core.js"></script>
