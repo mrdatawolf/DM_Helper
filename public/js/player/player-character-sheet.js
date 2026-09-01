@@ -265,4 +265,9 @@ function bindDndCharacterSheet(container, character, refresh) {
     container.querySelector('[data-download-pdf]').addEventListener('click', () => downloadCharacterPdf(character).catch(error => showToast(error.message)));
 }
 
+// Exposed as a global too (not just an ES export) so the plain-script
+// read-only D&D registry entry (public/js/dnd-readonly-sheet.js) can reuse
+// this exact computation rather than duplicating it.
+Object.assign(window, { computedCharacter });
+
 export { bindDndCharacterSheet, computedCharacter, downloadCharacterPdf, editableField, editableList, renderDndCharacterSheet };
