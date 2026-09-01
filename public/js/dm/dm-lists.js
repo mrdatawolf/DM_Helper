@@ -3,6 +3,7 @@ import { state, API_BASE } from './dm-state.js';
 import { patternInfluenceLabel, shadowBalanceBar, shadowBarClass, shadowBarLabel } from './dm-primal-patterns.js';
 import { updateJournalFilter } from './dm-journal.js';
 import { renderCreatureCard, shadowInfluenceCardStyle } from './dm-creature-card.js';
+import { showModal } from './dm-modal-utils.js';
 
 // Characters
 async function loadCharacters() {
@@ -69,6 +70,7 @@ function renderCharacters() {
             ${char.trump_artist ? '<span class="badge">Trump Artist</span>' : ''}
             <div style="margin-top: 15px;">
                 <button class="btn-secondary" onclick="viewCharacter(${char.id})">View Details</button>
+                <button class="btn-secondary" onclick="viewCharacterAs(${char.id})">View As...</button>
                 <button class="btn-secondary" onclick="editCharacter(${char.id})">Edit</button>
                 <button class="btn-secondary btn-danger" onclick="deleteCharacter(${char.id})">Delete</button>
             </div>
@@ -188,6 +190,19 @@ function renderCreatures() {
     const shadowName = id => (state.shadows.find(s => s.id === id) || {}).name || 'Unknown';
 
     container.innerHTML = filtered.map(n => renderCreatureCard(n, shadowName)).join('');
+}
+
+function viewCharacterAs(characterId) {
+    const character = state.characters.find(item => item.id === characterId);
+    if (!character) return;
+    showModal(`View ${character.name} As...`, CharacterSystemRegistry.renderSystemPicker('selectCharacterSystem', characterId));
+}
+
+function selectCharacterSystem(characterId, systemId) {
+    const character = state.characters.find(item => item.id === characterId);
+    const system = CharacterSystemRegistry.getCharacterSystem(systemId);
+    if (!character || !system) return;
+    showModal(`${character.name} — ${system.label}`, system.render(character));
 }
 
 async function toggleCreatureSpoiler(id, newValue) {
@@ -318,7 +333,7 @@ function updateProgressFilter() {
 // static HTML (see ADR-001).
 Object.assign(window, {
     filterShadows, loadProgress, setCreatureFilter, setShadowFilter,
-    toggleCreatureSpoiler, toggleShadowSpoiler,
+    selectCharacterSystem, toggleCreatureSpoiler, toggleShadowSpoiler, viewCharacterAs,
 });
 
 // Used by dm-core.js, dm-modals.js, and dm-editors.js.
