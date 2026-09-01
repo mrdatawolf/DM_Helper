@@ -1,12 +1,10 @@
 // player-characters.js — split from player-dashboard.js (behavior unchanged)
-import '../ability-conversion.js';
 import { state } from './player-state.js';
 import { imprintLabel, switchTab } from './player-core.js';
 import { loadCharacterClaims } from './player-claims.js';
 import { renderFamiliarsSection } from './player-familiars.js';
 import { renderGearSection, renderPowersSection } from './player-gear-powers.js';
-
-const { scoreFromPercentile, dndModifier } = AbilityConversion;
+import { bindDndCharacterSheet, renderDndCharacterSheet } from './player-character-sheet.js';
 
 // Load user's characters
 async function loadCharacters() {
@@ -111,17 +109,9 @@ function displayCharacterSheet(character) {
     listContainer.style.display = 'none';
     container.style.display = 'block';
 
-    const modifier = (percentile) => {
-        const mod = dndModifier(percentile);
-        return mod >= 0 ? `+${mod}` : mod;
-    };
-
     container.innerHTML = `
         <div class="character-sheet-header">
-            <div>
-                <h2>${escHtml(character.name)}</h2>
-                <p>${escHtml(character.species || character.race)} ${escHtml(character.class_type)} - Level ${character.level}</p>
-            </div>
+            <div></div>
             <div style="display: flex; gap: 10px;">
                 <button class="btn-primary" onclick="openEditCharacter(${character.id})">Edit Character</button>
                 <button class="back-button" onclick="closeCharacterSheet()">← Back to Characters</button>
@@ -129,39 +119,7 @@ function displayCharacterSheet(character) {
         </div>
 
         <div class="character-sheet-content">
-            <h3>Ability Scores</h3>
-            <div class="ability-scores">
-                <div class="ability-score">
-                    <div class="label">STR</div>
-                    <div class="value">${scoreFromPercentile(character.strength)}</div>
-                    <div class="modifier">${modifier(character.strength)}</div>
-                </div>
-                <div class="ability-score">
-                    <div class="label">DEX</div>
-                    <div class="value">${scoreFromPercentile(character.dexterity)}</div>
-                    <div class="modifier">${modifier(character.dexterity)}</div>
-                </div>
-                <div class="ability-score">
-                    <div class="label">CON</div>
-                    <div class="value">${scoreFromPercentile(character.constitution)}</div>
-                    <div class="modifier">${modifier(character.constitution)}</div>
-                </div>
-                <div class="ability-score">
-                    <div class="label">INT</div>
-                    <div class="value">${scoreFromPercentile(character.intelligence)}</div>
-                    <div class="modifier">${modifier(character.intelligence)}</div>
-                </div>
-                <div class="ability-score">
-                    <div class="label">WIS</div>
-                    <div class="value">${scoreFromPercentile(character.wisdom)}</div>
-                    <div class="modifier">${modifier(character.wisdom)}</div>
-                </div>
-                <div class="ability-score">
-                    <div class="label">CHA</div>
-                    <div class="value">${scoreFromPercentile(character.charisma)}</div>
-                    <div class="modifier">${modifier(character.charisma)}</div>
-                </div>
-            </div>
+            ${renderDndCharacterSheet(character)}
 
             <h3>Amber Attributes</h3>
             <div class="form-grid">
@@ -191,19 +149,13 @@ function displayCharacterSheet(character) {
 
             ${renderFamiliarsSection(character)}
 
-            ${character.backstory ? `
-                <h3>Backstory</h3>
-                <div class="backstory">
-                    <p>${escHtml(character.backstory)}</p>
-                </div>
-            ` : ''}
-
             <div class="character-actions">
                 <button class="btn-primary" onclick="viewCharacterClaims()">View Claims</button>
                 <button class="btn-primary" onclick="viewCharacterProgress()">View Progress</button>
             </div>
         </div>
     `;
+    bindDndCharacterSheet(container.querySelector('.dnd-sheet'), character, () => viewCharacter(character.id));
 }
 
 // Close character sheet

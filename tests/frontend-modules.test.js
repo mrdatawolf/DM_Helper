@@ -19,6 +19,7 @@ global.localStorage = dom.window.localStorage;
 
 const shadowsModule = import('../public/js/player/player-shadows.js');
 const wizardCoreModule = import('../public/js/player/player-wizard-core.js');
+const characterSheetModule = import('../public/js/player/player-character-sheet.js');
 
 test('visitedInfluenceLabel: maps internal imprint values to display labels', async () => {
     const { visitedInfluenceLabel } = await shadowsModule;
@@ -55,4 +56,44 @@ test('calcAmberMods: derives stat modifiers from wizard choices without touching
     assert.strictEqual(mods.WIS, 4);
     assert.strictEqual(mods.CON, 1);
     assert.strictEqual(mods.STR, 0);
+});
+
+test('D&D sheet computed values use converted abilities for saves, skills, initiative, and spells', async () => {
+    const { computedCharacter } = await characterSheetModule;
+    const { percentileFromScore } = require('../public/js/ability-conversion');
+    const computed = computedCharacter({
+        strength: percentileFromScore(18), dexterity: percentileFromScore(14),
+        constitution: percentileFromScore(12), intelligence: percentileFromScore(16),
+        wisdom: percentileFromScore(10), charisma: percentileFromScore(8),
+        proficiency_bonus: 3, save_strength: 1, skill_perception: 2,
+        initiative_bonus: 1, spellcasting_ability: 'intelligence'
+    });
+
+    assert.strictEqual(computed.ability.strength.modifier, 4);
+    assert.strictEqual(computed.ability.strength.save, 7);
+    assert.strictEqual(computed.skills.perception, 6);
+    assert.strictEqual(computed.passivePerception, 16);
+    assert.strictEqual(computed.initiative, 3);
+    assert.strictEqual(computed.spellSaveDc, 14);
+    assert.strictEqual(computed.spellAttackBonus, 6);
+});
+
+test('D&D sheet displays converted ability scores after inline fields are bound', async () => {
+    const { bindDndCharacterSheet, renderDndCharacterSheet } = await characterSheetModule;
+    const { percentileFromScore } = require('../public/js/ability-conversion');
+    const character = {
+        id: 1,
+        strength: percentileFromScore(18), dexterity: percentileFromScore(14),
+        constitution: percentileFromScore(12), intelligence: percentileFromScore(16),
+        wisdom: percentileFromScore(10), charisma: percentileFromScore(8),
+        weapons: [], spells: [],
+    };
+    const container = document.createElement('div');
+    container.innerHTML = renderDndCharacterSheet(character);
+
+    bindDndCharacterSheet(container, character, async () => {});
+
+    const displayedStrength = container.querySelector('[data-field="strength"]').textContent;
+    assert.strictEqual(displayedStrength, '18');
+    assert.notStrictEqual(displayedStrength, String(character.strength));
 });

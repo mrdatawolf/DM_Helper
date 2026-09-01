@@ -8,6 +8,7 @@ const { up: unify } = require('../src/database/migrations/001-unify-character-co
 const { up: expand } = require('../src/database/migrations/002-expand-character-columns');
 const { up: features } = require('../src/database/migrations/003-feature-tables');
 const { up: universalCoreAttributes } = require('../src/database/migrations/009-universal-core-attributes');
+const { up: characterSheetDetails } = require('../src/database/migrations/010-character-sheet-details');
 const { percentileFromScore } = require('../public/js/ability-conversion');
 
 function legacyDb() {
@@ -149,4 +150,21 @@ test('009 converts core abilities once and creates system-neutral schema', () =>
     assert.ok(arcColumns.has('game_system'));
     db.prepare("INSERT INTO story_arcs (title) VALUES ('Test arc')").run();
     assert.strictEqual(db.prepare("SELECT game_system FROM story_arcs WHERE title = 'Test arc'").get().game_system, 'dnd5e');
+});
+
+test('010 adds character-sheet details and weapons idempotently', () => {
+    const db = new Database(':memory:');
+    db.exec(fs.readFileSync(path.join(__dirname, '../src/database/schema.sql'), 'utf8'));
+    expand(db);
+    characterSheetDetails(db);
+    assert.doesNotThrow(() => characterSheetDetails(db));
+
+    const columns = new Set(db.prepare('PRAGMA table_info(characters)').all().map(column => column.name));
+    for (const column of ['age', 'height', 'weight', 'eyes', 'skin', 'hair', 'desires', 'fears', 'allies_organizations', 'treasure']) {
+        assert.ok(columns.has(column), `character detail ${column} should exist`);
+    }
+    const weaponColumns = new Set(db.prepare('PRAGMA table_info(character_weapons)').all().map(column => column.name));
+    for (const column of ['id', 'character_id', 'name', 'attack_bonus', 'damage_type', 'sort_order', 'created_at']) {
+        assert.ok(weaponColumns.has(column), `weapon column ${column} should exist`);
+    }
 });
