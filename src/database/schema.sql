@@ -24,13 +24,13 @@ CREATE TABLE IF NOT EXISTS characters (
     class_type TEXT NOT NULL,
     level INTEGER DEFAULT 1,
 
-    -- D&D 5e Core Stats
-    strength INTEGER DEFAULT 10,
-    dexterity INTEGER DEFAULT 10,
-    constitution INTEGER DEFAULT 10,
-    intelligence INTEGER DEFAULT 10,
-    wisdom INTEGER DEFAULT 10,
-    charisma INTEGER DEFAULT 10,
+    -- System-neutral core ability percentiles (D&D score 10 maps to 31)
+    strength INTEGER DEFAULT 31,
+    dexterity INTEGER DEFAULT 31,
+    constitution INTEGER DEFAULT 31,
+    intelligence INTEGER DEFAULT 31,
+    wisdom INTEGER DEFAULT 31,
+    charisma INTEGER DEFAULT 31,
 
     -- D&D Combat Stats
     armor_class INTEGER DEFAULT 10,

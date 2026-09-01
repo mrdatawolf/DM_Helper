@@ -36,6 +36,8 @@ const CHARACTER_UPDATE_FIELDS = [
 
     // Character Details
     'languages', 'appearance', 'personality', 'backstory', 'character_notes',
+    'age', 'height', 'weight', 'eyes', 'skin', 'hair', 'desires', 'fears',
+    'allies_organizations', 'treasure',
     'class_features', 'species_traits', 'feats',
 
     // Currency

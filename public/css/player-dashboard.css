@@ -272,6 +272,32 @@ header {
     color: var(--accent);
 }
 
+/* Full D&D 5e player sheet */
+.dnd-sheet { display: grid; gap: 18px; }
+.dnd-sheet-header, .sheet-panel-heading, .spell-summary, .currency, .training-grid {
+    display: flex; gap: 14px; align-items: center; justify-content: space-between; flex-wrap: wrap;
+}
+.dnd-sheet-header h2 { margin: 0 0 5px; }
+.sheet-header-grid, .combat-stat-grid, .detail-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;
+}
+.dnd-sheet-grid { display: grid; grid-template-columns: minmax(260px, .8fr) minmax(320px, 1.2fr); gap: 18px; }
+.sheet-panel { padding: 16px; border: 1px solid rgba(142, 68, 173, .35); border-radius: 10px; background: rgba(20, 20, 40, .35); }
+.sheet-panel h3, .sheet-panel h4 { margin: 0 0 12px; }
+.sheet-editable { display: inline-block; min-width: 2em; padding: 2px 5px; border-bottom: 1px dashed #8e44ad; cursor: pointer; white-space: pre-wrap; }
+.sheet-editable:hover, .sheet-editable:focus { background: rgba(142, 68, 173, .18); outline: none; }
+.sheet-editable input, .sheet-editable textarea { width: min(100%, 360px); color: inherit; background: #17172b; border: 1px solid #8e44ad; padding: 5px; }
+.sheet-editable textarea { min-width: 240px; min-height: 80px; }
+.dnd-ability .sheet-save { font-size: .75rem; margin-top: 5px; }
+.sheet-skill { display: grid; grid-template-columns: 34px 1fr auto; gap: 8px; align-items: center; padding: 4px 0; }
+.sheet-list-row { display: grid; grid-template-columns: auto minmax(120px, 1fr) minmax(140px, 2fr) auto auto; gap: 8px; align-items: center; padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,.08); }
+.spell-slots { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 5px 12px; margin: 12px 0; }
+.detail-grid label { display: flex; flex-direction: column; gap: 6px; }
+@media (max-width: 800px) {
+    .dnd-sheet-grid { grid-template-columns: 1fr; }
+    .sheet-list-row { grid-template-columns: auto 1fr; }
+}
+
 /* Info Messages */
 .info-message {
     background: #e7f3ff;

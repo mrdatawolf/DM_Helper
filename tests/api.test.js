@@ -78,6 +78,7 @@ test('a player can create a character with unified field names', async () => {
         token: alice.token,
         body: {
             name: 'Corwin', species: 'Amberite', class_type: 'Fighter',
+            strength: 18,
             max_hp: 15, current_hp: 15, order_chaos_value: 70,
             trump_artist: 1, backstory: 'Woke in Greenwood with no memory.'
         }
@@ -87,6 +88,7 @@ test('a player can create a character with unified field names', async () => {
 
     assert.strictEqual(res.body.species, 'Amberite');
     assert.strictEqual(res.body.class_type, 'Fighter');
+    assert.strictEqual(res.body.strength, 59, 'D&D score 18 is stored as a percentile');
     assert.strictEqual(res.body.max_hp, 15);
     assert.strictEqual(res.body.order_chaos_value, 70);
     assert.strictEqual(res.body.trump_artist, 1);
@@ -139,6 +141,47 @@ test('a DM can edit any character', async () => {
     });
     assert.strictEqual(res.status, 200);
     assert.strictEqual(res.body.feat_pool, 3);
+});
+
+test('weapon and spell CRUD is restricted to the character owner or DM', async () => {
+    const weapon = await api('POST', `/api/characters/${charId}/weapons`, {
+        token: alice.token,
+        body: { name: 'Longsword', attack_bonus: 6, damage_type: '1d8+4 slashing' }
+    });
+    assert.strictEqual(weapon.status, 201, JSON.stringify(weapon.body));
+
+    const spell = await api('POST', `/api/characters/${charId}/spells`, {
+        token: alice.token,
+        body: { spell_name: 'Light', spell_level: 0, casting_time: '1 action', is_prepared: 1 }
+    });
+    assert.strictEqual(spell.status, 201, JSON.stringify(spell.body));
+
+    assert.strictEqual((await api('PUT', `/api/characters/${charId}/weapons/${weapon.body.id}`, {
+        token: mallory.token, body: { name: 'Stolen sword' }
+    })).status, 403);
+    assert.strictEqual((await api('DELETE', `/api/characters/${charId}/spells/${spell.body.id}`, {
+        token: mallory.token
+    })).status, 403);
+
+    const fetched = await api('GET', `/api/characters/${charId}`, { token: alice.token });
+    assert.strictEqual(fetched.status, 200);
+    assert.strictEqual(fetched.body.weapons[0].name, 'Longsword');
+    assert.strictEqual(fetched.body.spells[0].spell_name, 'Light');
+
+    const updatedWeapon = await api('PUT', `/api/characters/${charId}/weapons/${weapon.body.id}`, {
+        token: alice.token, body: { attack_bonus: 7 }
+    });
+    assert.strictEqual(updatedWeapon.status, 200);
+    assert.strictEqual(updatedWeapon.body.attack_bonus, 7);
+
+    const updatedSpell = await api('PUT', `/api/characters/${charId}/spells/${spell.body.id}`, {
+        token: dm.token, body: { is_prepared: 0 }
+    });
+    assert.strictEqual(updatedSpell.status, 200);
+    assert.strictEqual(updatedSpell.body.is_prepared, 0);
+
+    assert.strictEqual((await api('DELETE', `/api/characters/${charId}/weapons/${weapon.body.id}`, { token: alice.token })).status, 200);
+    assert.strictEqual((await api('DELETE', `/api/characters/${charId}/spells/${spell.body.id}`, { token: alice.token })).status, 200);
 });
 
 test('shadow creators manage their own shadows and super admins can override ownership', async () => {
@@ -206,6 +249,16 @@ test('claim allocation respects character ownership', async () => {
         body: { character_id: charId, attribute_name: 'Warfare', points_to_add: 1, justification: 'Nope' }
     });
     assert.strictEqual(other.status, 403);
+});
+
+test('claim resolution derives its ability bonus from the stored percentile', async () => {
+    const resolved = await api('POST', '/api/claims/resolve', {
+        token: alice.token,
+        body: { character_id: charId, attribute_name: 'Strength', roll_result: 12 }
+    });
+    assert.strictEqual(resolved.status, 200, JSON.stringify(resolved.body));
+    assert.strictEqual(resolved.body.ability_bonus, 4, 'stored percentile 59 converts back to D&D score 18');
+    assert.strictEqual(resolved.body.final_result, 16);
 });
 
 test('/api/auth/characters returns unified column names', async () => {

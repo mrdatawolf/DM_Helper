@@ -7,6 +7,7 @@ const { asyncHandler } = require('../../middleware/errorHandler');
 const { buildUpdateQuery } = require('../../utils/buildUpdateQuery');
 const { canModifyCharacter } = require('./shared');
 const { CHARACTER_UPDATE_FIELDS } = require('./fields');
+const { percentileFromScore } = require('../../../public/js/ability-conversion');
 
 // Get all characters
 router.get('/', authenticate, asyncHandler((req, res) => {
@@ -46,6 +47,9 @@ router.get('/:id', authenticate, asyncHandler((req, res) => {
     // Get character's gear
     const gear = db.prepare('SELECT * FROM character_gear WHERE character_id = ?').all(req.params.id);
 
+    const weapons = db.prepare('SELECT * FROM character_weapons WHERE character_id = ? ORDER BY sort_order, id').all(req.params.id);
+    const spells = db.prepare('SELECT * FROM character_spells WHERE character_id = ? ORDER BY spell_level, spell_name').all(req.params.id);
+
     // Get character's powers
     const powers = db.prepare('SELECT * FROM character_powers WHERE character_id = ?').all(req.params.id);
 
@@ -66,6 +70,8 @@ router.get('/:id', authenticate, asyncHandler((req, res) => {
     res.json({
         ...character,
         gear,
+        weapons,
+        spells,
         powers,
         familiars: familiars.map(f => serializeFamiliar(f, character.level, isDMOrAdmin(req.user))),
         recent_progress: progress
@@ -120,7 +126,9 @@ router.post('/', authenticate, asyncHandler((req, res) => {
 
     const result = stmt.run(
         name, player_name, finalSpecies, class_type, level,
-        strength, dexterity, constitution, intelligence, wisdom, charisma,
+        percentileFromScore(strength), percentileFromScore(dexterity),
+        percentileFromScore(constitution), percentileFromScore(intelligence),
+        percentileFromScore(wisdom), percentileFromScore(charisma),
         max_hp, current_hp,
         order_chaos_value,
         hasPattern, pattern_type,
@@ -193,5 +201,7 @@ router.delete('/:id', authenticate, asyncHandler((req, res) => {
 router.use(require('./gear'));
 router.use(require('./powers'));
 router.use(require('./familiars'));
+router.use(require('./weapons'));
+router.use(require('./spells'));
 
 module.exports = router;
