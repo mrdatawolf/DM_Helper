@@ -1,12 +1,13 @@
 (function exposeSystemRegistry(root, factory) {
-    const registry = factory(root.FaseripSheet);
+    const registry = factory(root.FaseripSheet, root.DndReadOnlySheet);
     root.CharacterSystemRegistry = registry;
     if (typeof module === 'object' && module.exports) {
         module.exports = registry;
     }
-}(typeof globalThis !== 'undefined' ? globalThis : this, function createSystemRegistry(faseripSheet) {
+}(typeof globalThis !== 'undefined' ? globalThis : this, function createSystemRegistry(faseripSheet, dndReadOnlySheet) {
 
 const CHARACTER_SYSTEMS = Object.freeze([
+    Object.freeze({ id: 'dnd5e', label: 'D&D 5e', render: dndReadOnlySheet.renderDndReadOnlySheet }),
     Object.freeze({ id: 'faserip', label: 'FASERIP', render: faseripSheet.renderFaseripSheet }),
 ]);
 

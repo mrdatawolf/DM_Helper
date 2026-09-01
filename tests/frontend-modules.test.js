@@ -97,3 +97,44 @@ test('D&D sheet displays converted ability scores after inline fields are bound'
     assert.strictEqual(displayedStrength, '18');
     assert.notStrictEqual(displayedStrength, String(character.strength));
 });
+
+test('the "View As..." registry lists D&D 5e and FASERIP, and the read-only D&D view matches the real sheet\'s math', async () => {
+    // dnd-readonly-sheet.js reads computedCharacter lazily off the global
+    // object at render time (mirroring how it runs in a real page, where
+    // player-character-sheet.js — a deferred `type="module"` script — sets
+    // that global only after every classic script has already loaded).
+    // Bridge it onto Node's real global here, since `global.window = dom.window`
+    // above makes those two different objects in this test file specifically.
+    global.computedCharacter = (await characterSheetModule).computedCharacter;
+    const { percentileFromScore } = require('../public/js/ability-conversion');
+
+    delete require.cache[require.resolve('../public/js/faserip-conversion')];
+    delete require.cache[require.resolve('../public/js/faserip-sheet')];
+    delete require.cache[require.resolve('../public/js/dnd-readonly-sheet')];
+    delete require.cache[require.resolve('../public/js/system-registry')];
+    require('../public/js/faserip-conversion');
+    require('../public/js/faserip-sheet');
+    const { renderDndReadOnlySheet } = require('../public/js/dnd-readonly-sheet');
+    const { CHARACTER_SYSTEMS, getCharacterSystem } = require('../public/js/system-registry');
+
+    assert.deepStrictEqual(CHARACTER_SYSTEMS.map(system => system.id), ['dnd5e', 'faserip']);
+    assert.strictEqual(getCharacterSystem('dnd5e').render, renderDndReadOnlySheet);
+
+    const character = {
+        id: 7, name: 'Read-Only & <Test>',
+        strength: percentileFromScore(18), dexterity: percentileFromScore(14),
+        constitution: percentileFromScore(12), intelligence: percentileFromScore(16),
+        wisdom: percentileFromScore(10), charisma: percentileFromScore(8),
+        proficiency_bonus: 3, initiative_bonus: 1, armor_class: 16, speed: 30,
+        current_hp: 20, max_hp: 24,
+    };
+    const html = renderDndReadOnlySheet(character);
+    const expected = global.computedCharacter(character);
+
+    assert.ok(html.includes('Read-Only &amp; &lt;Test&gt;'), 'escapes the character name');
+    assert.ok(!html.includes('Read-Only & <Test>'), 'never emits the raw unescaped name');
+    assert.ok(!/<input|<select|<textarea|contenteditable/i.test(html), 'has no editable controls');
+    assert.ok(html.includes(`>${expected.ability.strength.score}<`), 'shows the converted D&D score, not the raw percentile');
+    assert.ok(!html.includes(`>${character.strength}<`), 'never shows the raw stored percentile as the score');
+    assert.ok(html.includes(String(expected.passivePerception)), 'matches computedCharacter\'s passive perception');
+});
