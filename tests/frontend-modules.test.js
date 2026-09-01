@@ -109,10 +109,15 @@ test('the "View As..." registry lists D&D 5e and FASERIP, and the read-only D&D 
     const { computedCharacter } = require('../public/js/dnd-computed-character');
     require('../public/js/faserip-conversion');
     require('../public/js/faserip-sheet');
+    require('../public/js/dnd-full-sheet');
+    require('../public/js/faserip-full-sheet');
     const { renderDndReadOnlySheet } = require('../public/js/dnd-readonly-sheet');
     const { CHARACTER_SYSTEMS, getCharacterSystem } = require('../public/js/system-registry');
 
-    assert.deepStrictEqual(CHARACTER_SYSTEMS.map(system => system.id), ['dnd5e', 'faserip']);
+    assert.deepStrictEqual(
+        CHARACTER_SYSTEMS.map(system => system.id),
+        ['dnd5e', 'dnd5e-full', 'faserip', 'faserip-full']
+    );
     assert.strictEqual(getCharacterSystem('dnd5e').render, renderDndReadOnlySheet);
 
     // The editable sheet's own computedCharacter export must be the exact
@@ -139,4 +144,51 @@ test('the "View As..." registry lists D&D 5e and FASERIP, and the read-only D&D 
     assert.ok(html.includes(`>${expected.ability.strength.score}<`), 'shows the converted D&D score, not the raw percentile');
     assert.ok(!html.includes(`>${character.strength}<`), 'never shows the raw stored percentile as the score');
     assert.ok(html.includes(String(expected.passivePerception)), 'matches computedCharacter\'s passive perception');
+});
+
+test('the "Full Sheet" views are section-complete, read-only, and work with no player module loaded at all', () => {
+    // Deliberately requires only plain classic-script modules — no jsdom,
+    // no dynamic import of anything under public/js/player/ — reproducing
+    // exactly what the DM dashboard actually loads for these two entries,
+    // which is exactly the gap that broke the D&D summary card before this
+    // (a global set only by a player-only ES module the DM page never runs).
+    const { percentileFromScore } = require('../public/js/ability-conversion');
+    const { computedCharacter } = require('../public/js/dnd-computed-character');
+    const { computeFaseripCharacter } = require('../public/js/faserip-conversion');
+    const { renderDndFullSheet } = require('../public/js/dnd-full-sheet');
+    const { renderFaseripFullSheet } = require('../public/js/faserip-full-sheet');
+
+    const character = {
+        id: 3, name: 'Full Sheet & <Test>', class_type: 'Wizard', level: 5, species: 'Elf',
+        background: 'Sage', alignment: 'Neutral Good', player_name: 'Alex', experience_points: 6500,
+        strength: percentileFromScore(10), dexterity: percentileFromScore(14),
+        constitution: percentileFromScore(13), intelligence: percentileFromScore(18),
+        wisdom: percentileFromScore(12), charisma: percentileFromScore(8),
+        proficiency_bonus: 3, armor_class: 13, speed: 30, current_hp: 30, max_hp: 33,
+        spellcasting_ability: 'intelligence', spell_slots_1_total: 4, spell_slots_1_expended: 1,
+        age: '112', height: '5ft 4in', weight: '110 lb', eyes: 'Violet', skin: 'Pale', hair: 'Silver',
+        backstory: 'Raised in the Great Library.', personality: 'Curious & <bold>',
+        weapons: [{ id: 1, name: 'Dagger', attack_bonus: 4, damage_type: '1d4 piercing' }],
+        spells: [{ id: 1, spell_name: 'Fire Bolt', spell_level: 0, is_prepared: 1 }],
+        gear: [{ item_name: 'Spellbook', quantity: 1 }],
+    };
+
+    const dndHtml = renderDndFullSheet(character);
+    const expectedComputed = computedCharacter(character);
+    assert.ok(!/<input|<select|<textarea|contenteditable/i.test(dndHtml), 'D&D full sheet has no editable controls');
+    assert.ok(dndHtml.includes(`>${expectedComputed.ability.intelligence.score}<`), 'D&D full sheet shows the converted INT score');
+    assert.ok(dndHtml.includes('Dagger'), 'D&D full sheet lists weapons');
+    assert.ok(dndHtml.includes('Fire Bolt'), 'D&D full sheet lists spells');
+    assert.ok(dndHtml.includes('Spellbook'), 'D&D full sheet lists gear');
+    assert.ok(dndHtml.includes('Raised in the Great Library.'), 'D&D full sheet shows backstory');
+    assert.ok(dndHtml.includes('Curious &amp; &lt;bold&gt;'), 'D&D full sheet escapes free-text fields');
+
+    const faseripHtml = renderFaseripFullSheet(character);
+    const expectedFaserip = computeFaseripCharacter(character);
+    assert.ok(!/<input|<select|<textarea|contenteditable/i.test(faseripHtml), 'FASERIP full sheet has no editable controls');
+    assert.ok(faseripHtml.includes(`>${expectedFaserip.health}<`), 'FASERIP full sheet shows computed Health');
+    assert.ok(faseripHtml.includes(`>${expectedFaserip.karma}<`), 'FASERIP full sheet shows computed Karma');
+    assert.ok(faseripHtml.includes('112'), 'FASERIP full sheet shows the real Age field');
+    assert.ok(faseripHtml.includes('Spellbook'), 'FASERIP full sheet shows real gear as Inventory');
+    assert.ok(faseripHtml.includes('Not tracked for converted characters'), 'FASERIP full sheet shows empty sections it has no data for, rather than omitting them');
 });
