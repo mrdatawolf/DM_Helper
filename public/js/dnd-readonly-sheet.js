@@ -1,9 +1,9 @@
 (function exposeDndReadOnlySheet(root, factory) {
-    root.DndReadOnlySheet = factory(root);
+    root.DndReadOnlySheet = factory(root.DndComputedCharacter);
     if (typeof module === 'object' && module.exports) {
         module.exports = root.DndReadOnlySheet;
     }
-}(typeof globalThis !== 'undefined' ? globalThis : this, function createDndReadOnlySheet(root) {
+}(typeof globalThis !== 'undefined' ? globalThis : this, function createDndReadOnlySheet(dndComputedCharacter) {
     const ABILITIES = [
         ['strength', 'STR'], ['dexterity', 'DEX'], ['constitution', 'CON'],
         ['intelligence', 'INT'], ['wisdom', 'WIS'], ['charisma', 'CHA'],
@@ -32,18 +32,16 @@
     }
 
     // Read-only summary for the "View As..." picker — reuses the same
-    // computedCharacter() the editable D&D sheet uses (exposed as a global
-    // by player-character-sheet.js) so the numbers can never drift from the
-    // real sheet. Deliberately does not reuse renderDndCharacterSheet()'s
-    // markup: that template relies on bindDndCharacterSheet() to hydrate its
-    // slot() placeholders and wire click-to-edit/PDF behavior, neither of
-    // which this read-only, string-returning registry entry can do.
+    // computedCharacter() the editable D&D sheet uses
+    // (public/js/dnd-computed-character.js, a plain classic-script module
+    // loaded on both the player and DM dashboards, specifically so this
+    // works on both) so the numbers can never drift from the real sheet.
+    // Deliberately does not reuse renderDndCharacterSheet()'s markup: that
+    // template relies on bindDndCharacterSheet() to hydrate its slot()
+    // placeholders and wire click-to-edit/PDF behavior, neither of which
+    // this read-only, string-returning registry entry can do.
     function renderDndReadOnlySheet(character) {
-        // Read lazily (call time, not module-load time): player-character-sheet.js
-        // is a deferred `type="module"` script that sets this global after every
-        // classic script (this one included) has already run, so it must not be
-        // captured until the function actually executes, well after page load.
-        const computed = root.computedCharacter(character);
+        const computed = dndComputedCharacter.computedCharacter(character);
         const abilitiesHtml = ABILITIES.map(([key, label]) => renderAbility(label, computed.ability[key])).join('');
 
         return `

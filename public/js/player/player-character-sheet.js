@@ -1,6 +1,8 @@
 import '../ability-conversion.js';
+import '../dnd-computed-character.js';
 
 const { scoreFromPercentile, dndModifier, percentileFromScore } = AbilityConversion;
+const { computedCharacter } = DndComputedCharacter;
 
 const ABILITIES = [
     ['strength', 'STR', 'Strength'], ['dexterity', 'DEX', 'Dexterity'],
@@ -24,27 +26,6 @@ const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({
 }[char]));
 const signed = value => Number(value) >= 0 ? `+${Number(value)}` : String(Number(value));
 const number = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
-
-function computedCharacter(character) {
-    const proficiency = number(character.proficiency_bonus, 2);
-    const ability = Object.fromEntries(ABILITIES.map(([key]) => [key, {
-        score: scoreFromPercentile(number(character[key], 31)),
-        modifier: dndModifier(number(character[key], 31)),
-        save: dndModifier(number(character[key], 31)) + proficiency * number(character[`save_${key}`]),
-    }]));
-    const skills = Object.fromEntries(SKILLS.map(([key, , abilityKey]) => [key,
-        ability[abilityKey].modifier + proficiency * number(character[`skill_${key}`])
-    ]));
-    const spellAbility = String(character.spellcasting_ability || '').toLowerCase();
-    const spellModifier = ability[spellAbility]?.modifier ?? 0;
-    return {
-        ability, skills, proficiency,
-        initiative: ability.dexterity.modifier + number(character.initiative_bonus),
-        passivePerception: 10 + skills.perception,
-        spellSaveDc: 8 + proficiency + spellModifier,
-        spellAttackBonus: proficiency + spellModifier,
-    };
-}
 
 // Creates the one reusable inline-edit control used by every scalar sheet field.
 function editableField(container, fieldName, value, type = 'text') {
@@ -264,10 +245,5 @@ function bindDndCharacterSheet(container, character, refresh) {
     editableList(container.querySelector('[data-list="spells"]'), character, { resource: 'spells', create: () => promptSpell(), edit: promptSpell }, refresh);
     container.querySelector('[data-download-pdf]').addEventListener('click', () => downloadCharacterPdf(character).catch(error => showToast(error.message)));
 }
-
-// Exposed as a global too (not just an ES export) so the plain-script
-// read-only D&D registry entry (public/js/dnd-readonly-sheet.js) can reuse
-// this exact computation rather than duplicating it.
-Object.assign(window, { computedCharacter });
 
 export { bindDndCharacterSheet, computedCharacter, downloadCharacterPdf, editableField, editableList, renderDndCharacterSheet };

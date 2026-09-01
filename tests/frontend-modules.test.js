@@ -99,19 +99,14 @@ test('D&D sheet displays converted ability scores after inline fields are bound'
 });
 
 test('the "View As..." registry lists D&D 5e and FASERIP, and the read-only D&D view matches the real sheet\'s math', async () => {
-    // dnd-readonly-sheet.js reads computedCharacter lazily off the global
-    // object at render time (mirroring how it runs in a real page, where
-    // player-character-sheet.js — a deferred `type="module"` script — sets
-    // that global only after every classic script has already loaded).
-    // Bridge it onto Node's real global here, since `global.window = dom.window`
-    // above makes those two different objects in this test file specifically.
-    global.computedCharacter = (await characterSheetModule).computedCharacter;
+    // dnd-computed-character.js is a plain classic-script module (not part
+    // of the player-only ES module graph) specifically so it — and the
+    // read-only card built on it — work on the DM dashboard too, which
+    // never loads public/js/player/player-character-sheet.js. Requiring it
+    // directly here exercises exactly that: a page with no player module
+    // loaded at all can still compute and render the D&D view correctly.
     const { percentileFromScore } = require('../public/js/ability-conversion');
-
-    delete require.cache[require.resolve('../public/js/faserip-conversion')];
-    delete require.cache[require.resolve('../public/js/faserip-sheet')];
-    delete require.cache[require.resolve('../public/js/dnd-readonly-sheet')];
-    delete require.cache[require.resolve('../public/js/system-registry')];
+    const { computedCharacter } = require('../public/js/dnd-computed-character');
     require('../public/js/faserip-conversion');
     require('../public/js/faserip-sheet');
     const { renderDndReadOnlySheet } = require('../public/js/dnd-readonly-sheet');
@@ -119,6 +114,13 @@ test('the "View As..." registry lists D&D 5e and FASERIP, and the read-only D&D 
 
     assert.deepStrictEqual(CHARACTER_SYSTEMS.map(system => system.id), ['dnd5e', 'faserip']);
     assert.strictEqual(getCharacterSystem('dnd5e').render, renderDndReadOnlySheet);
+
+    // The editable sheet's own computedCharacter export must be the exact
+    // same function as the shared module's — not a re-derived copy that
+    // could drift from it (the class of bug this whole extraction exists
+    // to prevent).
+    const { computedCharacter: sheetComputedCharacter } = await characterSheetModule;
+    assert.strictEqual(sheetComputedCharacter, computedCharacter);
 
     const character = {
         id: 7, name: 'Read-Only & <Test>',
@@ -129,7 +131,7 @@ test('the "View As..." registry lists D&D 5e and FASERIP, and the read-only D&D 
         current_hp: 20, max_hp: 24,
     };
     const html = renderDndReadOnlySheet(character);
-    const expected = global.computedCharacter(character);
+    const expected = computedCharacter(character);
 
     assert.ok(html.includes('Read-Only &amp; &lt;Test&gt;'), 'escapes the character name');
     assert.ok(!html.includes('Read-Only & <Test>'), 'never emits the raw unescaped name');
