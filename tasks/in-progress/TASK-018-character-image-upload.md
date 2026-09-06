@@ -1,7 +1,7 @@
 # TASK-018: Character image upload, thumbnail, and full view
 
 Owner role: Implementer
-Assigned agent: TBD
+Assigned agent: openai-coder (Codex CLI)
 Proposed by: Claude
 Proposed date: 2026-09-06
 Approved by: Patrick
