@@ -1,11 +1,11 @@
 # TASK-017: Zombie Car Wars 2D6 resolution mechanic in the dice roller
 
 Owner role: Implementer
-Assigned agent: TBD
+Assigned agent: openai-coder (Codex CLI)
 Proposed by: Claude
 Proposed date: 2026-09-06
-Approved by: Pending
-Approved date: Pending
+Approved by: Patrick
+Approved date: 2026-09-06
 Related contracts: None
 Related ADRs: None. `character_system_data` (created by ADR-003/TASK-014)
 is not used by this task — see Excluded.
