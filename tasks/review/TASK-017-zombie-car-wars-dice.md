@@ -160,3 +160,128 @@ The human confirmed, when asked during planning:
 ## Blocker
 
 None.
+
+## Implementation handoff
+
+Implemented by: openai-coder (Codex CLI)
+Date: 2026-09-06
+
+### Changes made
+
+- Updated the dice-system button label to "Zombie Car Wars (2d6)"
+  (`public/player-dashboard.html:289`).
+- Added a dedicated `#car-wars-roll-section` with the five-difficulty
+  `<select>` (Easy 5 / Routine 7 / Medium 9 / Hard 11 / Very Hard 13) and
+  three capped number inputs (Skill 0-3, Tools 0-2, Attribute 0-1),
+  separate from the `d10`-only `#generic-roll-section`
+  (`public/player-dashboard.html:314-343`).
+- Moved the shared "Purpose" field into its own `#dice-purpose-section`,
+  shown for both `d10` and `d6` (`public/player-dashboard.html:347-353`).
+- `selectDiceSystem()` now branches three ways (`d20`/`d10`/`d6`) instead of
+  the old binary `d20`/else, toggling the new sections correctly
+  (`public/js/player/player-dice.js:103-122`).
+- Added `clampModifier(value, maximum)` and rewired the renamed
+  `rollZombieCarWars()` (was `rollCarWars()`) to always roll exactly 2d6,
+  clamp and sum the three modifiers, compare against the selected
+  difficulty's numeric target, and return `succeeded`/`margin` alongside
+  the existing critical-roll flair (`public/js/player/player-dice.js:296-346`).
+- Modifier inputs clamp on `change` and are re-clamped again immediately
+  before resolution (belt-and-suspenders, per the task's validation
+  requirement).
+- `displayRollResult()` and `displayRollHistory()` updated for `d6` to show
+  SUCCESS/FAILURE, the dice, each modifier, the difficulty name/target, and
+  the signed margin (`public/js/player/player-dice.js:386-401`,
+  `:448-451`).
+- No character sheet, registry, `character_system_data`, or
+  `story_arcs.game_system` changes. No `d20`/`d10` resolution logic touched.
+- Nothing committed; task lifecycle metadata left for the reviewer.
+
+### Validation performed
+
+- `npm test`: 60/60 passing.
+- `node --check public/js/player/player-dice.js` and `git diff --check`:
+  clean.
+- Deterministic Node-side tracing (no browser-control harness available in
+  this environment) confirmed: all five difficulty target numbers; Skill/
+  Tools/Attribute clamp to their documented ranges and invalid input
+  clamps to 0; a total below target reports failure with a negative
+  margin, a total at/above target reports success with a non-negative
+  margin; every roll is exactly two dice; all-sixes/all-ones flair still
+  fires; history entries contain dice, each modifier, difficulty/target,
+  result, and margin.
+
+### Assumptions and deviations
+
+- No deviations from the approved scope.
+- The resolution math stayed inline inside the DOM-coupled
+  `rollZombieCarWars()` rather than being extracted into a standalone
+  testable function, so no new automated test was added for it (the task
+  left this as the implementer's call) — see review note below.
+
+### Unresolved risks
+
+- None identified by the implementer. Visual/pointer-based browser
+  behavior still hasn't been exercised in an actual browser in this
+  environment (see Review).
+
+## Review
+
+Independent review by Claude, 2026-09-06. **Accepted — no blocking
+findings.**
+
+Method: read the full diff directly (`git diff` on both changed files, not
+just the handoff's line-number claims), independently re-ran `npm test`
+(60/60, matches the handoff), grepped the repo for any leftover
+`rollCarWars` reference (none outside this task file) and for remaining
+reads of `dice-modifier`/`dice-count` (only `dice-count`, only read by the
+untouched `rollWorldOfDarkness`, confirming the `d6` system no longer
+shares state with `d10`). Manually traced the new logic against the task's
+spec line by line:
+
+- `clampModifier`: parses with `parseInt(value, 10)`, treats `NaN` as 0,
+  then `Math.min(maximum, Math.max(0, ...))` — verified by hand for
+  in-range, above-max, below-zero, and non-numeric input; matches the
+  documented Skill 0-3 / Tools 0-2 / Attribute 0-1 caps exactly, and is
+  applied both on `change` and again immediately before resolution (the
+  double-clamp the task's validation section asked for).
+- Difficulty target numbers come directly from the `<select>` values
+  (5/7/9/11/13), matching the five named difficulties exactly; the
+  difficulty *name* is recovered from the option's visible text via
+  `.replace(/ \(\d+\)$/, '')`, correctly stripping " (13)" etc.
+- Dice count is hardcoded to a `for (let i = 0; i < 2; i++)` loop — no
+  user-editable count for this system, as required.
+- `succeeded: total >= target` and `margin: total - target` match the
+  task's "at or above target" success rule exactly.
+- `d20`/`d10` code paths are untouched; `character_system_data` and
+  `system-registry.js` are untouched — confirmed by grep, not just by
+  trusting the handoff's claim.
+
+**Manual browser check**: not performed, for the same reason the
+implementer's handoff states — no browser-control harness in this
+environment. This is the one validation requirement in the task that
+remains genuinely unverified end-to-end; everything else (dice roll count,
+clamping, target comparison, margin sign, history content) was verified
+either by direct code trace or by the passing test suite. Recommend a
+quick manual pass in an actual browser before/soon after merge — pick each
+difficulty once, try an out-of-range modifier, and confirm the SUCCESS/
+FAILURE line reads correctly — but this is a low-risk gap given the code's
+small size and the thoroughness of the static trace.
+
+**Non-blocking observations**:
+- The resolution math (`clampModifier`, the target/margin/success
+  computation) has no dedicated unit test — it's only exercised indirectly
+  by the fact that `npm test` still passes (i.e., proves no regression
+  elsewhere, not that the new math is correct). The task explicitly left
+  extraction-for-testability to the implementer's judgment, so this isn't
+  a deviation, but a future pass could pull the pure math out of the
+  DOM-coupled function and add a focused test, the same way
+  `ability-conversion.js`/`faserip-conversion.js` keep their math testable
+  in isolation from rendering.
+- The `d10`-only generic roll section still renders a "Modifier" number
+  input that `rollWorldOfDarkness()` has never read (true both before and
+  after this change) — pre-existing dead UI, not introduced or worsened by
+  this task, not in scope to fix here.
+
+## Human acceptance
+
+Pending.
