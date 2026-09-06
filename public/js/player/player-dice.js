@@ -17,6 +17,16 @@ let rollHistory = [];
 function initDiceRoller() {
     loadDiceCharacters();
 
+    [
+        ['car-wars-skill', 3],
+        ['car-wars-tools', 2],
+        ['car-wars-attribute', 1]
+    ].forEach(([inputId, maximum]) => {
+        document.getElementById(inputId).addEventListener('change', (event) => {
+            event.target.value = clampModifier(event.target.value, maximum);
+        });
+    });
+
     // Set up character selection listener
     document.getElementById('dice-character-select').addEventListener('change', (e) => {
         const characterId = e.target.value;
@@ -93,11 +103,22 @@ function selectDiceSystem(system) {
         // Show attribute selection for d20 (with claims integration)
         document.getElementById('attribute-section').style.display = 'block';
         document.getElementById('generic-roll-section').style.display = 'none';
+        document.getElementById('car-wars-roll-section').style.display = 'none';
+        document.getElementById('dice-purpose-section').style.display = 'none';
         displayAttributeButtons();
-    } else {
-        // Show generic roll configuration for d10 and d6
+    } else if (system === 'd10') {
+        // Show generic roll configuration for d10
         document.getElementById('attribute-section').style.display = 'none';
         document.getElementById('generic-roll-section').style.display = 'block';
+        document.getElementById('car-wars-roll-section').style.display = 'none';
+        document.getElementById('dice-purpose-section').style.display = 'block';
+        document.getElementById('roll-button-section').style.display = 'block';
+    } else if (system === 'd6') {
+        // Show fixed 2d6 Zombie Car Wars configuration
+        document.getElementById('attribute-section').style.display = 'none';
+        document.getElementById('generic-roll-section').style.display = 'none';
+        document.getElementById('car-wars-roll-section').style.display = 'block';
+        document.getElementById('dice-purpose-section').style.display = 'block';
         document.getElementById('roll-button-section').style.display = 'block';
     }
 
@@ -172,8 +193,8 @@ async function rollDice() {
             rollResult = rollWorldOfDarkness();
 
         } else if (diceSelectedSystem === 'd6') {
-            // Car Wars 2d6 system
-            rollResult = rollCarWars();
+            // Zombie Car Wars 2d6 system
+            rollResult = rollZombieCarWars();
         }
 
         // Wait for animation to complete (600ms)
@@ -272,30 +293,54 @@ function rollWorldOfDarkness() {
     };
 }
 
-// Roll Car Wars (2d6 system)
-function rollCarWars() {
-    const diceCount = parseInt(document.getElementById('dice-count').value) || 1;
-    const modifier = parseInt(document.getElementById('dice-modifier').value) || 0;
+function clampModifier(value, maximum) {
+    const parsedValue = parseInt(value, 10);
+    return Math.min(maximum, Math.max(0, Number.isNaN(parsedValue) ? 0 : parsedValue));
+}
+
+// Roll Zombie Car Wars (fixed 2d6 system)
+function rollZombieCarWars() {
+    const difficultySelect = document.getElementById('car-wars-difficulty');
+    const target = parseInt(difficultySelect.value, 10);
+    const difficulty = difficultySelect.options[difficultySelect.selectedIndex].text.replace(/ \(\d+\)$/, '');
+    const modifierInputs = {
+        skill: { element: document.getElementById('car-wars-skill'), maximum: 3 },
+        tools: { element: document.getElementById('car-wars-tools'), maximum: 2 },
+        attribute: { element: document.getElementById('car-wars-attribute'), maximum: 1 }
+    };
     const purpose = document.getElementById('dice-purpose').value || 'General roll';
+
+    const modifiers = {};
+    Object.entries(modifierInputs).forEach(([name, config]) => {
+        modifiers[name] = clampModifier(config.element.value, config.maximum);
+        config.element.value = modifiers[name];
+    });
 
     const rolls = [];
     let sum = 0;
 
-    for (let i = 0; i < diceCount; i++) {
+    for (let i = 0; i < 2; i++) {
         const roll = Math.floor(Math.random() * 6) + 1;
         rolls.push(roll);
         sum += roll;
     }
 
-    const total = sum + modifier;
+    const modifierTotal = modifiers.skill + modifiers.tools + modifiers.attribute;
+    const total = sum + modifierTotal;
+    const margin = total - target;
 
     return {
         system: 'd6',
         purpose: purpose,
         rolls: rolls,
         baseTotal: sum,
-        modifier: modifier,
+        modifiers: modifiers,
+        modifierTotal: modifierTotal,
         total: total,
+        difficulty: difficulty,
+        target: target,
+        succeeded: total >= target,
+        margin: margin,
         isCriticalSuccess: rolls.every(r => r === 6),
         isCriticalFailure: rolls.every(r => r === 1),
         timestamp: new Date()
@@ -341,12 +386,16 @@ function displayRollResult(result) {
         `;
     } else if (result.system === 'd6') {
         html = `
-            <div class="result-label">Car Wars Roll</div>
-            <div class="result-value">${result.total}</div>
+            <div class="result-label">Zombie Car Wars Roll</div>
+            <div class="result-value">${result.succeeded ? 'SUCCESS' : 'FAILURE'} — ${result.total}</div>
             <div class="result-breakdown">
                 <div><strong>Dice:</strong> ${result.rolls.join(', ')}</div>
                 <div><strong>Base Sum:</strong> ${result.baseTotal}</div>
-                ${result.modifier !== 0 ? `<div><strong>Modifier:</strong> ${result.modifier > 0 ? '+' : ''}${result.modifier}</div>` : ''}
+                <div><strong>Skill:</strong> +${result.modifiers.skill}</div>
+                <div><strong>Tools:</strong> +${result.modifiers.tools}</div>
+                <div><strong>Attribute:</strong> +${result.modifiers.attribute}</div>
+                <div><strong>Difficulty:</strong> ${result.difficulty} (${result.target})</div>
+                <div><strong>Margin:</strong> ${result.margin >= 0 ? '+' : ''}${result.margin}</div>
             </div>
             <div class="result-details">${result.purpose}</div>
             ${result.isCriticalSuccess ? '<div class="result-details">🎉 All Sixes!</div>' : ''}
@@ -399,8 +448,8 @@ function displayRollHistory() {
             displayValue = `${roll.successes} succ`;
             breakdown = `${roll.rolls.length}d10: ${roll.rolls.join(', ')} (${roll.purpose})`;
         } else if (roll.system === 'd6') {
-            displayValue = roll.total;
-            breakdown = `${roll.rolls.length}d6: ${roll.rolls.join(', ')}${roll.modifier !== 0 ? ` ${roll.modifier > 0 ? '+' : ''}${roll.modifier}` : ''} (${roll.purpose})`;
+            displayValue = `${roll.succeeded ? 'SUCCESS' : 'FAILURE'} — ${roll.total}`;
+            breakdown = `2d6: ${roll.rolls.join(', ')} + Skill ${roll.modifiers.skill} + Tools ${roll.modifiers.tools} + Attribute ${roll.modifiers.attribute}; ${roll.difficulty} (${roll.target}); margin ${roll.margin >= 0 ? '+' : ''}${roll.margin} (${roll.purpose})`;
         }
 
         const timeStr = roll.timestamp.toLocaleTimeString();
@@ -425,6 +474,8 @@ function hideDiceSections() {
     document.getElementById('dice-system-section').style.display = 'none';
     document.getElementById('attribute-section').style.display = 'none';
     document.getElementById('generic-roll-section').style.display = 'none';
+    document.getElementById('car-wars-roll-section').style.display = 'none';
+    document.getElementById('dice-purpose-section').style.display = 'none';
     document.getElementById('roll-button-section').style.display = 'none';
     document.getElementById('roll-result-section').style.display = 'none';
     document.getElementById('roll-history-section').style.display = 'none';

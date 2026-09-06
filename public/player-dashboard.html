@@ -286,7 +286,7 @@
                                     World of Darkness (d10)
                                 </button>
                                 <button class="dice-system-btn" data-system="d6" onclick="selectDiceSystem('d6')">
-                                    Car Wars (2d6)
+                                    Zombie Car Wars (2d6)
                                 </button>
                             </div>
                         </div>
@@ -299,7 +299,7 @@
                             </div>
                         </div>
 
-                        <!-- Generic Roll Section (for d10 and d6 systems) -->
+                        <!-- Generic Roll Section (for d10 system) -->
                         <div class="dice-section" id="generic-roll-section" style="display: none;">
                             <h3>Roll Configuration</h3>
                             <div class="form-grid">
@@ -311,10 +311,43 @@
                                     <label for="dice-modifier">Modifier:</label>
                                     <input type="number" id="dice-modifier" value="0">
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- Zombie Car Wars Roll Section (fixed 2d6 system) -->
+                        <div class="dice-section" id="car-wars-roll-section" style="display: none;">
+                            <h3>Zombie Car Wars Roll Configuration</h3>
+                            <div class="form-grid">
                                 <div class="form-group">
-                                    <label for="dice-purpose">Purpose:</label>
-                                    <input type="text" id="dice-purpose" placeholder="e.g., Attack roll, Stealth check">
+                                    <label for="car-wars-difficulty">Difficulty:</label>
+                                    <select id="car-wars-difficulty">
+                                        <option value="5">Easy (5)</option>
+                                        <option value="7">Routine (7)</option>
+                                        <option value="9">Medium (9)</option>
+                                        <option value="11">Hard (11)</option>
+                                        <option value="13">Very Hard (13)</option>
+                                    </select>
                                 </div>
+                                <div class="form-group">
+                                    <label for="car-wars-skill">Skill (0 to +3):</label>
+                                    <input type="number" id="car-wars-skill" min="0" max="3" value="0">
+                                </div>
+                                <div class="form-group">
+                                    <label for="car-wars-tools">Tools (0 to +2):</label>
+                                    <input type="number" id="car-wars-tools" min="0" max="2" value="0">
+                                </div>
+                                <div class="form-group">
+                                    <label for="car-wars-attribute">Attribute (0 to +1):</label>
+                                    <input type="number" id="car-wars-attribute" min="0" max="1" value="0">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Purpose (shared by d10 and d6 systems) -->
+                        <div class="dice-section" id="dice-purpose-section" style="display: none;">
+                            <div class="form-group">
+                                <label for="dice-purpose">Purpose:</label>
+                                <input type="text" id="dice-purpose" placeholder="e.g., Attack roll, Stealth check">
                             </div>
                         </div>
 
