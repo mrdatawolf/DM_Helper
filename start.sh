@@ -67,6 +67,7 @@ ok ".env present."
 PORT=3000
 DB_PATH="dm_helper.db"
 ADMIN_PASSWORD=""
+JWT_SECRET=""
 
 while IFS='=' read -r key val; do
     # Strip comments and blank lines
@@ -79,6 +80,7 @@ while IFS='=' read -r key val; do
         PORT)           PORT="$val" ;;
         DB_PATH)        DB_PATH="$val" ;;
         ADMIN_PASSWORD) ADMIN_PASSWORD="$val" ;;
+        JWT_SECRET)     JWT_SECRET="$val" ;;
     esac
 done < .env
 
@@ -93,6 +95,15 @@ if [ "$ADMIN_PASSWORD" = "a_password_here" ]; then
     abort
 fi
 ok "ADMIN_PASSWORD is set."
+
+# ── 5b. JWT_SECRET set? ─────────────────────────────────────────
+if [ -z "$JWT_SECRET" ]; then
+    fail "JWT_SECRET is not set in .env"
+    echo "        Generate one with:"
+    echo "        node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\""
+    abort
+fi
+ok "JWT_SECRET is set."
 
 # ── 6. Database exists? (init if missing) ──────────────────────
 if [ ! -f "$DB_PATH" ]; then
