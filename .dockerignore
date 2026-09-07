@@ -1,0 +1,16 @@
+node_modules
+.git
+.env
+*.db
+*.db-journal
+dm_helper.db.*
+npm-debug.log*
+docs
+tests
+tasks
+Background Information
+Creature Index
+Shadow Lore
+*.md
+start.sh
+start.ps1
