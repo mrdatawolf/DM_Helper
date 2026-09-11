@@ -34,6 +34,7 @@ async function loadCharacters() {
         container.innerHTML = state.userCharacters.map(char => `
             <div class="character-card">
                 <div onclick="viewCharacter(${char.id})" style="cursor: pointer;">
+                    ${char.image_url ? `<img class="character-thumbnail" src="${escHtml(char.image_url)}" alt="${escHtml(char.name)}">` : ''}
                     <h3>${escHtml(char.name)}</h3>
                     <div class="character-meta">
                         <span>${escHtml(char.species || char.race)}</span>
@@ -134,6 +135,7 @@ function displayCharacterSheet(character) {
         </div>
 
         <div class="character-sheet-content">
+            ${character.image_url ? `<img class="character-full-image" src="${escHtml(character.image_url)}" alt="${escHtml(character.name)}">` : ''}
             ${renderDndCharacterSheet(character)}
 
             <h3>Amber Attributes</h3>

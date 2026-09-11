@@ -9,6 +9,7 @@ const { up: expand } = require('../src/database/migrations/002-expand-character-
 const { up: features } = require('../src/database/migrations/003-feature-tables');
 const { up: universalCoreAttributes } = require('../src/database/migrations/009-universal-core-attributes');
 const { up: characterSheetDetails } = require('../src/database/migrations/010-character-sheet-details');
+const { up: characterImage } = require('../src/database/migrations/011-character-image');
 const { percentileFromScore } = require('../public/js/ability-conversion');
 
 function legacyDb() {
@@ -167,4 +168,18 @@ test('010 adds character-sheet details and weapons idempotently', () => {
     for (const column of ['id', 'character_id', 'name', 'attack_bonus', 'damage_type', 'sort_order', 'created_at']) {
         assert.ok(weaponColumns.has(column), `weapon column ${column} should exist`);
     }
+});
+
+test('011 adds a nullable character image URL idempotently', () => {
+    const db = new Database(':memory:');
+    db.exec(fs.readFileSync(path.join(__dirname, '../src/database/schema.sql'), 'utf8'));
+
+    characterImage(db);
+    assert.doesNotThrow(() => characterImage(db));
+
+    const column = db.prepare('PRAGMA table_info(characters)').all()
+        .find(candidate => candidate.name === 'image_url');
+    assert.ok(column);
+    assert.strictEqual(column.notnull, 0);
+    assert.strictEqual(column.dflt_value, null);
 });
