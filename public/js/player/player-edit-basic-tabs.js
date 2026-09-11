@@ -1,11 +1,73 @@
 import '../ability-conversion.js';
 import { state } from './player-state.js';
+import { loadCharacters } from './player-characters.js';
 const { scoreFromPercentile } = AbilityConversion;
+
+async function uploadCharacterImage(characterId) {
+    const input = document.getElementById('edit-char-image');
+    if (!input.files.length) {
+        showToast('Choose an image to upload');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('image', input.files[0]);
+    try {
+        const character = await apiFetch(`/api/characters/${characterId}/image`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+            body: formData,
+        });
+        updateImageControls(character);
+        await loadCharacters();
+        showToast('Character image uploaded');
+    } catch (error) {
+        showToast(`Failed to upload image: ${error.message}`);
+    }
+}
+
+async function removeCharacterImage(characterId) {
+    try {
+        const character = await apiFetch(`/api/characters/${characterId}/image`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        });
+        updateImageControls(character);
+        await loadCharacters();
+        showToast('Character image removed');
+    } catch (error) {
+        showToast(`Failed to remove image: ${error.message}`);
+    }
+}
+
+function updateImageControls(character) {
+    state.currentCharacter = character;
+    const preview = document.getElementById('edit-char-image-preview');
+    const removeButton = document.getElementById('remove-character-image');
+    const input = document.getElementById('edit-char-image');
+    preview.innerHTML = character.image_url
+        ? `<img class="character-image-preview" src="${escHtml(character.image_url)}" alt="${escHtml(character.name)} preview">`
+        : '';
+    removeButton.style.display = character.image_url ? '' : 'none';
+    input.value = '';
+}
 
 // Generate Basic Info Tab HTML
 function generateBasicInfoTab(char) {
     return `
         <div id="edit-tab-basic" class="char-edit-tab active">
+            <div class="character-image-editor">
+                <h4>Character Image</h4>
+                <div id="edit-char-image-preview">
+                    ${char.image_url ? `<img class="character-image-preview" src="${escHtml(char.image_url)}" alt="${escHtml(char.name)} preview">` : ''}
+                </div>
+                <div class="character-image-actions">
+                    <input type="file" id="edit-char-image" accept="image/jpeg,image/png,image/webp,image/gif">
+                    <button type="button" class="btn-secondary" onclick="uploadCharacterImage(${char.id})">Upload Image</button>
+                    <button type="button" id="remove-character-image" class="btn-secondary" onclick="removeCharacterImage(${char.id})"${char.image_url ? '' : ' style="display: none;"'}>Remove Image</button>
+                </div>
+                <small>JPEG, PNG, WebP, or GIF; maximum 5 MB. Uploads take effect immediately.</small>
+            </div>
             <div class="form-grid">
                 <div class="form-group">
                     <label for="edit-char-name">Character Name *</label>
@@ -215,5 +277,7 @@ function generateSkillSelect(skillId, label, value) {
         </div>
     `;
 }
+
+Object.assign(window, { removeCharacterImage, uploadCharacterImage });
 
 export { generateAbilitiesTab, generateBasicInfoTab };

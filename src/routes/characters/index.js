@@ -203,5 +203,6 @@ router.use(require('./powers'));
 router.use(require('./familiars'));
 router.use(require('./weapons'));
 router.use(require('./spells'));
+router.use(require('./image'));
 
 module.exports = router;

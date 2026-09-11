@@ -172,6 +172,24 @@ header {
     font-size: 1.4rem;
 }
 
+.character-thumbnail {
+    display: block;
+    width: 80px;
+    height: 80px;
+    margin-bottom: 12px;
+    border-radius: 8px;
+    object-fit: cover;
+}
+
+.character-full-image {
+    display: block;
+    max-width: min(100%, 480px);
+    max-height: 480px;
+    margin: 0 auto 24px;
+    border-radius: 8px;
+    object-fit: contain;
+}
+
 .character-meta {
     display: flex;
     gap: 15px;
@@ -1311,6 +1329,27 @@ header {
 
 .char-edit-tab h4:first-child {
     margin-top: 0;
+}
+
+.character-image-editor {
+    margin-bottom: 24px;
+}
+
+.character-image-preview {
+    display: block;
+    max-width: 240px;
+    max-height: 240px;
+    margin-bottom: 12px;
+    border-radius: 8px;
+    object-fit: contain;
+}
+
+.character-image-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
 }
 
 /* Skills grid for better organization */
