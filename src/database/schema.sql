@@ -11,6 +11,11 @@ CREATE TABLE IF NOT EXISTS shadows (
     pattern_influence TEXT CHECK(pattern_influence IN ('Pattern', 'Argent Refrain', 'Logrus', 'Mixed', 'None', 'Nexus')),
     corruption_status TEXT,
     is_starting_shadow BOOLEAN DEFAULT 0,
+    is_spoiler BOOLEAN DEFAULT 0,
+
+    -- Ownership
+    created_by INTEGER,
+
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -22,7 +27,20 @@ CREATE TABLE IF NOT EXISTS characters (
     player_name TEXT,
     species TEXT NOT NULL,
     class_type TEXT NOT NULL,
+    subclass TEXT,
+    background TEXT,
+    alignment TEXT,
+    size TEXT DEFAULT 'Medium',
     level INTEGER DEFAULT 1,
+    user_id INTEGER,
+
+    -- Character Details
+    age TEXT,
+    height TEXT,
+    weight TEXT,
+    eyes TEXT,
+    skin TEXT,
+    hair TEXT,
 
     -- System-neutral core ability percentiles (D&D score 10 maps to 31)
     strength INTEGER DEFAULT 31,
@@ -36,7 +54,76 @@ CREATE TABLE IF NOT EXISTS characters (
     armor_class INTEGER DEFAULT 10,
     max_hp INTEGER DEFAULT 10,
     current_hp INTEGER DEFAULT 10,
+    temp_hit_points INTEGER DEFAULT 0,
     speed INTEGER DEFAULT 30,
+    proficiency_bonus INTEGER DEFAULT 2,
+    initiative_bonus INTEGER DEFAULT 0,
+    passive_perception INTEGER DEFAULT 10,
+    hit_dice_total TEXT DEFAULT '1d8',
+    hit_dice_current TEXT DEFAULT '1d8',
+    death_save_successes INTEGER DEFAULT 0,
+    death_save_failures INTEGER DEFAULT 0,
+    heroic_inspiration INTEGER DEFAULT 0,
+
+    -- Skills
+    skill_acrobatics INTEGER DEFAULT 0,
+    skill_animal_handling INTEGER DEFAULT 0,
+    skill_arcana INTEGER DEFAULT 0,
+    skill_athletics INTEGER DEFAULT 0,
+    skill_deception INTEGER DEFAULT 0,
+    skill_history INTEGER DEFAULT 0,
+    skill_insight INTEGER DEFAULT 0,
+    skill_intimidation INTEGER DEFAULT 0,
+    skill_investigation INTEGER DEFAULT 0,
+    skill_medicine INTEGER DEFAULT 0,
+    skill_nature INTEGER DEFAULT 0,
+    skill_perception INTEGER DEFAULT 0,
+    skill_performance INTEGER DEFAULT 0,
+    skill_persuasion INTEGER DEFAULT 0,
+    skill_religion INTEGER DEFAULT 0,
+    skill_sleight_of_hand INTEGER DEFAULT 0,
+    skill_stealth INTEGER DEFAULT 0,
+    skill_survival INTEGER DEFAULT 0,
+
+    -- Saving Throws
+    save_strength INTEGER DEFAULT 0,
+    save_dexterity INTEGER DEFAULT 0,
+    save_constitution INTEGER DEFAULT 0,
+    save_intelligence INTEGER DEFAULT 0,
+    save_wisdom INTEGER DEFAULT 0,
+    save_charisma INTEGER DEFAULT 0,
+
+    -- Proficiencies
+    armor_light INTEGER DEFAULT 0,
+    armor_medium INTEGER DEFAULT 0,
+    armor_heavy INTEGER DEFAULT 0,
+    armor_shields INTEGER DEFAULT 0,
+    weapons_simple INTEGER DEFAULT 0,
+    weapons_martial INTEGER DEFAULT 0,
+    tools_proficiency TEXT,
+
+    -- Spellcasting
+    spellcasting_ability TEXT,
+    spell_save_dc INTEGER DEFAULT 8,
+    spell_attack_bonus INTEGER DEFAULT 0,
+    spell_slots_1_total INTEGER DEFAULT 0,
+    spell_slots_1_expended INTEGER DEFAULT 0,
+    spell_slots_2_total INTEGER DEFAULT 0,
+    spell_slots_2_expended INTEGER DEFAULT 0,
+    spell_slots_3_total INTEGER DEFAULT 0,
+    spell_slots_3_expended INTEGER DEFAULT 0,
+    spell_slots_4_total INTEGER DEFAULT 0,
+    spell_slots_4_expended INTEGER DEFAULT 0,
+    spell_slots_5_total INTEGER DEFAULT 0,
+    spell_slots_5_expended INTEGER DEFAULT 0,
+    spell_slots_6_total INTEGER DEFAULT 0,
+    spell_slots_6_expended INTEGER DEFAULT 0,
+    spell_slots_7_total INTEGER DEFAULT 0,
+    spell_slots_7_expended INTEGER DEFAULT 0,
+    spell_slots_8_total INTEGER DEFAULT 0,
+    spell_slots_8_expended INTEGER DEFAULT 0,
+    spell_slots_9_total INTEGER DEFAULT 0,
+    spell_slots_9_expended INTEGER DEFAULT 0,
 
     -- Amber-Specific Attributes
     shadow_origin_id INTEGER,
@@ -53,6 +140,37 @@ CREATE TABLE IF NOT EXISTS characters (
     trump_artist BOOLEAN DEFAULT 0,
     trump_mastery_level INTEGER DEFAULT 0,
 
+    -- Character Description and Story
+    languages TEXT,
+    appearance TEXT,
+    personality TEXT,
+    backstory TEXT,
+    class_features TEXT,
+    species_traits TEXT,
+    feats TEXT,
+    desires TEXT,
+    fears TEXT,
+    allies_organizations TEXT,
+    character_story TEXT,
+
+    -- Currency and Treasure
+    copper_pieces INTEGER DEFAULT 0,
+    silver_pieces INTEGER DEFAULT 0,
+    electrum_pieces INTEGER DEFAULT 0,
+    gold_pieces INTEGER DEFAULT 0,
+    platinum_pieces INTEGER DEFAULT 0,
+    treasure TEXT,
+
+    -- Attunement
+    attunement_slots_used INTEGER DEFAULT 0,
+    attunement_slots_max INTEGER DEFAULT 3,
+
+    -- Additional Amber Attributes
+    pattern_type TEXT,
+    amber_flaws TEXT,
+    amber_traits TEXT,
+    broken_imprint BOOLEAN DEFAULT 0,
+
     -- Custom Feat/Leveling System
     feat_pool INTEGER DEFAULT 0,
     total_feats_earned INTEGER DEFAULT 0,
@@ -66,6 +184,7 @@ CREATE TABLE IF NOT EXISTS characters (
 
     -- Metadata
     character_notes TEXT,
+    image_url TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 
@@ -110,6 +229,10 @@ CREATE TABLE IF NOT EXISTS campaign_sessions (
     session_date DATE NOT NULL,
     session_title TEXT,
     dm_notes TEXT,
+    session_status TEXT DEFAULT 'planned',
+    opening_notes TEXT,
+    mid_notes TEXT,
+    closing_notes TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -164,10 +287,14 @@ CREATE TABLE IF NOT EXISTS npcs (
     alignment TEXT,
     faction TEXT,
     relationship_to_party TEXT,
+    role TEXT,
+    order_chaos_value INTEGER DEFAULT 50,
+    influence TEXT DEFAULT 'None',
 
     description TEXT,
     dm_notes TEXT,
     is_important BOOLEAN DEFAULT 0,
+    is_spoiler BOOLEAN DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 
@@ -248,6 +375,8 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT NOT NULL,
     email TEXT,
     is_dm BOOLEAN DEFAULT 0,
+    is_archived BOOLEAN DEFAULT 0,
+    is_super_admin BOOLEAN DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     last_login DATETIME
 );

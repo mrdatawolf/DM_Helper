@@ -69,6 +69,8 @@ function renderCharacters() {
             ${char.logrus_imprint ? '<span class="badge badge-logrus">Logrus</span>' : ''}
             ${char.trump_artist ? '<span class="badge">Trump Artist</span>' : ''}
             <div style="margin-top: 15px;">
+                <button class="btn-secondary" onclick="event.stopPropagation(); viewCharacterStory(${char.id})">Story</button>
+                <button class="btn-secondary" onclick="event.stopPropagation(); editCharacterStory(${char.id})">Edit Story</button>
                 <button class="btn-secondary" onclick="viewCharacter(${char.id})">View Details</button>
                 <button class="btn-secondary" onclick="viewCharacterAs(${char.id})">View As...</button>
                 <button class="btn-secondary" onclick="editCharacter(${char.id})">Edit</button>

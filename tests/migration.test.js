@@ -10,6 +10,7 @@ const { up: features } = require('../src/database/migrations/003-feature-tables'
 const { up: universalCoreAttributes } = require('../src/database/migrations/009-universal-core-attributes');
 const { up: characterSheetDetails } = require('../src/database/migrations/010-character-sheet-details');
 const { up: characterImage } = require('../src/database/migrations/011-character-image');
+const { up: characterStory } = require('../src/database/migrations/012-character-story');
 const { percentileFromScore } = require('../public/js/ability-conversion');
 
 function legacyDb() {
@@ -179,6 +180,20 @@ test('011 adds a nullable character image URL idempotently', () => {
 
     const column = db.prepare('PRAGMA table_info(characters)').all()
         .find(candidate => candidate.name === 'image_url');
+    assert.ok(column);
+    assert.strictEqual(column.notnull, 0);
+    assert.strictEqual(column.dflt_value, null);
+});
+
+test('012 adds a nullable character story idempotently', () => {
+    const db = new Database(':memory:');
+    db.exec(fs.readFileSync(path.join(__dirname, '../src/database/schema.sql'), 'utf8'));
+
+    characterStory(db);
+    assert.doesNotThrow(() => characterStory(db));
+
+    const column = db.prepare('PRAGMA table_info(characters)').all()
+        .find(candidate => candidate.name === 'character_story');
     assert.ok(column);
     assert.strictEqual(column.notnull, 0);
     assert.strictEqual(column.dflt_value, null);

@@ -59,6 +59,8 @@ async function loadCharacters() {
                     </div>
                 </div>
                 <div class="character-card-actions" style="margin-top: 10px; display: flex; gap: 8px;">
+                    <button class="btn-secondary btn-sm" onclick="event.stopPropagation(); viewCharacterStory(${char.id})">Story</button>
+                    <button class="btn-secondary btn-sm" onclick="event.stopPropagation(); editCharacterStory(${char.id})">Edit Story</button>
                     <button class="btn-secondary btn-sm" onclick="event.stopPropagation(); viewCharacterAs(${char.id})">View As...</button>
                     <button class="btn-secondary btn-sm" onclick="event.stopPropagation(); openEditCharacter(${char.id})">Edit</button>
                 </div>

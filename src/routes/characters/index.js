@@ -204,5 +204,6 @@ router.use(require('./familiars'));
 router.use(require('./weapons'));
 router.use(require('./spells'));
 router.use(require('./image'));
+router.use(require('./story'));
 
 module.exports = router;
