@@ -265,6 +265,16 @@
         </div>
     </div>
 
+    <div id="story-modal-overlay" class="story-modal-overlay" onclick="closeCharacterStory()">
+        <div class="story-modal" role="dialog" aria-modal="true" aria-labelledby="story-modal-title" onclick="event.stopPropagation()">
+            <div class="story-modal-header">
+                <h2 id="story-modal-title">Character Story</h2>
+                <button class="close-btn" aria-label="Close story" onclick="closeCharacterStory()">&times;</button>
+            </div>
+            <div id="story-modal-body" class="story-modal-body"></div>
+        </div>
+    </div>
+
     <!-- toast.js/api.js/dom-utils.js stay plain global scripts (see ADR-001);
          the dm-*.js modules below reference showToast/apiFetch/escHtml as
          ordinary globals. Module scripts are deferred automatically and
@@ -285,6 +295,7 @@
     <script type="module" src="/js/dm/dm-auth-guard.js"></script>
     <script type="module" src="/js/dm/dm-core.js"></script>
     <script type="module" src="/js/dm/dm-lists.js"></script>
+    <script type="module" src="/js/dm/dm-character-story.js"></script>
     <script type="module" src="/js/dm/dm-modal-utils.js"></script>
     <script type="module" src="/js/dm/dm-character-modals.js"></script>
     <script type="module" src="/js/dm/dm-shadow-modals.js"></script>

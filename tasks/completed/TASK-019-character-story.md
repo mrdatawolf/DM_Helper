@@ -191,25 +191,25 @@ two dashboards — this task follows that precedent, not a new one).
 
 ## Acceptance criteria
 
-- [ ] `characters.character_story` column exists (nullable, default
+- [x] `characters.character_story` column exists (nullable, default
       NULL).
-- [ ] "Story" and "Edit Story" buttons appear in the character card
+- [x] "Story" and "Edit Story" buttons appear in the character card
       action row on both the DM and player dashboards; "Edit Story" only
       does anything meaningful for a character the viewer can modify (the
       server enforces this regardless of what the button shows).
-- [ ] Clicking "Story" opens a full-screen, readable modal showing the
+- [x] Clicking "Story" opens a full-screen, readable modal showing the
       character's current story text (or a sensible empty state when
       there isn't one).
-- [ ] Clicking "Edit Story" opens an editable version with a textarea
+- [x] Clicking "Edit Story" opens an editable version with a textarea
       pre-filled with the current text; Save immediately persists via the
       new endpoint and updates what "Story" subsequently shows.
-- [ ] A non-owner (and non-DM/admin) `PUT` to the story endpoint is
+- [x] A non-owner (and non-DM/admin) `PUT` to the story endpoint is
       rejected with 403.
-- [ ] A story body that isn't a string, or exceeds the configured length
+- [x] A story body that isn't a string, or exceeds the configured length
       cap, is rejected with a 4xx error and doesn't touch the database.
-- [ ] `character_story` is not present in `CHARACTER_UPDATE_FIELDS` /
+- [x] `character_story` is not present in `CHARACTER_UPDATE_FIELDS` /
       cannot be set via the generic `PUT /api/characters/:id`.
-- [ ] `npm test` passes, including new tests for the story route.
+- [x] `npm test` passes, including new tests for the story route.
 
 ## Validation requirements
 
@@ -237,12 +237,112 @@ None.
 
 ## Implementation handoff
 
-Not started.
+Task: TASK-019 — Character story
+Implementer: openai-coder (Codex CLI)
+Date: 2026-09-11
+
+### Changes made
+
+- Added the guarded, idempotent `012-character-story.js` migration for the
+  nullable `character_story TEXT` column.
+- Added and mounted the authenticated `PUT /api/characters/:id/story` route,
+  including owner/DM/admin authorization, string and length validation, and
+  the updated-character response.
+- Added Story and Edit Story card actions, dedicated full-screen story modal
+  markup and dashboard-specific styling, and focused story modules for both
+  player and DM dashboards.
+- Added focused API coverage for valid saves, clearing, invalid and oversized
+  bodies, non-owner authorization, and generic-update exclusion, plus migration
+  coverage for nullability, default value, and idempotence.
+
+### Validation performed
+
+- `npm test` — passed: 73 tests, 0 failures.
+- `git diff --check` — passed (line-ending conversion notices only).
+- Parsed both new frontend files with Node's ES-module syntax checker.
+- Confirmed by source inspection that `character_story` is absent from
+  `CHARACTER_UPDATE_FIELDS`, both dashboards load their new module and contain
+  the dedicated modal, and both character card renderers contain the two new
+  actions.
+- The manual browser exercise in the Validation requirements was not performed:
+  this environment has no installed browser automation runtime. Visual sizing,
+  interaction, save/reopen behavior, and the direct-API 403 remain available
+  for reviewer/manual confirmation (the save/reopen state flow and 403 are also
+  covered by source inspection and API tests respectively).
+
+### Acceptance criteria evidence
+
+- All acceptance criteria are checked above. Migration metadata is asserted in
+  `tests/migration.test.js`; route validation, persistence, authorization, and
+  generic-update isolation are asserted in `tests/character-story.test.js`;
+  dashboard markup, styles, actions, state update, and read/edit render paths
+  provide the UI criteria.
+
+### Assumptions and deviations
+
+- Used the suggested 20,000-character cap.
+- Added focused `player-character-story.js` and `dm-character-story.js` files
+  instead of growing the existing character-list modules.
+- After Save, the modal switches to read-only mode and the corresponding
+  in-memory character is updated immediately.
+- No deviations from the approved scope.
+
+### Unresolved risks
+
+- Manual visual/browser validation on both dashboards remains outstanding as
+  noted above. In particular, the modal's comfortable reading presentation on
+  the reviewer's target browser and viewport should be confirmed.
+- The accepted payload-size tradeoff remains: story text rides along with
+  existing character list/detail responses.
+
+### Documentation updated
+
+- Updated this task handoff; no architecture or contract documentation change
+  was required.
 
 ## Review
 
-Not reviewed.
+Reviewer: Claude
+Date: 2026-09-11
+
+Verified independently: read every changed/new file in full, ran `npm test`
+(73/73 passing), traced the route's auth guard, confirmed
+`character_story` is absent from `CHARACTER_UPDATE_FIELDS`, and checked
+`escHtml` usage for injection safety in both the read-only prose render and
+the textarea's initial value.
+
+### Finding: unrequested `src/database/schema.sql` edit (minor)
+
+`src/database/schema.sql`'s `characters` table was edited to add
+`character_story TEXT` directly (alongside `character_notes`). This
+contradicts an established, consistent pattern in this codebase: no column
+added by any prior migration (001 through 011 — e.g. `image_url`, and every
+column `010-character-sheet-details.js` adds such as `age`/`height`/
+`treasure`) has ever been folded back into `schema.sql`, which only reflects
+the original pre-migration baseline; every one of those columns lives solely
+in its migration file. The task's own Plan/Scope never asked for a
+`schema.sql` change, only the migration file. It's functionally harmless
+(the migration's own `columns.has(...)` guard makes it a no-op either way,
+and tests pass), but it's scope the task didn't authorize and it breaks a
+convention a future reader would reasonably rely on. The handoff's
+"Assumptions and deviations" section lists this edit but its own summary
+line still states "No deviations from the approved scope," which is
+inaccurate given this one.
+
+Recommendation: revert the one added line in `schema.sql` for consistency;
+everything else is ready to accept as-is. Not severe enough on its own that
+I'd call the task incomplete.
+
+**Resolved (2026-09-11):** sent back to the implementer, which reverted the
+`schema.sql` line, corrected the handoff's "Documentation updated"/"Changes
+made" sections to stop claiming it, and reconfirmed `npm test` (73/73). I
+re-verified: `git diff src/database/schema.sql` is now empty and the suite
+still passes.
+
+No other findings. Everything in Acceptance criteria checks out against the
+actual code and passing tests, not just the handoff's claims. Ready for
+human acceptance.
 
 ## Human acceptance
 
-Pending.
+Accepted by Patrick, 2026-09-11.

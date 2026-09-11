@@ -159,19 +159,20 @@ the authoritative method):
 
 ## Acceptance criteria
 
-- [ ] A comparison between a `schema.sql`-only database and a fully
+- [x] A comparison between a `schema.sql`-only database and a fully
       `runMigrations`-applied database shows zero column/type/default
       discrepancies, for every table defined in `schema.sql`.
-- [ ] `schema.sql`'s existing comments and per-table organization are
+- [x] `schema.sql`'s existing comments and per-table organization are
       preserved; new columns are added consistent with that style, not via
       a wholesale mechanical regeneration.
-- [ ] No table that was previously absent from `schema.sql` has been added
+- [x] No table that was previously absent from `schema.sql` has been added
       to it.
-- [ ] No migration file's logic changed (diff should show `schema.sql` and
-      new/changed test files only).
-- [ ] A permanent test guards this invariant going forward and is part of
+- [x] No migration file's logic changed except the narrow, human-approved
+      idempotency guard in `005-spoiler-flag.js`; no other migration behavior
+      changed.
+- [x] A permanent test guards this invariant going forward and is part of
       the normal `npm test` run.
-- [ ] `npm test` passes.
+- [x] `npm test` passes.
 
 ## Validation requirements
 
@@ -204,12 +205,120 @@ None.
 
 ## Implementation handoff
 
-Not started.
+Task: TASK-020 — Reconcile schema.sql with the fully-migrated schema
+Implementer: openai-coder (Codex CLI)
+Date: 2026-09-11
+
+### Changes made
+
+- Reconciled every table already defined in `src/database/schema.sql` with
+  its fully migrated column shape while preserving the file's hand-written
+  table sections and logical column groups. This includes the previously
+  blocked `shadows.is_spoiler` and `npcs.is_spoiler` columns.
+- Confirmed the legacy names handled by `001-unify-character-columns.js` are
+  already represented by their unified names in `schema.sql`.
+- Added `tests/schema-sql-sync.test.js`. It creates an in-memory schema-only
+  database and an in-memory fully migrated database, then compares column
+  name, type, nullability, default, and primary-key metadata for every table
+  declared in `schema.sql`.
+- Added existence checks around both `ALTER TABLE ... ADD COLUMN` statements
+  in `005-spoiler-flag.js` so migration 005 is a no-op when either spoiler
+  column already exists.
+
+### Validation performed
+
+- `node --test tests/schema-sql-sync.test.js` — passed (1/1).
+- `npm test` — passed (74/74).
+- Manually compared `PRAGMA table_info` results for
+  `characters.image_url` and `users.is_super_admin` in schema-only and fully
+  migrated in-memory databases. Both matched in name, type, nullability,
+  default, and primary-key metadata.
+
+### Acceptance criteria evidence
+
+- The permanent comparison reports no discrepancies for any table declared
+  in `schema.sql`.
+- The schema was edited in place; existing comments and table organization
+  remain intact, and no migration-only table was added.
+- The schema-sync test is automatically discovered by the existing
+  `node --test` npm script.
+- The full test suite passes.
+
+### Assumptions and deviations
+
+- **Deliberate, human-approved deviation from the original task scope:** the
+  original instruction prohibited migration changes, but adding
+  `is_spoiler` to the baseline `shadows` and `npcs` definitions exposed that
+  `005-spoiler-flag.js` uniquely used unconditional `ALTER TABLE ... ADD
+  COLUMN` statements. On a fresh install those statements would fail with
+  `duplicate column name`. Per the human's explicit follow-up decision, the
+  migration now checks `PRAGMA table_info` with `Set.has(...)` before each
+  add, matching the repository's established migration pattern. This is the
+  only migration change; column definitions and all other behavior are
+  unchanged. Already-migrated databases remain no-ops, while legacy databases
+  missing either column still receive it.
+
+### Unresolved risks
+
+- None identified within scope. As specified, the comparison covers column
+  metadata reported by `PRAGMA table_info`; it does not attempt to reconcile
+  foreign keys, checks, or indexes.
+
+### Documentation updated
+
+- This implementation handoff and the acceptance-criteria status were
+  updated. No architecture or behavioral documentation change was needed.
 
 ## Review
 
-Not reviewed.
+Reviewer: Claude
+Date: 2026-09-11
+
+Verified independently, not just from the handoff's claims:
+
+- Read the full `schema.sql` diff (129 insertions across `shadows`,
+  `characters`, `campaign_sessions`, `npcs`, `users`) — comments and
+  per-table organization are preserved, new columns are grouped sensibly
+  (e.g. a new "Character Details"/"Skills"/"Saving Throws"/etc. structure
+  inside `characters`), and no table absent from the original file was
+  added.
+- Ran `npm test` myself: 74/74 passing.
+- Proved the new `tests/schema-sql-sync.test.js` is a real regression
+  guard, not a vacuous pass: temporarily stripped `character_story` back
+  out of `schema.sql` and reran just that test — it failed, correctly
+  reporting the `characters` table drift. Restored and reconfirmed green.
+- Confirmed only one migration file changed
+  (`005-spoiler-flag.js`, 9 insertions/2 deletions) and its guard matches
+  the established `Set.has(...)` pattern used by every other migration in
+  this codebase (e.g. `006-creature-stats.js`). The fix is exactly what was
+  authorized: existing databases that already ran migration 005 see no
+  behavior change (the guard is a no-op there); a fresh install now
+  succeeds instead of crashing on `duplicate column name`.
+- Confirmed the `001-unify-character-columns.js` rename claim: current
+  `schema.sql` already uses the unified names, no change was needed there,
+  matches the handoff's claim.
+
+One thing worth noting but not blocking: the new guard on `005-spoiler-flag.js`
+doesn't get its own dedicated idempotency test the way migrations
+010/011/012 each do (call `up(db)` twice, assert no throw). It's still
+exercised indirectly — `schema-sql-sync.test.js` runs the full migration
+chain against a schema.sql-bootstrapped database, which is exactly the
+scenario that used to crash — so the fix is covered, just not as legibly
+as a dedicated test would make it. Not worth another round-trip for.
+
+No other findings. Acceptance criteria all check out against the actual
+code and passing tests. Ready for human acceptance.
+
+Reviewer aside, unrelated to this task's quality: while spot-checking the
+sync test's failure behavior I accidentally ran `git checkout --
+src/database/schema.sql`, which discarded the implementer's uncommitted
+reconciliation work back to the pre-task baseline. Caught immediately and
+recovered in full from a backup copy taken moments earlier — verified via
+`git diff --stat` (129 insertions, matching the original) and a full
+`npm test` rerun (74/74) after recovery. No work was actually lost, but
+flagging it for the record since it was a real, if brief, destructive
+mistake on my part.
 
 ## Human acceptance
 
-Pending.
+Accepted by Patrick, 2026-09-11.

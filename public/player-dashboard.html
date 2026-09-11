@@ -1406,6 +1406,16 @@
         </div>
     </div>
 
+    <div id="story-modal-overlay" class="story-modal-overlay" onclick="closeCharacterStory()">
+        <div class="story-modal" role="dialog" aria-modal="true" aria-labelledby="story-modal-title" onclick="event.stopPropagation()">
+            <div class="story-modal-header">
+                <h2 id="story-modal-title">Character Story</h2>
+                <button class="close-btn" aria-label="Close story" onclick="closeCharacterStory()">&times;</button>
+            </div>
+            <div id="story-modal-body" class="story-modal-body"></div>
+        </div>
+    </div>
+
     <!-- Player dashboard scripts. toast.js/api.js/dom-utils.js stay classic
          scripts (read as ordinary globals from the modules below, see
          ADR-001); the player-*.js files are real ES modules — the browser
@@ -1426,6 +1436,7 @@
     <script type="module" src="/js/player/player-state.js"></script>
     <script type="module" src="/js/player/player-core.js"></script>
     <script type="module" src="/js/player/player-characters.js"></script>
+    <script type="module" src="/js/player/player-character-story.js"></script>
     <script type="module" src="/js/player/player-character-sheet.js"></script>
     <script type="module" src="/js/player/player-gear-powers.js"></script>
     <script type="module" src="/js/player/player-familiars.js"></script>
