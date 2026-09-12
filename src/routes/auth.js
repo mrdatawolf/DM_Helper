@@ -196,6 +196,8 @@ router.get('/characters', authenticate, asyncHandler((req, res, next) => {
                 order_chaos_value,
                 pattern_imprint, logrus_imprint,
                 blood_purity, trump_artist,
+                strength, dexterity, constitution,
+                intelligence, wisdom, charisma,
                 created_at
             FROM characters
             WHERE user_id = ?
