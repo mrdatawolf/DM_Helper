@@ -65,10 +65,9 @@ test('anonymous requests are rejected on protected routes', async () => {
     assert.strictEqual((await api('POST', '/api/sessions', { body: {} })).status, 401);
 });
 
-test('public reads stay open', async () => {
+test('campaign-owned reads require authentication', async () => {
     const res = await api('GET', '/api/shadows');
-    assert.strictEqual(res.status, 200);
-    assert.ok(Array.isArray(res.body));
+    assert.strictEqual(res.status, 401);
 });
 
 test('a player can create a character with unified field names', async () => {
@@ -135,6 +134,8 @@ test('a DM can edit any character', async () => {
     });
     assert.strictEqual(login.status, 200);
     dm = { token: login.body.token, user: login.body.user };
+    getDatabase().prepare("UPDATE campaign_members SET role = 'dm' WHERE campaign_id = 1 AND user_id = ?")
+        .run(dm.user.id);
 
     const res = await api('PUT', `/api/characters/${charId}`, {
         token: dm.token, body: { feat_pool: 3 }
@@ -296,6 +297,30 @@ test('campaign switching scopes character access and rejects non-members', async
     })).status, 400);
 
     const secondCampaignToken = createdCampaign.body.token;
+    const secondShadow = await api('POST', '/api/shadows', {
+        token: secondCampaignToken,
+        body: { name: 'Second Campaign Shadow', description: 'Campaign two only' }
+    });
+    assert.strictEqual(secondShadow.status, 201, JSON.stringify(secondShadow.body));
+    assert.strictEqual((await api('GET', `/api/shadows/${secondShadow.body.id}`, {
+        token: secondCampaignToken
+    })).status, 200, 'same-campaign shadow access is allowed');
+    assert.strictEqual((await api('GET', `/api/shadows/${secondShadow.body.id}`, {
+        token: dm.token
+    })).status, 404, 'a token in another campaign cannot see the shadow');
+
+    const secondNpc = await api('POST', '/api/npcs', {
+        token: secondCampaignToken,
+        body: { name: 'Second Campaign NPC', description: 'Campaign two only' }
+    });
+    assert.strictEqual(secondNpc.status, 201, JSON.stringify(secondNpc.body));
+    assert.strictEqual((await api('GET', `/api/npcs/${secondNpc.body.id}`, {
+        token: secondCampaignToken
+    })).status, 200, 'same-campaign NPC access is allowed');
+    assert.strictEqual((await api('GET', `/api/npcs/${secondNpc.body.id}`, {
+        token: dm.token
+    })).status, 404, 'a token in another campaign cannot see the NPC');
+
     const secondCharacter = await api('POST', '/api/characters', {
         token: secondCampaignToken,
         body: { name: 'Elsewhere', species: 'Human', class_type: 'Rogue' }
