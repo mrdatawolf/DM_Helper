@@ -334,6 +334,72 @@ test('campaign switching scopes character access and rejects non-members', async
         token: dm.token
     })).status, 404, 'a token in another campaign cannot see the character');
 
+    const secondSession = await api('POST', '/api/sessions', {
+        token: secondCampaignToken,
+        body: { session_number: 9028, session_date: '2026-09-13', session_title: 'Campaign Two Session' }
+    });
+    assert.strictEqual(secondSession.status, 201, JSON.stringify(secondSession.body));
+    assert.strictEqual((await api('GET', `/api/sessions/${secondSession.body.id}`, {
+        token: secondCampaignToken
+    })).status, 200, 'same-campaign session access is allowed');
+    assert.strictEqual((await api('GET', `/api/sessions/${secondSession.body.id}`, {
+        token: dm.token
+    })).status, 404, 'a token in another campaign cannot see the session');
+
+    const secondScene = await api('POST', '/api/scenes', {
+        token: secondCampaignToken,
+        body: { character_id: secondCharacter.body.id, title: 'Campaign Two Scene', status: 'approved' }
+    });
+    assert.strictEqual(secondScene.status, 201, JSON.stringify(secondScene.body));
+    const sameCampaignScenes = await api('GET', '/api/scenes', { token: secondCampaignToken });
+    const otherCampaignScenes = await api('GET', '/api/scenes', { token: dm.token });
+    assert.ok(sameCampaignScenes.body.some(scene => scene.id === secondScene.body.id),
+        'same-campaign scene access is allowed');
+    assert.ok(!otherCampaignScenes.body.some(scene => scene.id === secondScene.body.id),
+        'a token in another campaign cannot see the scene');
+
+    const secondNote = await api('POST', '/api/session-notes', {
+        token: secondCampaignToken,
+        body: { session_id: secondSession.body.id, content: 'Campaign two only', visibility: 'public' }
+    });
+    assert.strictEqual(secondNote.status, 201, JSON.stringify(secondNote.body));
+    const sameCampaignNotes = await api('GET',
+        `/api/session-notes?session_id=${secondSession.body.id}`, { token: secondCampaignToken });
+    const otherCampaignNotes = await api('GET',
+        `/api/session-notes?session_id=${secondSession.body.id}`, { token: dm.token });
+    assert.ok(sameCampaignNotes.body.some(note => note.id === secondNote.body.id),
+        'same-campaign session-note access is allowed');
+    assert.strictEqual(otherCampaignNotes.body.length, 0,
+        'a token in another campaign cannot see session notes');
+
+    const secondCombat = await api('POST', '/api/combats', {
+        token: secondCampaignToken,
+        body: { session_id: secondSession.body.id, title: 'Campaign Two Combat' }
+    });
+    assert.strictEqual(secondCombat.status, 201, JSON.stringify(secondCombat.body));
+    assert.strictEqual((await api('GET', `/api/combats/${secondCombat.body.id}`, {
+        token: secondCampaignToken
+    })).status, 200, 'same-campaign combat access is allowed');
+    assert.strictEqual((await api('GET', `/api/combats/${secondCombat.body.id}`, {
+        token: dm.token
+    })).status, 404, 'a token in another campaign cannot see the combat');
+
+    const secondProgress = await api('POST', '/api/progress', {
+        token: secondCampaignToken,
+        body: {
+            character_id: secondCharacter.body.id,
+            session_id: secondSession.body.id,
+            summary: 'Campaign two progress'
+        }
+    });
+    assert.strictEqual(secondProgress.status, 201, JSON.stringify(secondProgress.body));
+    assert.strictEqual((await api('GET', `/api/progress/${secondProgress.body.id}`, {
+        token: secondCampaignToken
+    })).status, 200, 'same-campaign progress access is allowed');
+    assert.strictEqual((await api('GET', `/api/progress/${secondProgress.body.id}`, {
+        token: dm.token
+    })).status, 404, 'a token in another campaign cannot see progress');
+
     const deniedSwitch = await api('POST', '/api/auth/campaigns/switch', {
         token: alice.token, body: { campaign_id: createdCampaign.body.id }
     });
