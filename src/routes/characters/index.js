@@ -1,16 +1,19 @@
 const express = require('express');
 const router = express.Router();
 const { getDatabase } = require('../../database/connection');
-const { authenticate, isDMOrAdmin } = require('../../middleware/auth');
+const { authenticate, isDMOrAdmin, requireCampaignMembership } = require('../../middleware/auth');
 const { serializeFamiliar } = require('../../utils/familiars');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { buildUpdateQuery } = require('../../utils/buildUpdateQuery');
-const { canModifyCharacter } = require('./shared');
+const { canModifyCharacter, requireCampaignCharacter } = require('./shared');
 const { CHARACTER_UPDATE_FIELDS } = require('./fields');
 const { percentileFromScore } = require('../../../public/js/ability-conversion');
 
+router.use(authenticate, requireCampaignMembership);
+router.use('/:id', requireCampaignCharacter);
+
 // Get all characters
-router.get('/', authenticate, asyncHandler((req, res) => {
+router.get('/', asyncHandler((req, res) => {
     const db = getDatabase();
     const characters = db.prepare(`
         SELECT
@@ -18,16 +21,17 @@ router.get('/', authenticate, asyncHandler((req, res) => {
             so.name as shadow_origin_name,
             cs.name as current_shadow_name
         FROM characters c
+        JOIN campaign_characters cc ON cc.character_id = c.id AND cc.campaign_id = ?
         LEFT JOIN shadows so ON c.shadow_origin_id = so.id
         LEFT JOIN shadows cs ON c.current_shadow_id = cs.id
         ORDER BY c.created_at DESC
-    `).all();
+    `).all(req.campaign.id);
 
     res.json(characters);
 }));
 
 // Get single character by ID
-router.get('/:id', authenticate, asyncHandler((req, res) => {
+router.get('/:id', asyncHandler((req, res) => {
     const db = getDatabase();
     const character = db.prepare(`
         SELECT
@@ -37,8 +41,9 @@ router.get('/:id', authenticate, asyncHandler((req, res) => {
         FROM characters c
         LEFT JOIN shadows so ON c.shadow_origin_id = so.id
         LEFT JOIN shadows cs ON c.current_shadow_id = cs.id
-        WHERE c.id = ?
-    `).get(req.params.id);
+        JOIN campaign_characters cc ON cc.character_id = c.id
+        WHERE c.id = ? AND cc.campaign_id = ?
+    `).get(req.params.id, req.campaign.id);
 
     if (!character) {
         return res.status(404).json({ error: 'Character not found' });
@@ -62,10 +67,10 @@ router.get('/:id', authenticate, asyncHandler((req, res) => {
         FROM character_progress cp
         LEFT JOIN shadows s ON cp.shadow_id = s.id
         LEFT JOIN campaign_sessions cs ON cp.session_id = cs.id
-        WHERE cp.character_id = ?
+        WHERE cp.character_id = ? AND cp.campaign_id = ?
         ORDER BY cs.session_date DESC
         LIMIT 10
-    `).all(req.params.id);
+    `).all(req.params.id, req.campaign.id);
 
     res.json({
         ...character,
@@ -79,7 +84,7 @@ router.get('/:id', authenticate, asyncHandler((req, res) => {
 }));
 
 // Create new character
-router.post('/', authenticate, asyncHandler((req, res) => {
+router.post('/', asyncHandler((req, res) => {
     const db = getDatabase();
     const {
         name, player_name = null, race, species, class_type, level = 1,
@@ -144,17 +149,16 @@ router.post('/', authenticate, asyncHandler((req, res) => {
     const characterId = result.lastInsertRowid;
 
     // Initialize claim pool for new character with 10 starting points
-    db.prepare(`
-        INSERT INTO claim_point_pools (character_id, total_points, spent_points)
-        VALUES (?, 10, 0)
-    `).run(characterId);
+    db.prepare('INSERT INTO campaign_characters (campaign_id, character_id) VALUES (?, ?)').run(req.campaign.id, characterId);
+    db.prepare(`INSERT INTO claim_point_pools (character_id, total_points, spent_points, campaign_id) VALUES (?, 10, 0, ?)`)
+        .run(characterId, req.campaign.id);
 
     const newCharacter = db.prepare('SELECT * FROM characters WHERE id = ?').get(characterId);
     res.status(201).json(newCharacter);
 }));
 
 // Update character
-router.put('/:id', authenticate, asyncHandler((req, res) => {
+router.put('/:id', asyncHandler((req, res) => {
     const db = getDatabase();
     const characterId = req.params.id;
 
@@ -179,7 +183,7 @@ router.put('/:id', authenticate, asyncHandler((req, res) => {
 }));
 
 // Delete character
-router.delete('/:id', authenticate, asyncHandler((req, res) => {
+router.delete('/:id', asyncHandler((req, res) => {
     const db = getDatabase();
     const existing = db.prepare('SELECT id, user_id FROM characters WHERE id = ?').get(req.params.id);
     if (!existing) {

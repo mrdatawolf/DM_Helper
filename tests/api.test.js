@@ -273,6 +273,46 @@ test('/api/auth/characters returns unified column names', async () => {
     assert.ok('shadow_origin_id' in c, 'shadow_origin_id exposed for Known Shadows tab');
 });
 
+test('campaign switching scopes character access and rejects non-members', async () => {
+    const createdCampaign = await api('POST', '/api/auth/campaigns', {
+        token: dm.token,
+        body: { name: 'Second Campaign', system_id: 'dnd5e', universe_id: 'amber' }
+    });
+    assert.strictEqual(createdCampaign.status, 201, JSON.stringify(createdCampaign.body));
+
+    const secondCampaignToken = createdCampaign.body.token;
+    const secondCharacter = await api('POST', '/api/characters', {
+        token: secondCampaignToken,
+        body: { name: 'Elsewhere', species: 'Human', class_type: 'Rogue' }
+    });
+    assert.strictEqual(secondCharacter.status, 201, JSON.stringify(secondCharacter.body));
+
+    assert.strictEqual((await api('GET', `/api/characters/${secondCharacter.body.id}`, {
+        token: secondCampaignToken
+    })).status, 200, 'same-campaign character access is allowed');
+    assert.strictEqual((await api('GET', `/api/characters/${secondCharacter.body.id}`, {
+        token: dm.token
+    })).status, 404, 'a token in another campaign cannot see the character');
+
+    const deniedSwitch = await api('POST', '/api/auth/campaigns/switch', {
+        token: alice.token, body: { campaign_id: createdCampaign.body.id }
+    });
+    assert.strictEqual(deniedSwitch.status, 403, 'non-members cannot switch into a campaign');
+
+    const switchedBack = await api('POST', '/api/auth/campaigns/switch', {
+        token: secondCampaignToken, body: { campaign_id: 1 }
+    });
+    assert.strictEqual(switchedBack.status, 200);
+    assert.strictEqual((await api('GET', `/api/characters/${charId}`, { token: switchedBack.body.token })).status, 200);
+});
+
+test('account-level admin authorization remains global', async () => {
+    const admin = await register('admin');
+    const users = await api('GET', '/api/admin/users', { token: admin.token });
+    assert.strictEqual(users.status, 200);
+    assert.ok(Array.isArray(users.body.users));
+});
+
 test('the owner can delete their character', async () => {
     const res = await api('DELETE', `/api/characters/${charId}`, { token: alice.token });
     assert.strictEqual(res.status, 200);

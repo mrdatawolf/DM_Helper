@@ -1,4 +1,16 @@
 const { isDMOrAdmin } = require('../../middleware/auth');
+const { getDatabase } = require('../../database/connection');
+
+function requireCampaignCharacter(req, res, next) {
+    const character = getDatabase().prepare(`
+        SELECT c.id, c.user_id FROM characters c
+        JOIN campaign_characters cc ON cc.character_id = c.id
+        WHERE c.id = ? AND cc.campaign_id = ?
+    `).get(req.params.id, req.campaign.id);
+    if (!character) return res.status(404).json({ error: 'Character not found' });
+    req.campaignCharacter = character;
+    next();
+}
 
 // Owner or DM (or admin-equivalent) may modify a character
 function canModifyCharacter(reqUser, character) {
@@ -18,4 +30,4 @@ function requireDMUser(req, res) {
     return true;
 }
 
-module.exports = { canModifyCharacter, requireDMUser };
+module.exports = { canModifyCharacter, requireDMUser, requireCampaignCharacter };
