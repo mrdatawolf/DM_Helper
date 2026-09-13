@@ -10,7 +10,20 @@ DM Helper is a single Node.js process (`src/server.js`) serving both a JSON API
 and static frontend assets over HTTP, backed by a single local SQLite file
 (`dm_helper.db`). There is no separate backend service, no external database
 server, and no third-party integrations beyond the npm dependencies. It is
-designed to be run by one operator (the DM) for one campaign at a time.
+currently implemented around one implicit campaign, but its accepted direction
+is a personal, self-hosted multi-tenant deployment for a small, trusted group of
+DMs and players. The single-process and single-SQLite-file boundaries remain in
+place as campaign tenancy is introduced.
+
+Per `docs/decisions/ADR-005-campaign-system-universe-model.md`, Campaign is the
+top-level tenant object. Each campaign has its own owner, members, and
+campaign-owned data and independently selects a code-defined System (rules
+engine) and Universe (setting/lore) plugin. Characters relate to campaigns
+many-to-many and retain one shared character sheet. The current Amber
+Diceless / D&D 5e campaign becomes the first campaign and the `amber` universe
+plus `dnd5e` system become reference plugins as that decision is implemented
+incrementally. Runtime-installed packs, public self-signup, and
+production-grade SaaS tenant hardening are outside this architecture's scope.
 
 ## Major components
 
