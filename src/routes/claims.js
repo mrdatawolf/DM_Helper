@@ -2,22 +2,27 @@ const express = require('express');
 const { dndModifier } = require('../../public/js/ability-conversion');
 const router = express.Router();
 const { getDatabase } = require('../database/connection');
-const { authenticate, requireDM, isDMOrAdmin } = require('../middleware/auth');
+const { authenticate, requireCampaignMembership, requireCampaignRole } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
 
 // True if the requesting user owns the character (or is DM/admin)
-function ownsCharacter(db, reqUser, characterId) {
-    if (isDMOrAdmin(reqUser)) return true;
-    const c = db.prepare('SELECT user_id FROM characters WHERE id = ?').get(characterId);
-    return !!c && c.user_id === reqUser.userId;
+function ownsCharacter(db, reqUser, campaign, characterId) {
+    const c = db.prepare(`
+        SELECT c.user_id FROM characters c
+        JOIN campaign_characters cc ON cc.character_id = c.id
+        WHERE c.id = ? AND cc.campaign_id = ?
+    `).get(characterId, campaign.id);
+    return !!c && (campaign.role === 'dm' || c.user_id === reqUser.userId);
 }
+
+router.use(authenticate, requireCampaignMembership);
 
 // Get character's claim point pool
 router.get('/pool/:character_id', asyncHandler((req, res) => {
     const db = getDatabase();
     const pool = db.prepare(`
-        SELECT * FROM claim_point_pools WHERE character_id = ?
-    `).get(req.params.character_id);
+        SELECT * FROM claim_point_pools WHERE character_id = ? AND campaign_id = ?
+    `).get(req.params.character_id, req.campaign.id);
 
     if (!pool) {
         return res.status(404).json({ error: 'Character not found or pool not initialized' });
@@ -31,9 +36,9 @@ router.get('/character/:character_id', asyncHandler((req, res) => {
     const db = getDatabase();
     const claims = db.prepare(`
         SELECT * FROM attribute_claims
-        WHERE character_id = ?
+        WHERE character_id = ? AND campaign_id = ?
         ORDER BY attribute_name
-    `).all(req.params.character_id);
+    `).all(req.params.character_id, req.campaign.id);
 
     res.json(claims);
 }));
@@ -51,9 +56,9 @@ router.get('/rankings/actual/:attribute_name', asyncHandler((req, res) => {
             ac.updated_at
         FROM attribute_claims ac
         JOIN characters c ON ac.character_id = c.id
-        WHERE ac.attribute_name = ?
+        WHERE ac.attribute_name = ? AND ac.campaign_id = ?
         ORDER BY ac.points_spent DESC, ac.updated_at ASC
-    `).all(req.params.attribute_name);
+    `).all(req.params.attribute_name, req.campaign.id);
 
     res.json(rankings);
 }));
@@ -74,16 +79,16 @@ router.get('/rankings/perceived/:character_id/:attribute_name', asyncHandler((re
         FROM perceived_rankings pr
         JOIN characters c ON pr.target_character_id = c.id
         WHERE pr.observer_character_id = ?
-        AND pr.attribute_name = ?
+        AND pr.attribute_name = ? AND pr.campaign_id = ?
         ORDER BY pr.perceived_points DESC
-    `).all(character_id, attribute_name);
+    `).all(character_id, attribute_name, req.campaign.id);
 
     // Get the character's own actual claim
     const ownClaim = db.prepare(`
         SELECT points_spent
         FROM attribute_claims
-        WHERE character_id = ? AND attribute_name = ?
-    `).get(character_id, attribute_name);
+        WHERE character_id = ? AND attribute_name = ? AND campaign_id = ?
+    `).get(character_id, attribute_name, req.campaign.id);
 
     res.json({
         own_points: ownClaim ? ownClaim.points_spent : 0,
@@ -97,8 +102,8 @@ router.get('/rankings/all', asyncHandler((req, res) => {
 
     // Get all distinct attributes that have claims
     const attributes = db.prepare(`
-        SELECT DISTINCT attribute_name FROM attribute_claims ORDER BY attribute_name
-    `).all();
+        SELECT DISTINCT attribute_name FROM attribute_claims WHERE campaign_id = ? ORDER BY attribute_name
+    `).all(req.campaign.id);
 
     const allRankings = {};
 
@@ -111,9 +116,9 @@ router.get('/rankings/all', asyncHandler((req, res) => {
                 ac.justification
             FROM attribute_claims ac
             JOIN characters c ON ac.character_id = c.id
-            WHERE ac.attribute_name = ?
+            WHERE ac.attribute_name = ? AND ac.campaign_id = ?
             ORDER BY ac.points_spent DESC, ac.updated_at ASC
-        `).all(attr.attribute_name);
+        `).all(attr.attribute_name, req.campaign.id);
 
         allRankings[attr.attribute_name] = rankings;
     }
@@ -122,7 +127,7 @@ router.get('/rankings/all', asyncHandler((req, res) => {
 }));
 
 // Allocate/update claim points for an attribute
-router.post('/allocate', authenticate, asyncHandler((req, res) => {
+router.post('/allocate', asyncHandler((req, res) => {
     const db = getDatabase();
     const { character_id, attribute_name, points_to_add, justification } = req.body;
 
@@ -132,12 +137,13 @@ router.post('/allocate', authenticate, asyncHandler((req, res) => {
         });
     }
 
-    if (!ownsCharacter(db, req.user, character_id)) {
+    if (!ownsCharacter(db, req.user, req.campaign, character_id)) {
         return res.status(403).json({ error: 'You can only allocate points for your own characters' });
     }
 
     // Get current pool
-    const pool = db.prepare('SELECT * FROM claim_point_pools WHERE character_id = ?').get(character_id);
+    const pool = db.prepare('SELECT * FROM claim_point_pools WHERE character_id = ? AND campaign_id = ?')
+        .get(character_id, req.campaign.id);
     if (!pool) {
         return res.status(404).json({ error: 'Character claim pool not found' });
     }
@@ -152,8 +158,8 @@ router.post('/allocate', authenticate, asyncHandler((req, res) => {
     // Get current claim for this attribute
     const currentClaim = db.prepare(`
         SELECT * FROM attribute_claims
-        WHERE character_id = ? AND attribute_name = ?
-    `).get(character_id, attribute_name);
+        WHERE character_id = ? AND attribute_name = ? AND campaign_id = ?
+    `).get(character_id, attribute_name, req.campaign.id);
 
     const newTotal = (currentClaim ? currentClaim.points_spent : 0) + points_to_add;
 
@@ -165,36 +171,36 @@ router.post('/allocate', authenticate, asyncHandler((req, res) => {
             db.prepare(`
                 UPDATE attribute_claims
                 SET points_spent = ?, justification = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE character_id = ? AND attribute_name = ?
-            `).run(newTotal, justification, character_id, attribute_name);
+                WHERE character_id = ? AND attribute_name = ? AND campaign_id = ?
+            `).run(newTotal, justification, character_id, attribute_name, req.campaign.id);
         } else {
             // Create new claim
             db.prepare(`
-                INSERT INTO attribute_claims (character_id, attribute_name, points_spent, justification)
-                VALUES (?, ?, ?, ?)
-            `).run(character_id, attribute_name, newTotal, justification);
+                INSERT INTO attribute_claims (character_id, attribute_name, points_spent, justification, campaign_id)
+                VALUES (?, ?, ?, ?, ?)
+            `).run(character_id, attribute_name, newTotal, justification, req.campaign.id);
         }
 
         // Update spent points in pool
         db.prepare(`
             UPDATE claim_point_pools
             SET spent_points = spent_points + ?
-            WHERE character_id = ?
-        `).run(points_to_add, character_id);
+            WHERE character_id = ? AND campaign_id = ?
+        `).run(points_to_add, character_id, req.campaign.id);
 
         // Log the change
         db.prepare(`
-            INSERT INTO claim_history (character_id, attribute_name, points_change, justification)
-            VALUES (?, ?, ?, ?)
-        `).run(character_id, attribute_name, points_to_add, justification);
+            INSERT INTO claim_history (character_id, attribute_name, points_change, justification, campaign_id)
+            VALUES (?, ?, ?, ?, ?)
+        `).run(character_id, attribute_name, points_to_add, justification, req.campaign.id);
 
         db.exec('COMMIT');
 
         // Return updated claim
         const updated = db.prepare(`
             SELECT * FROM attribute_claims
-            WHERE character_id = ? AND attribute_name = ?
-        `).get(character_id, attribute_name);
+            WHERE character_id = ? AND attribute_name = ? AND campaign_id = ?
+        `).get(character_id, attribute_name, req.campaign.id);
 
         res.json(updated);
 
@@ -206,7 +212,7 @@ router.post('/allocate', authenticate, asyncHandler((req, res) => {
 }));
 
 // Set perceived ranking (what a character thinks about another)
-router.post('/perception', authenticate, asyncHandler((req, res) => {
+router.post('/perception', asyncHandler((req, res) => {
     const db = getDatabase();
     const {
         observer_character_id,
@@ -222,14 +228,14 @@ router.post('/perception', authenticate, asyncHandler((req, res) => {
         });
     }
 
-    if (!ownsCharacter(db, req.user, observer_character_id)) {
+    if (!ownsCharacter(db, req.user, req.campaign, observer_character_id)) {
         return res.status(403).json({ error: 'You can only record perceptions for your own characters' });
     }
 
     const stmt = db.prepare(`
         INSERT INTO perceived_rankings
-        (observer_character_id, target_character_id, attribute_name, perceived_points, perception_notes)
-        VALUES (?, ?, ?, ?, ?)
+        (observer_character_id, target_character_id, attribute_name, perceived_points, perception_notes, campaign_id)
+        VALUES (?, ?, ?, ?, ?, ?)
         ON CONFLICT(observer_character_id, target_character_id, attribute_name)
         DO UPDATE SET
             perceived_points = excluded.perceived_points,
@@ -237,7 +243,13 @@ router.post('/perception', authenticate, asyncHandler((req, res) => {
             updated_at = CURRENT_TIMESTAMP
     `);
 
-    stmt.run(observer_character_id, target_character_id, attribute_name, perceived_points, perception_notes);
+    const target = db.prepare(
+        'SELECT 1 FROM campaign_characters WHERE character_id = ? AND campaign_id = ?'
+    ).get(target_character_id, req.campaign.id);
+    if (!target) return res.status(404).json({ error: 'Target character not found' });
+
+    stmt.run(observer_character_id, target_character_id, attribute_name, perceived_points,
+        perception_notes, req.campaign.id);
 
     res.json({
         message: 'Perception updated',
@@ -250,7 +262,7 @@ router.post('/perception', authenticate, asyncHandler((req, res) => {
 }));
 
 // Grant additional claim points to a character (DM function)
-router.post('/grant-points', authenticate, requireDM, asyncHandler((req, res) => {
+router.post('/grant-points', requireCampaignRole('dm'), asyncHandler((req, res) => {
     const db = getDatabase();
     const { character_id, points, reason } = req.body;
 
@@ -258,19 +270,24 @@ router.post('/grant-points', authenticate, requireDM, asyncHandler((req, res) =>
         return res.status(400).json({ error: 'character_id, points, and reason are required' });
     }
 
-    db.prepare(`
+    const grant = db.prepare(`
         UPDATE claim_point_pools
         SET total_points = total_points + ?
-        WHERE character_id = ?
-    `).run(points, character_id);
+        WHERE character_id = ? AND campaign_id = ?
+    `).run(points, character_id, req.campaign.id);
+    if (grant.changes === 0) {
+        return res.status(404).json({ error: 'Character claim pool not found' });
+    }
 
     // Log it in history
     db.prepare(`
-        INSERT INTO claim_history (character_id, attribute_name, points_change, justification)
-        VALUES (?, 'POOL_GRANT', ?, ?)
-    `).run(character_id, points, reason);
+        INSERT INTO claim_history (character_id, attribute_name, points_change, justification, campaign_id)
+        SELECT ?, 'POOL_GRANT', ?, ?, ?
+        WHERE EXISTS (SELECT 1 FROM claim_point_pools WHERE character_id = ? AND campaign_id = ?)
+    `).run(character_id, points, reason, req.campaign.id, character_id, req.campaign.id);
 
-    const updated = db.prepare('SELECT * FROM claim_point_pools WHERE character_id = ?').get(character_id);
+    const updated = db.prepare('SELECT * FROM claim_point_pools WHERE character_id = ? AND campaign_id = ?')
+        .get(character_id, req.campaign.id);
     res.json(updated);
 
 }));
@@ -280,9 +297,9 @@ router.get('/history/:character_id', asyncHandler((req, res) => {
     const db = getDatabase();
     const history = db.prepare(`
         SELECT * FROM claim_history
-        WHERE character_id = ?
+        WHERE character_id = ? AND campaign_id = ?
         ORDER BY changed_at DESC
-    `).all(req.params.character_id);
+    `).all(req.params.character_id, req.campaign.id);
 
     res.json(history);
 }));
@@ -307,7 +324,7 @@ const ATTRIBUTE_ABILITY_MAP = {
 };
 
 // Resolve a claim for an attribute check (returns bonuses for player; no writes)
-router.post('/resolve', authenticate, asyncHandler((req, res) => {
+router.post('/resolve', asyncHandler((req, res) => {
     const db = getDatabase();
     const { character_id, attribute_name, roll_result } = req.body;
 
@@ -318,19 +335,23 @@ router.post('/resolve', authenticate, asyncHandler((req, res) => {
     }
 
     const abilityColumn = ATTRIBUTE_ABILITY_MAP[attribute_name];
+    const character = db.prepare(`
+        SELECT c.* FROM characters c
+        JOIN campaign_characters cc ON cc.character_id = c.id
+        WHERE c.id = ? AND cc.campaign_id = ?
+    `).get(character_id, req.campaign.id);
+    if (!character) return res.status(404).json({ error: 'Character not found' });
+
     let abilityBonus = 0;
     if (abilityColumn) {
-        const character = db.prepare(`SELECT ${abilityColumn} FROM characters WHERE id = ?`).get(character_id);
-        if (character) {
-            abilityBonus = dndModifier(character[abilityColumn]);
-        }
+        abilityBonus = dndModifier(character[abilityColumn]);
     }
 
     // Get this character's claim
     const claim = db.prepare(`
         SELECT * FROM attribute_claims
-        WHERE character_id = ? AND attribute_name = ?
-    `).get(character_id, attribute_name);
+        WHERE character_id = ? AND attribute_name = ? AND campaign_id = ?
+    `).get(character_id, attribute_name, req.campaign.id);
 
     if (!claim || claim.points_spent === 0) {
         // No claim made — ability modifier still applies
@@ -348,9 +369,9 @@ router.post('/resolve', authenticate, asyncHandler((req, res) => {
     const allClaims = db.prepare(`
         SELECT character_id, points_spent
         FROM attribute_claims
-        WHERE attribute_name = ?
+        WHERE attribute_name = ? AND campaign_id = ?
         ORDER BY points_spent DESC, updated_at ASC
-    `).all(attribute_name);
+    `).all(attribute_name, req.campaign.id);
 
     // Check if this character is the best (highest points, or tied for highest with earliest timestamp)
     const isBest = allClaims.length > 0 && allClaims[0].character_id === character_id;
@@ -385,9 +406,9 @@ router.get('/rankings/actual/:attribute_name/with-best', asyncHandler((req, res)
             ac.updated_at
         FROM attribute_claims ac
         JOIN characters c ON ac.character_id = c.id
-        WHERE ac.attribute_name = ?
+        WHERE ac.attribute_name = ? AND ac.campaign_id = ?
         ORDER BY ac.points_spent DESC, ac.updated_at ASC
-    `).all(req.params.attribute_name);
+    `).all(req.params.attribute_name, req.campaign.id);
 
     // Mark the best (first in sorted order)
     const result = rankings.map((rank, index) => ({
@@ -405,8 +426,8 @@ router.get('/rankings/all/with-best', asyncHandler((req, res) => {
 
     // Get all distinct attributes that have claims
     const attributes = db.prepare(`
-        SELECT DISTINCT attribute_name FROM attribute_claims ORDER BY attribute_name
-    `).all();
+        SELECT DISTINCT attribute_name FROM attribute_claims WHERE campaign_id = ? ORDER BY attribute_name
+    `).all(req.campaign.id);
 
     const allRankings = {};
 
@@ -420,9 +441,9 @@ router.get('/rankings/all/with-best', asyncHandler((req, res) => {
                 ac.updated_at
             FROM attribute_claims ac
             JOIN characters c ON ac.character_id = c.id
-            WHERE ac.attribute_name = ?
+            WHERE ac.attribute_name = ? AND ac.campaign_id = ?
             ORDER BY ac.points_spent DESC, ac.updated_at ASC
-        `).all(attr.attribute_name);
+        `).all(attr.attribute_name, req.campaign.id);
 
         // Mark the best
         allRankings[attr.attribute_name] = rankings.map((rank, index) => ({

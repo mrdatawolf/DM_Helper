@@ -65,9 +65,10 @@ test('anonymous requests are rejected on protected routes', async () => {
     assert.strictEqual((await api('POST', '/api/sessions', { body: {} })).status, 401);
 });
 
-test('campaign-owned reads require authentication', async () => {
-    const res = await api('GET', '/api/shadows');
-    assert.strictEqual(res.status, 401);
+test('campaign-owned reads, including formerly anonymous narrative reads, require authentication', async () => {
+    for (const route of ['/api/shadows', '/api/arcs', '/api/beats', '/api/primal-patterns', '/api/claims/rankings/all']) {
+        assert.strictEqual((await api('GET', route)).status, 401, `${route} should require authentication`);
+    }
 });
 
 test('a player can create a character with unified field names', async () => {
@@ -252,6 +253,20 @@ test('claim allocation respects character ownership', async () => {
     assert.strictEqual(other.status, 403);
 });
 
+test('claim player actions remain accessible while point grants remain DM-only', async () => {
+    const playerGrant = await api('POST', '/api/claims/grant-points', {
+        token: alice.token,
+        body: { character_id: charId, points: 2, reason: 'Not authorized' }
+    });
+    assert.strictEqual(playerGrant.status, 403);
+
+    const dmGrant = await api('POST', '/api/claims/grant-points', {
+        token: dm.token,
+        body: { character_id: charId, points: 2, reason: 'Story reward' }
+    });
+    assert.strictEqual(dmGrant.status, 200, JSON.stringify(dmGrant.body));
+});
+
 test('claim resolution derives its ability bonus from the stored percentile', async () => {
     const resolved = await api('POST', '/api/claims/resolve', {
         token: alice.token,
@@ -333,6 +348,61 @@ test('campaign switching scopes character access and rejects non-members', async
     assert.strictEqual((await api('GET', `/api/characters/${secondCharacter.body.id}`, {
         token: dm.token
     })).status, 404, 'a token in another campaign cannot see the character');
+
+    const secondJournal = await api('POST', '/api/journal', {
+        token: secondCampaignToken,
+        body: { character_id: secondCharacter.body.id, title: 'Elsewhere Notes', content: 'Campaign two only' }
+    });
+    assert.strictEqual(secondJournal.status, 201, JSON.stringify(secondJournal.body));
+    const sameCampaignJournal = await api('GET', `/api/journal/character/${secondCharacter.body.id}`, {
+        token: secondCampaignToken
+    });
+    assert.ok(sameCampaignJournal.body.entries.some(entry => entry.id === secondJournal.body.id),
+        'same-campaign journal access is allowed');
+    assert.strictEqual((await api('GET', `/api/journal/character/${secondCharacter.body.id}`, {
+        token: dm.token
+    })).status, 404, 'a token in another campaign cannot see the journal character');
+
+    const secondArc = await api('POST', '/api/arcs', {
+        token: secondCampaignToken,
+        body: { character_id: secondCharacter.body.id, title: 'Elsewhere Arc' }
+    });
+    assert.strictEqual(secondArc.status, 201, JSON.stringify(secondArc.body));
+    assert.strictEqual((await api('GET', `/api/arcs/${secondArc.body.id}`, {
+        token: secondCampaignToken
+    })).status, 200, 'same-campaign arc access is allowed');
+    assert.strictEqual((await api('GET', `/api/arcs/${secondArc.body.id}`, {
+        token: dm.token
+    })).status, 404, 'a token in another campaign cannot see the arc');
+
+    const secondBeat = await api('POST', '/api/beats', {
+        token: secondCampaignToken,
+        body: { title: 'Elsewhere Beat' }
+    });
+    assert.strictEqual(secondBeat.status, 201, JSON.stringify(secondBeat.body));
+    const sameCampaignBeats = await api('GET', '/api/beats', { token: secondCampaignToken });
+    const otherCampaignBeats = await api('GET', '/api/beats', { token: dm.token });
+    assert.ok(sameCampaignBeats.body.some(beat => beat.id === secondBeat.body.id),
+        'same-campaign beat access is allowed');
+    assert.ok(!otherCampaignBeats.body.some(beat => beat.id === secondBeat.body.id),
+        'a token in another campaign cannot see the beat');
+
+    const secondPatternId = db.prepare(
+        'SELECT id FROM primal_patterns WHERE campaign_id = ? ORDER BY id LIMIT 1'
+    ).get(createdCampaign.body.id).id;
+    assert.strictEqual((await api('GET', `/api/primal-patterns/${secondPatternId}`, {
+        token: secondCampaignToken
+    })).status, 200, 'same-campaign primal-pattern access is allowed');
+    assert.strictEqual((await api('GET', `/api/primal-patterns/${secondPatternId}`, {
+        token: dm.token
+    })).status, 404, 'a token in another campaign cannot see the primal pattern');
+
+    assert.strictEqual((await api('GET', `/api/claims/pool/${secondCharacter.body.id}`, {
+        token: secondCampaignToken
+    })).status, 200, 'same-campaign claim access is allowed');
+    assert.strictEqual((await api('GET', `/api/claims/pool/${secondCharacter.body.id}`, {
+        token: dm.token
+    })).status, 404, 'a token in another campaign cannot see the claim pool');
 
     const secondSession = await api('POST', '/api/sessions', {
         token: secondCampaignToken,

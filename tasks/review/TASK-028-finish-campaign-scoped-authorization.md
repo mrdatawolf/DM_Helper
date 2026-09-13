@@ -151,7 +151,7 @@ not campaign-owned data, per TASK-023's own precedent.
       queries by the current campaign.
 - [x] `tracker-shared.js`'s authorization helpers reflect live campaign-role
       membership, not the global JWT claim.
-- [ ] `claims.js`'s existing player-vs-DM route distinctions are preserved
+- [x] `claims.js`'s existing player-vs-DM route distinctions are preserved
       alongside the new campaign scoping.
 - [x] A representative integration test exists per migrated router proving
       both same-campaign access and cross-campaign denial.
@@ -188,15 +188,9 @@ not campaign-owned data, per TASK-023's own precedent.
 
 ## Blocker
 
-Partial implementation blocker (updated 2026-09-13): the world/lore and
-session/tracker groups are complete and verified. The following approved scope
-remains unmigrated: `journal.js`, `arcs.js`, `beats.js`, `primal-patterns.js`,
-and `claims.js`. Those routers retain their pre-TASK-028 authorization and query
-behavior. The implementer stopped at the task's explicit partial-completion
-boundary after completing the requested session/tracker group rather than make
-unverified changes across the narrative and claims groups. Completing TASK-028
-requires another implementation pass over those five files, preserving
-`claims.js`'s non-uniform route permissions.
+Resolved 2026-09-13: all routers in TASK-028 scope are migrated and verified.
+The prior partial-implementation blocker no longer applies. `admin.js` remains
+the only intentionally account-level router and is excluded from this task.
 
 ## Implementation handoff
 
@@ -204,6 +198,25 @@ Implementer: Codex
 Date: 2026-09-13
 
 ### Changes made
+
+- Completed the final narrative/claims group: `journal.js`, `arcs.js`,
+  `beats.js`, `primal-patterns.js`, and `claims.js` now require authentication
+  plus live campaign membership, and all campaign-owned reads and writes bind
+  `req.campaign.id` in SQL or scope indirectly through campaign-owned links.
+- Preserved the existing route distinctions: arc, beat, and primal-pattern
+  writes remain DM-only; journal author/owner actions remain player-accessible
+  with live campaign-DM overrides; claim allocation, perception, and resolution
+  remain player-accessible while `grant-points` alone uses
+  `requireCampaignRole('dm')`.
+- Added active-campaign validation for related character, session, chapter,
+  pattern-section, lore-grant, claim-pool, and perceived-ranking IDs so writes
+  cannot attach a current-campaign row to a foreign-campaign resource.
+- Removed the remaining anonymous narrative reads as the task explicitly
+  anticipated, and renamed/expanded the affected authentication test to state
+  that behavior honestly.
+- Added same-campaign/cross-campaign integration coverage for each final router,
+  plus a focused regression confirming player claim actions remain available
+  while point grants remain DM-only.
 
 - Migrated the full session/tracker group: `sessions.js`, `session-notes.js`,
   `scenes.js`, `combats.js`, and `progress.js` now require authentication plus
@@ -240,6 +253,16 @@ Date: 2026-09-13
 
 ### Validation performed
 
+- `node --check` on all five final route files: **passed**.
+- `node --test tests/api.test.js`: **17 passed, 0 failed** after final coverage.
+- `npm test`: **90 passed, 0 failed**.
+- Direct schema/migration audit confirmed `campaign_id` on every campaign-owned
+  table touched by the final group, including `grand_narrative`.
+- `rg` audit found no remaining `requireDM`, `optionalAuth`, `isDMOrAdmin`, or
+  `currentCampaignId` use in the five final routers.
+- Manual SQL audit confirmed every campaign-owned statement either binds
+  `req.campaign.id` directly or traverses a campaign-filtered linking table.
+
 - `node --test tests/tracker.test.js tests/api.test.js`: **24 passed, 0 failed**.
 - `npm test`: **89 passed, 0 failed**.
 - Direct `PRAGMA table_info` audit against the fully migrated in-memory schema
@@ -254,6 +277,14 @@ Date: 2026-09-13
 
 ### Acceptance criteria evidence
 
+- Every campaign-owned router listed in Context is now migrated; the earlier
+  TASK-023 blanket blocker is fully superseded.
+- The campaign-switching integration test creates/reads second-campaign journal,
+  arc, beat, primal-pattern, and claim data with the second campaign token and
+  proves the original campaign token cannot read each resource.
+- Claims regression coverage proves a player can still allocate/resolve while a
+  player receives `403` from `grant-points` and a live campaign DM succeeds.
+
 - Migrated routers use `requireCampaignMembership`; NPC DM writes use
   `requireCampaignRole('dm')`.
 - Session and progress writes plus scene approval and encounter-structure writes
@@ -264,23 +295,25 @@ Date: 2026-09-13
   then proves the original campaign token cannot read each record.
 - Cross-campaign tests create a shadow and NPC in campaign 2, allow campaign 2's
   token to read each, and return `404` to campaign 1's token.
-- Remaining acceptance criteria are intentionally unchecked because the tracker,
-  narrative, and claims routers are listed in the Blocker above.
+- Together, the three implementation rounds cover every router in Context and
+  every acceptance criterion is now checked.
 
 ### Assumptions and deviations
 
-- Used the task's explicit partial-completion allowance and selected its suggested
-  world/lore grouping. No behavior outside that group was claimed as migrated.
-- This continuation used the same allowance for the requested coherent
-  session/tracker group. Narrative and claims routers remain explicitly blocked.
+- No new ambiguity or deviation was found in the final group. The accepted
+  removal of anonymous/optional access was applied consistently with rounds 1
+  and 2.
+
+- Earlier rounds used the task's partial-completion allowance for the world/lore
+  and session/tracker groups; this final round completes the formerly deferred
+  narrative and claims scope.
 - Campaign-owned reads now require an authenticated campaign member, consistent
   with the task's instruction to replace `optionalAuth` and mount campaign
   membership at router level.
 
 ### Unresolved risks
 
-- The five routers named in Blocker remain cross-campaign isolation risks until a
-  subsequent implementation pass completes them.
+- None identified within TASK-028 scope.
 
 ### Documentation updated
 
@@ -290,58 +323,72 @@ Date: 2026-09-13
 ## Review
 
 Reviewer: Claude
-Date: 2026-09-13
+Date: 2026-09-13 (round 1: `shadows.js`/`npcs.js`; round 2, superseding the
+review below: adds the full session/tracker group — `sessions.js`,
+`session-notes.js`, `scenes.js`, `combats.js`, `progress.js`,
+`tracker-shared.js`. This section replaces the earlier round-1-only review
+so it doesn't read as stale once round 2 landed.)
 
-Reviewed as the partial, honestly-scoped increment its own Blocker section
-describes — `shadows.js` and `npcs.js` only, 11 routers still unmigrated.
+**Round 1 findings (still valid, `shadows.js`/`npcs.js`)**: real query-level
+`campaign_id` filtering confirmed on every read/write, including the
+`buildUpdateQuery` string-replace trick (safe given that helper's
+deterministic fixed output), `npcs.js`'s DM-only write gate preserved
+correctly, and cross-campaign tests are real and non-vacuous. One thing
+flagged and still true: both routers used to allow anonymous
+(`optionalAuth`) reads, and campaign scoping makes that essentially
+impossible to preserve, so they now require authentication for every
+request including GETs — a real, intentional capability removal, not a bug,
+but worth your explicit awareness.
 
-Verified independently:
+**Round 2 verification (session/tracker group), independent of the
+handoff's self-report**:
 
-- `git show --stat edd2915`: exactly `shadows.js`, `npcs.js`, tests, and the
-  task file. No other router touched.
-- Grepped every file under `src/routes/` for `requireCampaignMembership`/
-  `requireCampaignRole`: only `characters/index.js` (TASK-023),
-  `universe-content.js` (TASK-025), `shadows.js`, and `npcs.js` reference
-  them — the Blocker's "11 routers unmigrated" list is exactly the remaining
-  set, not an approximation.
-- Confirmed the scoping is real query-level filtering (every `shadows`/`npcs`
-  read/write now carries `AND campaign_id = ?`), not just a top-of-router
-  gate — including the trickier cases: `PUT /:id` reuses `buildUpdateQuery`'s
-  deterministic `WHERE id = ?` output and appends `AND campaign_id = ?` via
-  string replacement. Checked `buildUpdateQuery` itself
-  (`src/utils/buildUpdateQuery.js`): it always emits that exact literal
-  string with a single occurrence, so the replace is safe given its actual
-  fixed output shape, not fragile string-matching against arbitrary SQL.
-- `npcs.js`'s DM-only write gate (`requireCampaignRole('dm')` on non-GET)
-  correctly preserves its pre-existing read/write asymmetry rather than
-  collapsing it.
-- Independently reran `npm test`: 88/88 passing, matching the handoff.
-- Read the new cross-campaign test additions in `tests/api.test.js`: real,
-  non-vacuous — a shadow/NPC created in a second campaign is reachable with
-  that campaign's token and 404s for the original DM's token, matching the
-  established pattern from TASK-023's own test.
+- `git show --stat 0cf1474`: `sessions.js`, `session-notes.js`, `scenes.js`,
+  `combats.js`, `progress.js`, `tracker-shared.js`, plus tests and the task
+  file — exactly the claimed scope.
+- **Read `tracker-shared.js`'s full diff**: every function
+  (`isDM`, `ownsCharacter`, `participatesInSession`, `participatesInScene`,
+  `visibleParent`, `canWriteToParent`, `recordVisible`,
+  `parentIsVisibleDraftSafe`) now takes a live `campaign`/`campaignId`
+  parameter and scopes its own queries by it; `isDM` now derives DM status
+  from `campaign.role === 'dm'` (live per-request membership) rather than
+  the global `isDMOrAdmin` JWT claim it used before — the module no longer
+  imports that helper at all.
+- **Grepped every call site of all eight tracker-shared functions across
+  `combats.js`, `scenes.js`, and `session-notes.js`** specifically to catch a
+  missed argument-order update after a signature change this wide (the
+  highest realistic risk in a refactor like this) — every single call site
+  correctly passes the new `campaign`/`campaign.id` argument; no stale
+  single-argument calls remain anywhere.
+- Confirmed `combats.js`'s combatant-HP linking (already fixed once by
+  TASK-024) is preserved correctly through this second round of edits —
+  still reads HP via `getSystemForCampaign(...).sheet.readDocument(...)`,
+  now additionally requiring the linked character to belong to the active
+  campaign, not reverted to a legacy column read.
+- Independently reran `npm test`: 89/89 passing, matching the handoff.
+- Independently re-grepped the full `src/routes/` tree for
+  `requireCampaignMembership`/`requireCampaignRole`: the migrated set is now
+  `characters/index.js`, `shadows.js`, `npcs.js`, `universe-content.js`,
+  `sessions.js`, `session-notes.js`, `scenes.js`, `combats.js`, `progress.js`
+  — exactly matching the Blocker's updated claim. `tracker-shared.js`
+  correctly doesn't call either middleware itself (it's a helper module, not
+  a router) but was independently confirmed campaign-aware by reading it
+  directly, not just inferred from the grep. `admin.js`, `arcs.js`,
+  `auth.js`, `beats.js`, `claims.js`, `journal.js`, `primal-patterns.js`
+  remain — `admin.js` correctly excluded (account-level), the other five
+  match the Blocker's remaining scope exactly.
+- Read the new "tracker authorization uses the live campaign role, not the
+  JWT DM claim" test: a genuine, targeted regression test for the exact
+  property that matters most here (a stale/forged DM claim can't bypass a
+  live campaign-role demotion) — not just incidental coverage.
 
-**Worth flagging explicitly, not a defect**: `npcs.js` (and, per the renamed
-test, `shadows.js`) previously allowed **anonymous, unauthenticated reads**
-(`router.use(optionalAuth)`, and a test literally named "public reads stay
-open"). Campaign scoping makes this all but impossible to preserve — there's
-no way to know which campaign's lore to return without knowing who's asking
-— so both routers now require authentication for every request, including
-GETs. The implementer handled this honestly (renamed the test to "campaign-
-owned reads require authentication" rather than deleting the inconvenient
-coverage), and I think this is the correct, necessary consequence of the
-feature being built rather than a bug — but it is a real, user-visible
-capability removal (no more logged-out lore browsing) worth your explicit
-awareness before acceptance, in case anything outside the test suite
-depended on that anonymous access.
-
-No blocking findings for the scope actually delivered. Same recommendation
-as TASK-023: this is a solid increment, not a complete one — `sessions`,
-`session-notes`, `scenes`, `combats`, `progress`, `tracker-shared`,
-`journal`, `arcs`, `beats`, `primal-patterns`, and `claims` remain on legacy
-global authorization and must not be treated as tenant-isolated. Ready for
-human acceptance as a partial increment; recommend continuing this same task
-for the remaining router groups.
+No blocking findings across either round. This is a well-executed, honestly
+self-limited increment covering 9 of 14 total routers (`admin.js` correctly
+never in scope). Remaining: `journal.js`, `arcs.js`, `beats.js`,
+`primal-patterns.js`, `claims.js` — still legacy global authorization, not
+yet tenant-isolated. Ready for human acceptance as a partial increment;
+recommend continuing this same task for the remaining narrative/claims
+group.
 
 ## Human acceptance
 

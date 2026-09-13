@@ -1,20 +1,26 @@
 const express = require('express');
 const router = express.Router();
 const { getDatabase } = require('../database/connection');
-const { authenticate, requireDM } = require('../middleware/auth');
+const { authenticate, requireCampaignMembership, requireCampaignRole } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
 
-// Write operations require a logged-in DM; reads stay open
-router.use((req, res, next) => {
-    if (req.method === 'GET') return next();
-    authenticate(req, res, () => requireDM(req, res, next));
-});
+router.use(authenticate, requireCampaignMembership);
+router.use((req, res, next) => req.method === 'GET'
+    ? next()
+    : requireCampaignRole('dm')(req, res, next));
+
+function characterBelongsToCampaign(db, characterId, campaignId) {
+    return characterId == null || Boolean(db.prepare(
+        'SELECT 1 FROM campaign_characters WHERE character_id = ? AND campaign_id = ?'
+    ).get(characterId, campaignId));
+}
 
 // ── Grand Narrative (must be before /:id to avoid param capture) ──
 
 router.get('/grand-narrative', asyncHandler((req, res) => {
     const db = getDatabase();
-    res.json(db.prepare('SELECT * FROM grand_narrative WHERE id = 1').get() || {});
+    res.json(db.prepare('SELECT * FROM grand_narrative WHERE id = 1 AND campaign_id = ?')
+        .get(req.campaign.id) || {});
 }));
 
 router.put('/grand-narrative', asyncHandler((req, res) => {
@@ -24,9 +30,11 @@ router.put('/grand-narrative', asyncHandler((req, res) => {
         UPDATE grand_narrative
         SET title = ?, summary = ?, factions = ?, dm_notes = ?,
             updated_at = CURRENT_TIMESTAMP
-        WHERE id = 1
-    `).run(title || 'The Grand Narrative', summary || null, factions || null, dm_notes || null);
-    res.json(db.prepare('SELECT * FROM grand_narrative WHERE id = 1').get());
+        WHERE id = 1 AND campaign_id = ?
+    `).run(title || 'The Grand Narrative', summary || null, factions || null, dm_notes || null,
+        req.campaign.id);
+    res.json(db.prepare('SELECT * FROM grand_narrative WHERE id = 1 AND campaign_id = ?')
+        .get(req.campaign.id));
 }));
 
 // ── Story Arcs ─────────────────────────────────────────────────
@@ -41,15 +49,16 @@ router.get('/', asyncHandler((req, res) => {
             SUM(CASE WHEN ch.status = 'completed' THEN 1 ELSE 0 END) AS chapter_done
         FROM story_arcs a
         LEFT JOIN characters c  ON c.id  = a.character_id
-        LEFT JOIN chapters   ch ON ch.arc_id = a.id
+        LEFT JOIN chapters ch ON ch.arc_id = a.id AND ch.campaign_id = a.campaign_id
+        WHERE a.campaign_id = ?
         GROUP BY a.id
         ORDER BY c.name ASC NULLS LAST, a.order_index ASC, a.created_at ASC
-    `).all();
+    `).all(req.campaign.id);
 
     for (const arc of arcs) {
         arc.chapters = db.prepare(
-            'SELECT id, title, status FROM chapters WHERE arc_id = ? ORDER BY order_index ASC, id ASC'
-        ).all(arc.id);
+            'SELECT id, title, status FROM chapters WHERE arc_id = ? AND campaign_id = ? ORDER BY order_index ASC, id ASC'
+        ).all(arc.id, req.campaign.id);
     }
 
     res.json(arcs);
@@ -59,21 +68,25 @@ router.post('/', asyncHandler((req, res) => {
     const db = getDatabase();
     const { character_id, title, theme, description, status = 'planned', dm_notes } = req.body;
     if (!title) return res.status(400).json({ error: 'Title is required' });
+    if (!characterBelongsToCampaign(db, character_id, req.campaign.id)) {
+        return res.status(404).json({ error: 'Character not found' });
+    }
 
     const maxOrder = db.prepare(
-        'SELECT COALESCE(MAX(order_index), -1) AS m FROM story_arcs WHERE character_id IS ?'
-    ).get(character_id || null).m;
+        'SELECT COALESCE(MAX(order_index), -1) AS m FROM story_arcs WHERE character_id IS ? AND campaign_id = ?'
+    ).get(character_id || null, req.campaign.id).m;
 
     const result = db.prepare(`
-        INSERT INTO story_arcs (character_id, title, theme, description, status, dm_notes, order_index)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(character_id || null, title, theme || null, description || null, status, dm_notes || null, maxOrder + 1);
+        INSERT INTO story_arcs (character_id, title, theme, description, status, dm_notes, order_index, campaign_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(character_id || null, title, theme || null, description || null, status, dm_notes || null,
+        maxOrder + 1, req.campaign.id);
 
     const arc = db.prepare(`
         SELECT a.*, c.name AS character_name
         FROM story_arcs a LEFT JOIN characters c ON c.id = a.character_id
-        WHERE a.id = ?
-    `).get(result.lastInsertRowid);
+        WHERE a.id = ? AND a.campaign_id = ?
+    `).get(result.lastInsertRowid, req.campaign.id);
     arc.chapters = [];
 
     res.status(201).json(arc);
@@ -84,21 +97,21 @@ router.get('/:id', asyncHandler((req, res) => {
     const arc = db.prepare(`
         SELECT a.*, c.name AS character_name
         FROM story_arcs a LEFT JOIN characters c ON c.id = a.character_id
-        WHERE a.id = ?
-    `).get(req.params.id);
+        WHERE a.id = ? AND a.campaign_id = ?
+    `).get(req.params.id, req.campaign.id);
     if (!arc) return res.status(404).json({ error: 'Arc not found' });
 
     const chapters = db.prepare(
-        'SELECT * FROM chapters WHERE arc_id = ? ORDER BY order_index ASC, id ASC'
-    ).all(arc.id);
+        'SELECT * FROM chapters WHERE arc_id = ? AND campaign_id = ? ORDER BY order_index ASC, id ASC'
+    ).all(arc.id, req.campaign.id);
 
     for (const ch of chapters) {
         ch.beats = db.prepare(`
             SELECT b.* FROM beats b
             JOIN beat_chapters bc ON bc.beat_id = b.id
-            WHERE bc.chapter_id = ?
+            WHERE bc.chapter_id = ? AND bc.campaign_id = ? AND b.campaign_id = ?
             ORDER BY b.created_at ASC
-        `).all(ch.id);
+        `).all(ch.id, req.campaign.id, req.campaign.id);
     }
 
     res.json({ ...arc, chapters });
@@ -106,35 +119,41 @@ router.get('/:id', asyncHandler((req, res) => {
 
 router.put('/:id', asyncHandler((req, res) => {
     const db = getDatabase();
-    if (!db.prepare('SELECT id FROM story_arcs WHERE id = ?').get(req.params.id)) {
+    if (!db.prepare('SELECT id FROM story_arcs WHERE id = ? AND campaign_id = ?')
+        .get(req.params.id, req.campaign.id)) {
         return res.status(404).json({ error: 'Arc not found' });
     }
     const { character_id, title, theme, description, status, dm_notes, order_index } = req.body;
+    if (!characterBelongsToCampaign(db, character_id, req.campaign.id)) {
+        return res.status(404).json({ error: 'Character not found' });
+    }
     db.prepare(`
         UPDATE story_arcs
         SET character_id = ?, title = ?, theme = ?, description = ?, status = ?, dm_notes = ?,
             order_index  = COALESCE(?, order_index),
             updated_at   = CURRENT_TIMESTAMP
-        WHERE id = ?
+        WHERE id = ? AND campaign_id = ?
     `).run(
         character_id || null, title, theme ?? null, description || null,
         status, dm_notes || null, order_index ?? null,
-        req.params.id
+        req.params.id, req.campaign.id
     );
     const arc = db.prepare(`
         SELECT a.*, c.name AS character_name
         FROM story_arcs a LEFT JOIN characters c ON c.id = a.character_id
-        WHERE a.id = ?
-    `).get(req.params.id);
+        WHERE a.id = ? AND a.campaign_id = ?
+    `).get(req.params.id, req.campaign.id);
     res.json(arc);
 }));
 
 router.delete('/:id', asyncHandler((req, res) => {
     const db = getDatabase();
-    if (!db.prepare('SELECT id FROM story_arcs WHERE id = ?').get(req.params.id)) {
+    if (!db.prepare('SELECT id FROM story_arcs WHERE id = ? AND campaign_id = ?')
+        .get(req.params.id, req.campaign.id)) {
         return res.status(404).json({ error: 'Arc not found' });
     }
-    db.prepare('DELETE FROM story_arcs WHERE id = ?').run(req.params.id);
+    db.prepare('DELETE FROM story_arcs WHERE id = ? AND campaign_id = ?')
+        .run(req.params.id, req.campaign.id);
     res.json({ message: 'Arc deleted' });
 }));
 
@@ -142,28 +161,31 @@ router.delete('/:id', asyncHandler((req, res) => {
 
 router.post('/:id/chapters', asyncHandler((req, res) => {
     const db = getDatabase();
-    if (!db.prepare('SELECT id FROM story_arcs WHERE id = ?').get(req.params.id)) {
+    if (!db.prepare('SELECT id FROM story_arcs WHERE id = ? AND campaign_id = ?')
+        .get(req.params.id, req.campaign.id)) {
         return res.status(404).json({ error: 'Arc not found' });
     }
     const { title, description, dm_notes, status = 'planned' } = req.body;
     if (!title) return res.status(400).json({ error: 'Title is required' });
 
     const maxOrder = db.prepare(
-        'SELECT COALESCE(MAX(order_index), -1) AS m FROM chapters WHERE arc_id = ?'
-    ).get(req.params.id).m;
+        'SELECT COALESCE(MAX(order_index), -1) AS m FROM chapters WHERE arc_id = ? AND campaign_id = ?'
+    ).get(req.params.id, req.campaign.id).m;
 
     const result = db.prepare(`
-        INSERT INTO chapters (arc_id, title, description, dm_notes, status, order_index)
-        VALUES (?, ?, ?, ?, ?, ?)
-    `).run(req.params.id, title, description || null, dm_notes || null, status, maxOrder + 1);
+        INSERT INTO chapters (arc_id, title, description, dm_notes, status, order_index, campaign_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(req.params.id, title, description || null, dm_notes || null, status, maxOrder + 1,
+        req.campaign.id);
 
-    res.status(201).json(db.prepare('SELECT * FROM chapters WHERE id = ?').get(result.lastInsertRowid));
+    res.status(201).json(db.prepare('SELECT * FROM chapters WHERE id = ? AND campaign_id = ?')
+        .get(result.lastInsertRowid, req.campaign.id));
 }));
 
 router.put('/:id/chapters/:cid', asyncHandler((req, res) => {
     const db = getDatabase();
-    const ch = db.prepare('SELECT * FROM chapters WHERE id = ? AND arc_id = ?')
-        .get(req.params.cid, req.params.id);
+    const ch = db.prepare('SELECT * FROM chapters WHERE id = ? AND arc_id = ? AND campaign_id = ?')
+        .get(req.params.cid, req.params.id, req.campaign.id);
     if (!ch) return res.status(404).json({ error: 'Chapter not found' });
 
     const { title, description, dm_notes, status, order_index } = req.body;
@@ -171,21 +193,24 @@ router.put('/:id/chapters/:cid', asyncHandler((req, res) => {
         UPDATE chapters
         SET title = ?, description = ?, dm_notes = ?, status = ?,
             order_index = COALESCE(?, order_index)
-        WHERE id = ?
+        WHERE id = ? AND campaign_id = ?
     `).run(
         title ?? ch.title, description ?? ch.description,
         dm_notes ?? ch.dm_notes, status ?? ch.status,
-        order_index ?? null, req.params.cid
+        order_index ?? null, req.params.cid, req.campaign.id
     );
-    res.json(db.prepare('SELECT * FROM chapters WHERE id = ?').get(req.params.cid));
+    res.json(db.prepare('SELECT * FROM chapters WHERE id = ? AND campaign_id = ?')
+        .get(req.params.cid, req.campaign.id));
 }));
 
 router.delete('/:id/chapters/:cid', asyncHandler((req, res) => {
     const db = getDatabase();
-    if (!db.prepare('SELECT id FROM chapters WHERE id = ? AND arc_id = ?').get(req.params.cid, req.params.id)) {
+    if (!db.prepare('SELECT id FROM chapters WHERE id = ? AND arc_id = ? AND campaign_id = ?')
+        .get(req.params.cid, req.params.id, req.campaign.id)) {
         return res.status(404).json({ error: 'Chapter not found' });
     }
-    db.prepare('DELETE FROM chapters WHERE id = ?').run(req.params.cid);
+    db.prepare('DELETE FROM chapters WHERE id = ? AND campaign_id = ?')
+        .run(req.params.cid, req.campaign.id);
     res.json({ message: 'Chapter deleted' });
 }));
 
