@@ -222,6 +222,21 @@ CREATE TABLE IF NOT EXISTS characters (
     FOREIGN KEY (current_shadow_id) REFERENCES shadows(id)
 );
 
+-- Namespaced system/universe character data. A character has at most one JSON
+-- document per plugin namespace (for example system:dnd5e or universe:amber).
+CREATE TABLE IF NOT EXISTS character_extension_data (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    character_id INTEGER NOT NULL,
+    namespace TEXT NOT NULL,
+    data JSON NOT NULL DEFAULT '{}',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
+    UNIQUE(character_id, namespace),
+    CHECK(length(namespace) > 2 AND instr(namespace, ':') > 1),
+    CHECK(json_valid(data))
+);
+
 -- Character Inventory/Gear
 CREATE TABLE IF NOT EXISTS character_gear (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -421,6 +436,8 @@ CREATE TABLE IF NOT EXISTS users (
 
 -- Indexes for better query performance
 CREATE INDEX IF NOT EXISTS idx_characters_current_shadow ON characters(current_shadow_id);
+CREATE INDEX IF NOT EXISTS idx_character_extension_data_character ON character_extension_data(character_id);
+CREATE INDEX IF NOT EXISTS idx_character_extension_data_namespace ON character_extension_data(namespace);
 CREATE INDEX IF NOT EXISTS idx_character_progress_character ON character_progress(character_id);
 CREATE INDEX IF NOT EXISTS idx_character_progress_session ON character_progress(session_id);
 CREATE INDEX IF NOT EXISTS idx_character_gear_character ON character_gear(character_id);

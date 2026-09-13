@@ -12,6 +12,7 @@ const { up: characterSheetDetails } = require('../src/database/migrations/010-ch
 const { up: characterImage } = require('../src/database/migrations/011-character-image');
 const { up: characterStory } = require('../src/database/migrations/012-character-story');
 const { up: campaignTenancy, CAMPAIGN_TABLES } = require('../src/database/migrations/013-campaign-tenancy');
+const { up: characterExtensionData, DND5E_CHARACTER_COLUMNS } = require('../src/database/migrations/014-character-extension-data');
 const { percentileFromScore } = require('../public/js/ability-conversion');
 
 function legacyDb() {
@@ -255,4 +256,58 @@ test('013 creates and idempotently backfills campaign tenancy', () => {
         const foreignKeys = db.prepare(`PRAGMA foreign_key_list(${table})`).all();
         assert.ok(foreignKeys.some(key => key.from === 'campaign_id' && key.table === 'campaigns'));
     }
+});
+
+test('014 snapshots D&D character data and related rows exactly once', () => {
+    const db = new Database(':memory:');
+    db.exec(fs.readFileSync(path.join(__dirname, '../src/database/schema.sql'), 'utf8'));
+    features(db);
+    characterSheetDetails(db);
+    const characterId = Number(db.prepare(`
+        INSERT INTO characters
+            (name, species, class_type, armor_class, skill_perception, save_wisdom,
+             spell_slots_3_total, spell_slots_3_expended, gold_pieces)
+        VALUES ('Mira', 'Human', 'Wizard', 17, 2, 1, 3, 1, 42)
+    `).run().lastInsertRowid);
+    db.prepare("INSERT INTO character_gear (character_id, item_name, quantity) VALUES (?, 'Spellbook', 1)").run(characterId);
+    db.prepare("INSERT INTO character_spells (character_id, spell_name, spell_level) VALUES (?, 'Fireball', 3)").run(characterId);
+    db.prepare("INSERT INTO character_weapons (character_id, name, attack_bonus) VALUES (?, 'Dagger', 5)").run(characterId);
+
+    characterExtensionData(db);
+    const first = db.prepare("SELECT data FROM character_extension_data WHERE character_id = ? AND namespace = 'system:dnd5e'").get(characterId);
+    const data = JSON.parse(first.data);
+    assert.strictEqual(data.schema_version, 1);
+    assert.strictEqual(data.sheet.armor_class, 17);
+    assert.strictEqual(data.sheet.skill_perception, 2);
+    assert.strictEqual(data.sheet.save_wisdom, 1);
+    assert.strictEqual(data.sheet.spell_slots_3_total, 3);
+    assert.strictEqual(data.sheet.spell_slots_3_expended, 1);
+    assert.strictEqual(data.sheet.gold_pieces, 42);
+    assert.strictEqual(data.gear[0].item_name, 'Spellbook');
+    assert.strictEqual(data.spells[0].spell_name, 'Fireball');
+    assert.strictEqual(data.weapons[0].name, 'Dagger');
+    assert.deepStrictEqual(Object.keys(data.sheet), DND5E_CHARACTER_COLUMNS);
+
+    db.prepare('UPDATE characters SET armor_class = 99 WHERE id = ?').run(characterId);
+    characterExtensionData(db);
+    const second = db.prepare("SELECT data FROM character_extension_data WHERE character_id = ? AND namespace = 'system:dnd5e'").get(characterId);
+    assert.strictEqual(second.data, first.data, 'a direct second run must not overwrite the migrated snapshot');
+    assert.strictEqual(db.prepare("SELECT count(*) AS count FROM character_extension_data WHERE character_id = ? AND namespace = 'system:dnd5e'").get(characterId).count, 1);
+    db.close();
+});
+
+test('014 preserves data from the superseded character_system_data table', () => {
+    const db = new Database(':memory:');
+    db.exec(fs.readFileSync(path.join(__dirname, '../src/database/schema.sql'), 'utf8'));
+    features(db);
+    universalCoreAttributes(db);
+    const characterId = Number(db.prepare("INSERT INTO characters (name, species, class_type) VALUES ('Legacy', 'Elf', 'Bard')").run().lastInsertRowid);
+    db.prepare("INSERT INTO character_system_data (character_id, game_system, data) VALUES (?, 'dnd5e', ?)")
+        .run(characterId, JSON.stringify({ custom: 'kept' }));
+
+    characterExtensionData(db);
+    const migrated = JSON.parse(db.prepare("SELECT data FROM character_extension_data WHERE character_id = ? AND namespace = 'system:dnd5e'").get(characterId).data);
+    assert.deepStrictEqual(migrated.legacy_data, { custom: 'kept' });
+    assert.strictEqual(migrated.schema_version, 1);
+    db.close();
 });
