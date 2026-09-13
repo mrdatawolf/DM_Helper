@@ -6,6 +6,7 @@ const { getDatabase } = require('../database/connection');
 const { authenticate, isDMOrAdmin } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { buildUpdateQuery } = require('../utils/buildUpdateQuery');
+const { getUniverseForCampaign } = require('../universes/registry');
 
 const LORE_DIR = path.join(__dirname, '..', '..', 'Shadow Lore');
 
@@ -113,6 +114,7 @@ router.post('/', authenticate, asyncHandler((req, res) => {
     if (!name) {
         return res.status(400).json({ error: 'Shadow name is required' });
     }
+    getUniverseForCampaign(db, req.user.currentCampaignId)?.shadows?.validate(req.body);
 
     const stmt = db.prepare(`
         INSERT INTO shadows (name, description, order_level, chaos_level, dream_level, pattern_influence, corruption_status, is_starting_shadow, created_by)
@@ -130,7 +132,7 @@ router.put('/:id', authenticate, asyncHandler((req, res) => {
     const db = getDatabase();
     const shadowId = req.params.id;
 
-    const existing = db.prepare('SELECT id, created_by FROM shadows WHERE id = ?').get(shadowId);
+    const existing = db.prepare('SELECT id, created_by, campaign_id FROM shadows WHERE id = ?').get(shadowId);
     if (!existing) {
         return res.status(404).json({ error: 'Shadow not found' });
     }
@@ -140,6 +142,7 @@ router.put('/:id', authenticate, asyncHandler((req, res) => {
     }
 
     const allowedFields = ['name', 'description', 'order_level', 'chaos_level', 'dream_level', 'pattern_influence', 'corruption_status', 'is_starting_shadow', 'is_spoiler'];
+    getUniverseForCampaign(db, existing.campaign_id)?.shadows?.validate(req.body);
 
     const query = buildUpdateQuery('shadows', allowedFields, req.body, shadowId);
     if (!query) {

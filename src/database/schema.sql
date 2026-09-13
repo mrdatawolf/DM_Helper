@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS campaigns (
     name TEXT NOT NULL,
     owner_user_id INTEGER REFERENCES users(id),
     system_id TEXT NOT NULL,
-    universe_id TEXT NOT NULL,
+    universe_id TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -32,12 +32,12 @@ CREATE TABLE IF NOT EXISTS campaign_characters (
 -- Shadows (Realms in the Amber multiverse)
 CREATE TABLE IF NOT EXISTS shadows (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
     description TEXT,
     order_level INTEGER DEFAULT 50,
     chaos_level INTEGER DEFAULT 50,
     dream_level INTEGER DEFAULT 0,
-    pattern_influence TEXT CHECK(pattern_influence IN ('Pattern', 'Argent Refrain', 'Logrus', 'Mixed', 'None', 'Nexus')),
+    pattern_influence TEXT,
     corruption_status TEXT,
     is_starting_shadow BOOLEAN DEFAULT 0,
     is_spoiler BOOLEAN DEFAULT 0,
@@ -436,6 +436,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 -- Indexes for better query performance
 CREATE INDEX IF NOT EXISTS idx_characters_current_shadow ON characters(current_shadow_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_shadows_campaign_name ON shadows(COALESCE(campaign_id, 0), name);
 CREATE INDEX IF NOT EXISTS idx_character_extension_data_character ON character_extension_data(character_id);
 CREATE INDEX IF NOT EXISTS idx_character_extension_data_namespace ON character_extension_data(namespace);
 CREATE INDEX IF NOT EXISTS idx_character_progress_character ON character_progress(character_id);

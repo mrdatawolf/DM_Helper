@@ -13,13 +13,6 @@ const UNIVERSAL_CHARACTER_UPDATE_FIELDS = [
     'age', 'height', 'weight', 'eyes', 'skin', 'hair', 'desires', 'fears',
     'allies_organizations',
 
-    // Amber-specific
-    'shadow_origin_id', 'blood_purity', 'order_chaos_value',
-    'pattern_imprint', 'pattern_type',
-    'logrus_imprint',
-    'pattern_mastery_level', 'logrus_mastery_level', 'trump_artist', 'trump_mastery_level',
-    'amber_flaws', 'amber_traits', 'broken_imprint',
-
     // Other
     'feat_pool', 'total_feats_earned', 'experience_points', 'points_to_next_level',
     'current_shadow_id', 'current_story_timestamp', 'is_active'

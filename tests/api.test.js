@@ -279,6 +279,21 @@ test('campaign switching scopes character access and rejects non-members', async
         body: { name: 'Second Campaign', system_id: 'dnd5e', universe_id: 'amber' }
     });
     assert.strictEqual(createdCampaign.status, 201, JSON.stringify(createdCampaign.body));
+    assert.strictEqual(db.prepare('SELECT count(*) count FROM shadows WHERE campaign_id = ?').get(createdCampaign.body.id).count, 11);
+    assert.strictEqual(db.prepare('SELECT count(*) count FROM primal_patterns WHERE campaign_id = ?').get(createdCampaign.body.id).count, 3);
+    assert.strictEqual(db.prepare('SELECT count(*) count FROM primal_pattern_sections WHERE campaign_id = ?').get(createdCampaign.body.id).count, 17);
+    const wizardContent = await api('GET', '/api/universe/content/wizard', { token: createdCampaign.body.token });
+    assert.strictEqual(wizardContent.status, 200);
+    assert.strictEqual(wizardContent.body.IMPRINT_LORE.FirstPattern.title, 'The Pattern');
+    const guideResponse = await fetch(base + '/api/universe/content/guide', {
+        headers: { Authorization: `Bearer ${createdCampaign.body.token}` }
+    });
+    assert.strictEqual(guideResponse.status, 200);
+    assert.strictEqual(await guideResponse.text(), fs.readFileSync(path.join(__dirname, '../src/universes/amber/content/PLAYER_GUIDE.md'), 'utf8'));
+    assert.strictEqual((await api('POST', '/api/shadows', {
+        token: createdCampaign.body.token,
+        body: { name: 'Invalid Amber Influence', pattern_influence: 'Homebrew Power' }
+    })).status, 400);
 
     const secondCampaignToken = createdCampaign.body.token;
     const secondCharacter = await api('POST', '/api/characters', {
@@ -304,6 +319,33 @@ test('campaign switching scopes character access and rejects non-members', async
     });
     assert.strictEqual(switchedBack.status, 200);
     assert.strictEqual((await api('GET', `/api/characters/${charId}`, { token: switchedBack.body.token })).status, 200);
+});
+
+test('a campaign with no universe receives no Amber attributes, content, or seeds', async () => {
+    const campaign = await api('POST', '/api/auth/campaigns', {
+        token: dm.token,
+        body: { name: 'Homebrew', system_id: 'dnd5e', universe_id: null }
+    });
+    assert.strictEqual(campaign.status, 201, JSON.stringify(campaign.body));
+    assert.strictEqual(campaign.body.universe_id, null);
+    assert.strictEqual(db.prepare('SELECT count(*) count FROM shadows WHERE campaign_id = ?').get(campaign.body.id).count, 0);
+    assert.strictEqual(db.prepare('SELECT count(*) count FROM primal_patterns WHERE campaign_id = ?').get(campaign.body.id).count, 0);
+    assert.strictEqual(db.prepare('SELECT count(*) count FROM primal_pattern_sections WHERE campaign_id = ?').get(campaign.body.id).count, 0);
+    assert.strictEqual((await api('GET', '/api/universe/content/wizard', { token: campaign.body.token })).status, 404);
+    assert.strictEqual((await api('GET', '/api/universe/content/guide', { token: campaign.body.token })).status, 404);
+    assert.strictEqual((await api('POST', '/api/shadows', {
+        token: campaign.body.token,
+        body: { name: 'Homebrew Influence', pattern_influence: 'Homebrew Power' }
+    })).status, 201);
+
+    const character = await api('POST', '/api/characters', {
+        token: campaign.body.token,
+        body: { name: 'Generic', species: 'Human', class_type: 'Fighter', blood_purity: 'Pure', pattern_imprint: 1 }
+    });
+    assert.strictEqual(character.status, 201, JSON.stringify(character.body));
+    assert.ok(!('blood_purity' in character.body));
+    assert.ok(!('pattern_imprint' in character.body));
+    assert.strictEqual(db.prepare("SELECT count(*) count FROM character_extension_data WHERE character_id = ? AND namespace = 'universe:amber'").get(character.body.id).count, 0);
 });
 
 test('account-level admin authorization remains global', async () => {

@@ -219,8 +219,11 @@
 
     <script>
         // Fetch and render the markdown guide
-        fetch('/PLAYER_GUIDE.md')
-            .then(response => response.text())
+        fetch('/api/universe/content/guide')
+            .then(response => {
+                if (!response.ok) throw new Error('No player guide is available for the active campaign.');
+                return response.text();
+            })
             .then(markdown => {
                 // Configure marked for better rendering
                 marked.setOptions({
@@ -260,7 +263,7 @@
             })
             .catch(error => {
                 document.getElementById('guide-content').innerHTML =
-                    '<p style="color: red;">Error loading guide. Please contact your DM.</p>';
+                    `<p style="color: red;">${error.message}</p>`;
                 console.error('Error loading guide:', error);
             });
     </script>

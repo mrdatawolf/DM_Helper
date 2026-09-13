@@ -4,6 +4,7 @@ const { authenticate } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { canModifyCharacter } = require('./shared');
 const { getSystemForCampaign } = require('../../systems/registry');
+const { hydrateCharacterForCampaign } = require('../../universes/registry');
 
 const router = express.Router();
 const STORY_MAX_LENGTH = 20000;
@@ -31,7 +32,8 @@ router.put('/:id/story', authenticate, authorizeCharacter, asyncHandler((req, re
     db.prepare('UPDATE characters SET character_story = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
         .run(story, req.params.id);
     const system = getSystemForCampaign(db, req.campaign.id);
-    res.json(system.sheet.hydrateSheet(db, db.prepare('SELECT * FROM characters WHERE id = ?').get(req.params.id), system));
+    res.json(hydrateCharacterForCampaign(db, req.campaign.id,
+        system.sheet.hydrateSheet(db, db.prepare('SELECT * FROM characters WHERE id = ?').get(req.params.id), system)));
 }));
 
 module.exports = router;

@@ -16,6 +16,13 @@ const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', { url: 'http:
 global.window = dom.window;
 global.document = dom.window.document;
 global.localStorage = dom.window.localStorage;
+const amberWizardContent = require('../src/universes/amber/content/player-wizard-data');
+global.fetch = async url => {
+    if (url === '/api/universe/content/wizard') {
+        return { ok: true, json: async () => amberWizardContent };
+    }
+    throw new Error(`Unexpected fetch in frontend module test: ${url}`);
+};
 
 require('../public/js/ability-conversion');
 require('../public/js/faserip-conversion');

@@ -3,7 +3,8 @@ const bcrypt = require('bcrypt');
 const { generateToken, verifyToken, authenticate } = require('../middleware/auth');
 const { getDatabase } = require('../database/connection');
 const { asyncHandler } = require('../middleware/errorHandler');
-const { getSystemForCampaign } = require('../systems/registry');
+const { getSystemForCampaign, requireSystem } = require('../systems/registry');
+const { getUniverse, hydrateCharacterForCampaign, requireUniverse } = require('../universes/registry');
 
 const router = express.Router();
 
@@ -232,7 +233,8 @@ router.get('/characters', authenticate, asyncHandler((req, res, next) => {
         const system = getSystemForCampaign(db, req.user.currentCampaignId);
         res.json({ characters: characters.map(character => {
             const sheet = system.sheet.readDocument(db, character.id).sheet;
-            return { ...character, current_hp: sheet.current_hp, max_hp: sheet.max_hp };
+            return hydrateCharacterForCampaign(db, req.user.currentCampaignId,
+                { ...character, current_hp: sheet.current_hp, max_hp: sheet.max_hp });
         }) });
 
     } catch (error) {
@@ -282,16 +284,27 @@ router.post('/campaigns', authenticate, asyncHandler((req, res) => {
     }
     const { name, system_id = 'dnd5e', universe_id = 'amber' } = req.body;
     if (!name) return res.status(400).json({ error: 'Campaign name is required' });
+    try {
+        requireSystem(system_id);
+        if (universe_id) requireUniverse(universe_id);
+    } catch (error) {
+        return res.status(400).json({ error: error.message });
+    }
+    // Empty string is the backwards-compatible on-disk representation for
+    // "no universe" in databases created before universe_id became nullable.
+    const storedUniverseId = universe_id || '';
     const create = db.transaction(() => {
         const result = db.prepare('INSERT INTO campaigns (name, owner_user_id, system_id, universe_id) VALUES (?, ?, ?, ?)')
-            .run(name, req.user.userId, system_id, universe_id);
+            .run(name, req.user.userId, system_id, storedUniverseId);
         db.prepare("INSERT INTO campaign_members (campaign_id, user_id, role) VALUES (?, ?, 'dm')").run(result.lastInsertRowid, req.user.userId);
+        const universe = getUniverse(storedUniverseId);
+        if (universe?.seed) universe.seed(db, Number(result.lastInsertRowid));
         return Number(result.lastInsertRowid);
     });
     const campaignId = create();
     const token = generateToken(user, campaignId);
     res.cookie('token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 24 * 60 * 60 * 1000 });
-    res.status(201).json({ id: campaignId, name, system_id, universe_id, token, current_campaign_id: campaignId, role: 'dm' });
+    res.status(201).json({ id: campaignId, name, system_id, universe_id: storedUniverseId || null, token, current_campaign_id: campaignId, role: 'dm' });
 }));
 
 module.exports = router;

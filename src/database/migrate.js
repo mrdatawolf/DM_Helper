@@ -31,11 +31,12 @@ function runMigrations(db) {
         const migration = require(path.join(MIGRATIONS_DIR, file));
         console.log(`Applying migration: ${file}`);
 
-        const apply = db.transaction(() => {
+        const applyBody = () => {
             migration.up(db);
             db.prepare('INSERT INTO schema_migrations (name) VALUES (?)').run(file);
-        });
-        apply();
+        };
+        if (migration.transactional === false) applyBody();
+        else db.transaction(applyBody)();
 
         console.log(`Applied migration: ${file}`);
     }

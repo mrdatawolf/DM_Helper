@@ -9,6 +9,7 @@ const { canModifyCharacter, requireCampaignCharacter } = require('./shared');
 const { UNIVERSAL_CHARACTER_UPDATE_FIELDS } = require('./fields');
 const { percentileFromScore } = require('../../../public/js/ability-conversion');
 const { getSystemForCampaign } = require('../../systems/registry');
+const { getUniverseForCampaign, hydrateCharacterForCampaign } = require('../../universes/registry');
 
 router.use(authenticate, requireCampaignMembership);
 router.use('/:id', requireCampaignCharacter);
@@ -29,7 +30,8 @@ router.get('/', asyncHandler((req, res) => {
     `).all(req.campaign.id);
 
     const system = getSystemForCampaign(db, req.campaign.id);
-    res.json(characters.map(character => system.sheet.hydrateSheet(db, character, system)));
+    res.json(characters.map(character => hydrateCharacterForCampaign(
+        db, req.campaign.id, system.sheet.hydrateSheet(db, character, system))));
 }));
 
 // Get single character by ID
@@ -52,7 +54,8 @@ router.get('/:id', asyncHandler((req, res) => {
     }
 
     const system = getSystemForCampaign(db, req.campaign.id);
-    const hydrated = system.sheet.hydrateCharacter(db, character, system);
+    const hydrated = hydrateCharacterForCampaign(db, req.campaign.id,
+        system.sheet.hydrateCharacter(db, character, system));
 
     // Get character's familiars
     const familiars = db.prepare('SELECT * FROM familiars WHERE character_id = ? AND is_active = 1').all(req.params.id);
@@ -103,6 +106,7 @@ router.post('/', asyncHandler((req, res) => {
     const finalUserId = req.user.userId;
 
     // Derive imprint booleans and mastery levels from wizard values
+    const universe = getUniverseForCampaign(db, req.campaign.id);
     const hasPattern = pattern_imprint ? 1 : 0;
     const hasLogrus  = logrus_imprint  ? 1 : 0;
     const logrusLevel = { Basic: 1, Advanced: 2, Master: 3 }[logrus_imprint] ?? 0;
@@ -112,13 +116,8 @@ router.post('/', asyncHandler((req, res) => {
         INSERT INTO characters (
             name, player_name, species, class_type, level,
             strength, dexterity, constitution, intelligence, wisdom, charisma,
-            order_chaos_value,
-            pattern_imprint, pattern_type,
-            logrus_imprint, logrus_mastery_level,
-            blood_purity, trump_artist, broken_imprint,
-            backstory, character_notes, amber_flaws, amber_traits,
-            shadow_origin_id, user_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            backstory, character_notes, user_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = stmt.run(
@@ -126,15 +125,7 @@ router.post('/', asyncHandler((req, res) => {
         percentileFromScore(strength), percentileFromScore(dexterity),
         percentileFromScore(constitution), percentileFromScore(intelligence),
         percentileFromScore(wisdom), percentileFromScore(charisma),
-        order_chaos_value,
-        hasPattern, pattern_type,
-        hasLogrus, logrusLevel,
-        blood_purity, trump_artist ? 1 : 0, broken_imprint ? 1 : 0,
-        backstory, character_notes,
-        amber_flaws ? JSON.stringify(amber_flaws) : null,
-        amber_traits ? JSON.stringify(amber_traits) : null,
-        shadow_origin_id || null,
-        finalUserId
+        backstory, character_notes, finalUserId
     );
 
     const characterId = result.lastInsertRowid;
@@ -145,12 +136,23 @@ router.post('/', asyncHandler((req, res) => {
         .run(characterId, req.campaign.id);
     const system = getSystemForCampaign(db, req.campaign.id);
     system.sheet.writeDocument(db, characterId, system.sheet.createDocument({ max_hp, current_hp }));
+    if (universe) {
+        universe.character.writeDocument(db, characterId, universe.character.createDocument({
+            shadow_origin_id: shadow_origin_id || null,
+            blood_purity, order_chaos_value,
+            pattern_imprint: hasPattern, pattern_type,
+            logrus_imprint: hasLogrus, logrus_mastery_level: logrusLevel,
+            trump_artist: trump_artist ? 1 : 0, broken_imprint: broken_imprint ? 1 : 0,
+            amber_flaws: amber_flaws ? JSON.stringify(amber_flaws) : null,
+            amber_traits: amber_traits ? JSON.stringify(amber_traits) : null
+        }));
+    }
     return { characterId, system };
     });
 
     const { characterId, system } = createCharacter();
-    const newCharacter = system.sheet.hydrateSheet(
-        db, db.prepare('SELECT * FROM characters WHERE id = ?').get(characterId), system);
+    const newCharacter = hydrateCharacterForCampaign(db, req.campaign.id, system.sheet.hydrateSheet(
+        db, db.prepare('SELECT * FROM characters WHERE id = ?').get(characterId), system));
     res.status(201).json(newCharacter);
 }));
 
@@ -169,19 +171,23 @@ router.put('/:id', asyncHandler((req, res) => {
     }
 
     const system = getSystemForCampaign(db, req.campaign.id);
+    const universe = getUniverseForCampaign(db, req.campaign.id);
     const systemUpdates = Object.fromEntries(Object.entries(req.body)
         .filter(([field]) => system.sheet.fields.includes(field)));
     const query = buildUpdateQuery('characters', UNIVERSAL_CHARACTER_UPDATE_FIELDS, req.body, characterId);
-    if (!query && !Object.keys(systemUpdates).length) {
+    const universeUpdates = universe ? Object.fromEntries(Object.entries(req.body)
+        .filter(([field]) => universe.character.fields.includes(field))) : {};
+    if (!query && !Object.keys(systemUpdates).length && !Object.keys(universeUpdates).length) {
         return res.status(400).json({ error: 'No valid fields to update' });
     }
     db.transaction(() => {
         if (query) db.prepare(query.sql).run(...query.values);
         if (Object.keys(systemUpdates).length) system.sheet.update(db, characterId, systemUpdates, system);
+        if (Object.keys(universeUpdates).length) universe.character.update(db, characterId, universeUpdates, universe);
     })();
 
-    const updated = system.sheet.hydrateSheet(
-        db, db.prepare('SELECT * FROM characters WHERE id = ?').get(characterId), system);
+    const updated = hydrateCharacterForCampaign(db, req.campaign.id, system.sheet.hydrateSheet(
+        db, db.prepare('SELECT * FROM characters WHERE id = ?').get(characterId), system));
     res.json(updated);
 }));
 
