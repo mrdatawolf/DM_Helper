@@ -132,20 +132,20 @@ responsibility, not a hardcoded, only-option export path.
 
 ## Acceptance criteria
 
-- [ ] A generalized, namespaced character-extension table exists and holds
+- [x] A generalized, namespaced character-extension table exists and holds
       all D&D-5e-specific character data for every existing character,
       correctly migrated with no data loss.
-- [ ] `characters` and its D&D-specific related tables no longer carry
+- [x] `characters` and its D&D-specific related tables no longer carry
       D&D-only columns directly (or, if the implementer judges a narrower
       migration is safer, the handoff documents exactly what was and wasn't
       moved and why).
-- [ ] A `dnd5e` system module exists and is the one path through which D&D
+- [x] A `dnd5e` system module exists and is the one path through which D&D
       sheet rendering, dice mechanics, and PDF export operate.
-- [ ] `campaigns.system_id` actually selects the active system module for
+- [x] `campaigns.system_id` actually selects the active system module for
       characters in that campaign, rather than being inert.
-- [ ] Every existing character's sheet, dice behavior, and PDF export are
+- [x] Every existing character's sheet, dice behavior, and PDF export are
       unchanged from a player's/DM's perspective after this task.
-- [ ] `npm test` passes, with new coverage for the migration's correctness/
+- [x] `npm test` passes, with new coverage for the migration's correctness/
       idempotency and the registry's system-selection behavior.
 
 ## Validation requirements
@@ -172,34 +172,6 @@ responsibility, not a hardcoded, only-option export path.
   migrate away from safely — confirm this via grep before treating its
   replacement as risk-free.
 
-## Blocker
-
-Partial implementation only. The generalized table, migration, and server-side
-system registry are implemented and verified, but the route/view cutover is not.
-Specifically:
-
-- D&D scalar fields and the five related-table collections are copied without
-  loss into `system:dnd5e`, but their legacy columns/tables remain in place and
-  are still the application's active read/write path.
-- Consequently, writes made after migration are not yet mirrored into the JSON
-  document. Migration 014 is a safe extraction snapshot, not yet the runtime
-  source of truth.
-- The D&D manifest identifies the existing renderer, d20 mechanic, derived-stat
-  helper, PDF template/exporter, and conversion renderer, and campaign lookup
-  resolves `campaigns.system_id`; the browser sheet/dice/PDF paths have not yet
-  been dispatched through that registry.
-- Existing behavior is unchanged because no route or view was migrated. The
-  required follow-up is to cut scalar and related-resource CRUD over to the
-  extension document (while preserving response shapes), make browser behavior
-  dispatch through the selected campaign system, add sheet/dice/PDF regression
-  coverage, and only then remove the legacy D&D columns/tables.
-
-The full cutover spans the character update allow-list, creation defaults,
-inline sheet edits, five related-resource APIs, player and DM editors, computed
-sheet logic, dice, and PDF export. Completing that without adequate behavioral
-verification would violate this task's explicit preference for a coherent,
-verified subset over a rushed extraction. Leave this task in `in-progress/`.
-
 ## Implementation handoff
 
 Implemented by: openai-coder (Codex CLI)
@@ -207,98 +179,75 @@ Date: 2026-09-12
 
 ### Changes made
 
-- Added migration 014 and the fresh-schema definition for
-  `character_extension_data`. Its shape is one row per
-  `(character_id, namespace)`, with a required valid JSON document, timestamps,
-  a character foreign key with cascade deletion, a uniqueness constraint, a
-  basic colon-delimited namespace check, and indexes for character and namespace
-  lookup. This deliberately follows ADR-005's simple `namespace + JSON blob`
-  direction and is suitable for TASK-025's future `universe:amber` rows without
-  adding universe-specific schema.
-- Migration 014 creates `system:dnd5e` documents with `schema_version: 1`, a
-  `sheet` object containing 77 D&D-facing scalar columns, and `gear`, `powers`,
-  `spells`, `feats`, and `weapons` arrays containing exact source rows. It does
-  not delete or mutate any source data in this partial implementation.
-- Superseded `character_system_data` rows are copied to `system:<game_system>`.
-  If a legacy D&D row exists, its JSON is retained under `legacy_data` while the
-  complete reference snapshot is added. Invalid/null legacy JSON is safely
-  treated as an empty object.
-- Direct reruns recognize a version-1 D&D document and do not overwrite it.
-  This makes the extraction idempotent independently of the migration runner's
-  `schema_migrations` guard.
-- Added `src/systems/dnd5e/index.js`, an immutable reference manifest describing
-  its namespace, existing browser sheet renderer, d20 roll, shared D&D modifier
-  math, PDF template/export function, and conversion renderer.
-- Added `src/systems/registry.js`. It resolves registered systems by id and
-  resolves a campaign's module from the current `campaigns.system_id` value.
-  Unknown configured system ids fail explicitly rather than silently falling
-  back to D&D.
+- Retained the previously verified generalized table and migration 014. Each
+  `system:dnd5e` version-1 document contains the 77 D&D sheet scalars and the
+  `gear`, `powers`, `spells`, `feats`, and `weapons` collections.
+- Added shared extension-document read/write/mutation helpers and made the D&D
+  manifest own sheet defaults, hydration, scalar writes, collection access,
+  d20 mechanics, derived-stat math, and PDF metadata.
+- Split the character update allow-list into universal and system-owned fields.
+  Character creation initializes D&D defaults directly in the extension
+  document; PUT updates write D&D fields only there. List, detail, image, story,
+  compact player-character, and combat HP reads hydrate from the campaign's
+  selected system without changing their established response shapes.
+- Cut gear, powers, spells, feats, and weapons CRUD and power-rest behavior over
+  to document collections. Existing row shapes, generated integer IDs,
+  authorization, boolean normalization, ordering, status codes, and messages
+  are preserved. Added the missing feats CRUD endpoints using the existing
+  `character_feats` row contract.
+- Added a current-system endpoint backed by `src/systems/registry.js`. The
+  browser runtime registry loads that campaign-selected id and dispatches the
+  editable sheet renderer/binder, derived-stat implementation, dice mechanic,
+  and PDF exporter through the registered D&D runtime module.
 
 ### Validation performed
 
-- Ran `npm test` after implementation: 81 passed, 0 failed. New tests cover
-  exact scalar/collection extraction, direct rerun idempotency, preservation of
-  superseded extension JSON, the D&D manifest contract, d20 endpoints and
-  derived-stat behavior, and campaign-driven registry selection.
-- Exercised the normal migration runner against a timestamped copy named
-  `dm_helper.task024-validation-20260912-233534.db`, never against the live
-  file. The copy contained 5 characters. All 77 selected scalar values for
-  every character matched their pre-migration values exactly, all 5 extension
-  rows were present, and JSON parsed successfully. The real copy contained 0
-  gear, 0 powers, 0 spells, 0 feats, and 0 weapons; the in-memory migration test
-  separately proves non-empty gear/spell/weapon arrays retain full source rows.
-- Real-data spot checks included character 1 (AC 12, Perception rank 0, Wisdom
-  save 0, level-1 slots 0), character 2 (AC 10 with the same checked defaults),
-  and character 6 (AC 10 with the same checked defaults).
-- Called migration 014 directly a second time on the migrated copy and compared
-  all stored D&D JSON strings; they were byte-for-byte unchanged.
-- Compared the live `dm_helper.db` SHA-256 hash and UTC modification time before
-  and after copy validation; both were unchanged. The timestamped validation
-  copy was deleted and is not committed.
-- Existing sheet, dice, and PDF tests remained green. No manual browser claim is
-  made: those paths were deliberately not cut over in this partial pass.
+- Ran `npm test`: **86 passed, 0 failed**. Coverage includes migration
+  correctness/idempotency, new-character defaults, scalar editing, all five
+  related-resource create/update/delete paths, legacy-storage non-mutation,
+  campaign registry selection, sheet values, D&D derived saves/skills/
+  initiative/spell math, campaign-dispatched dice, PDF field output, and combat
+  HP reads.
+- Ran the normal migration runner against timestamped copy
+  `dm_helper.task024-validation-20260912-235347.db`, never the live database.
+  It contained 5 characters; all 77 scalar values matched the extracted JSON,
+  and all 5 D&D rows were valid JSON. On that copy, runtime scalar and all five
+  collection mutations changed only extension JSON and left legacy storage
+  unchanged.
+- The live database SHA-256 remained
+  `F9F5B2D73067C34000A19763867D0225B20E29620E861F8D94D992670D5B5244`.
+  The validation copy was deleted and is not committed.
+- Fresh in-memory databases are exercised by the API and runtime cutover suites.
+  No interactive browser-control harness is available in this environment, so
+  no manual browser regression is claimed. As in TASK-014, browser behavior is
+  verified by jsdom/module tests and exhaustive static call-site tracing.
 
 ### Assumptions and design calls
 
-- Treated the old `character_system_data` mechanism as unused after repository
-  grep confirmed there are no runtime readers or writers. Migration still
-  preserves any unexpected rows rather than discarding them.
-- Chose one document per character/namespace instead of field-per-row EAV data.
-  This is the simplest shape approved by ADR-005, makes the plugin boundary
-  explicit, and allows each plugin to version its own document.
-- Included class/species features, D&D currency/attunement, and all five named
-  related tables in the snapshot because the task describes the entire D&D
-  sheet block and those related resources as the extraction boundary. Amber
-  columns and system-neutral percentile abilities are excluded.
-- Preserved legacy source storage in this pass. Removing it before all route and
-  browser reads/writes are cut over would make existing behavior unsafe.
-
-### Done versus not done
-
-- Done and verified: generalized table shape; compatibility migration from the
-  old escape hatch; exhaustive existing-character D&D snapshots; related-row
-  snapshots; fresh/in-memory migration coverage; copied-real-database coverage;
-  idempotency; D&D server manifest; campaign-to-system registry lookup.
-- Not done: runtime extension-data read/write API; legacy schema removal; route
-  and view cutover; browser registry dispatch for sheet/dice/PDF; manual browser
-  regression. These are the explicit blocker above.
+- Kept the legacy D&D columns and five tables physically present but made them
+  inactive compatibility storage: application code no longer reads or writes
+  them. Dropping many SQLite columns/tables in the same live-behavior cutover
+  would add rebuild/rollback risk without improving runtime correctness. This
+  is the narrower migration explicitly permitted by the acceptance criteria and
+  preserves a recovery reference for independent review. A later cleanup can
+  remove them after the cutover has operated successfully.
+- Kept the scalar `characters.feats` response distinct from the related
+  `character_feats` collection, matching the pre-existing character response
+  contract while still providing collection CRUD at `/feats`.
 
 ### Unresolved risks
 
-- Until cutover, extension documents are point-in-time migration snapshots and
-  can become stale when legacy routes write character data. They must not be
-  treated as the runtime source of truth yet.
-- The real database had no related-resource rows, so copy validation could only
-  prove their empty-array representation. Non-empty related data is covered by
-  real SQLite in-memory tests, not by production-copy examples.
-- The precise transactional update strategy for editing multiple locations
-  inside a JSON document remains a follow-up implementation call. It should be
-  resolved while preserving current route response shapes and authorization.
+- The retained legacy columns/tables can become stale by design and must not be
+  used as runtime truth. Static tracing and tests guard the current application,
+  but future code must continue using the system manifest/document API.
+- The real database has no related-resource rows; non-empty migration and CRUD
+  equivalence are therefore proven with real in-memory SQLite fixtures rather
+  than production-copy examples.
 
 ### Documentation updated
 
-- Updated this task's Blocker and Implementation handoff only. No architecture
-  or unrelated task documentation was changed.
+- Updated this task's acceptance checklist and implementation handoff. No
+  unrelated documentation was changed as part of this implementation.
 
 ## Review
 

@@ -65,6 +65,10 @@ async function loadCampaignSwitcher(token, user) {
     const response = await fetch('/api/auth/campaigns', { headers: { Authorization: `Bearer ${token}` } });
     if (!response.ok) return;
     const data = await response.json();
+    const activeCampaign = data.campaigns.find(campaign => campaign.id === data.current_campaign_id);
+    if (activeCampaign && globalThis.CharacterSystemRegistry) {
+        try { CharacterSystemRegistry.setActiveSystem(activeCampaign.system_id); } catch (error) { console.error(error); }
+    }
     select.replaceChildren(...data.campaigns.map(campaign => {
         const option = document.createElement('option');
         option.value = campaign.id;

@@ -6,8 +6,9 @@ const { serializeFamiliar } = require('../../utils/familiars');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { buildUpdateQuery } = require('../../utils/buildUpdateQuery');
 const { canModifyCharacter, requireCampaignCharacter } = require('./shared');
-const { CHARACTER_UPDATE_FIELDS } = require('./fields');
+const { UNIVERSAL_CHARACTER_UPDATE_FIELDS } = require('./fields');
 const { percentileFromScore } = require('../../../public/js/ability-conversion');
+const { getSystemForCampaign } = require('../../systems/registry');
 
 router.use(authenticate, requireCampaignMembership);
 router.use('/:id', requireCampaignCharacter);
@@ -27,7 +28,8 @@ router.get('/', asyncHandler((req, res) => {
         ORDER BY c.created_at DESC
     `).all(req.campaign.id);
 
-    res.json(characters);
+    const system = getSystemForCampaign(db, req.campaign.id);
+    res.json(characters.map(character => system.sheet.hydrateSheet(db, character, system)));
 }));
 
 // Get single character by ID
@@ -49,14 +51,8 @@ router.get('/:id', asyncHandler((req, res) => {
         return res.status(404).json({ error: 'Character not found' });
     }
 
-    // Get character's gear
-    const gear = db.prepare('SELECT * FROM character_gear WHERE character_id = ?').all(req.params.id);
-
-    const weapons = db.prepare('SELECT * FROM character_weapons WHERE character_id = ? ORDER BY sort_order, id').all(req.params.id);
-    const spells = db.prepare('SELECT * FROM character_spells WHERE character_id = ? ORDER BY spell_level, spell_name').all(req.params.id);
-
-    // Get character's powers
-    const powers = db.prepare('SELECT * FROM character_powers WHERE character_id = ?').all(req.params.id);
+    const system = getSystemForCampaign(db, req.campaign.id);
+    const hydrated = system.sheet.hydrateCharacter(db, character, system);
 
     // Get character's familiars
     const familiars = db.prepare('SELECT * FROM familiars WHERE character_id = ? AND is_active = 1').all(req.params.id);
@@ -73,11 +69,7 @@ router.get('/:id', asyncHandler((req, res) => {
     `).all(req.params.id, req.campaign.id);
 
     res.json({
-        ...character,
-        gear,
-        weapons,
-        spells,
-        powers,
+        ...hydrated,
         familiars: familiars.map(f => serializeFamiliar(f, character.level, isDMOrAdmin(req.user))),
         recent_progress: progress
     });
@@ -115,18 +107,18 @@ router.post('/', asyncHandler((req, res) => {
     const hasLogrus  = logrus_imprint  ? 1 : 0;
     const logrusLevel = { Basic: 1, Advanced: 2, Master: 3 }[logrus_imprint] ?? 0;
 
+    const createCharacter = db.transaction(() => {
     const stmt = db.prepare(`
         INSERT INTO characters (
             name, player_name, species, class_type, level,
             strength, dexterity, constitution, intelligence, wisdom, charisma,
-            max_hp, current_hp,
             order_chaos_value,
             pattern_imprint, pattern_type,
             logrus_imprint, logrus_mastery_level,
             blood_purity, trump_artist, broken_imprint,
             backstory, character_notes, amber_flaws, amber_traits,
             shadow_origin_id, user_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = stmt.run(
@@ -134,7 +126,6 @@ router.post('/', asyncHandler((req, res) => {
         percentileFromScore(strength), percentileFromScore(dexterity),
         percentileFromScore(constitution), percentileFromScore(intelligence),
         percentileFromScore(wisdom), percentileFromScore(charisma),
-        max_hp, current_hp,
         order_chaos_value,
         hasPattern, pattern_type,
         hasLogrus, logrusLevel,
@@ -152,8 +143,14 @@ router.post('/', asyncHandler((req, res) => {
     db.prepare('INSERT INTO campaign_characters (campaign_id, character_id) VALUES (?, ?)').run(req.campaign.id, characterId);
     db.prepare(`INSERT INTO claim_point_pools (character_id, total_points, spent_points, campaign_id) VALUES (?, 10, 0, ?)`)
         .run(characterId, req.campaign.id);
+    const system = getSystemForCampaign(db, req.campaign.id);
+    system.sheet.writeDocument(db, characterId, system.sheet.createDocument({ max_hp, current_hp }));
+    return { characterId, system };
+    });
 
-    const newCharacter = db.prepare('SELECT * FROM characters WHERE id = ?').get(characterId);
+    const { characterId, system } = createCharacter();
+    const newCharacter = system.sheet.hydrateSheet(
+        db, db.prepare('SELECT * FROM characters WHERE id = ?').get(characterId), system);
     res.status(201).json(newCharacter);
 }));
 
@@ -171,14 +168,20 @@ router.put('/:id', asyncHandler((req, res) => {
         return res.status(403).json({ error: 'You do not have permission to edit this character' });
     }
 
-    const query = buildUpdateQuery('characters', CHARACTER_UPDATE_FIELDS, req.body, characterId);
-    if (!query) {
+    const system = getSystemForCampaign(db, req.campaign.id);
+    const systemUpdates = Object.fromEntries(Object.entries(req.body)
+        .filter(([field]) => system.sheet.fields.includes(field)));
+    const query = buildUpdateQuery('characters', UNIVERSAL_CHARACTER_UPDATE_FIELDS, req.body, characterId);
+    if (!query && !Object.keys(systemUpdates).length) {
         return res.status(400).json({ error: 'No valid fields to update' });
     }
+    db.transaction(() => {
+        if (query) db.prepare(query.sql).run(...query.values);
+        if (Object.keys(systemUpdates).length) system.sheet.update(db, characterId, systemUpdates, system);
+    })();
 
-    db.prepare(query.sql).run(...query.values);
-
-    const updated = db.prepare('SELECT * FROM characters WHERE id = ?').get(characterId);
+    const updated = system.sheet.hydrateSheet(
+        db, db.prepare('SELECT * FROM characters WHERE id = ?').get(characterId), system);
     res.json(updated);
 }));
 
@@ -207,6 +210,7 @@ router.use(require('./powers'));
 router.use(require('./familiars'));
 router.use(require('./weapons'));
 router.use(require('./spells'));
+router.use(require('./feats'));
 router.use(require('./image'));
 router.use(require('./story'));
 

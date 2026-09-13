@@ -3,8 +3,8 @@ const router = express.Router();
 const { getDatabase } = require('../../database/connection');
 const { authenticate, isDMOrAdmin } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
-const { buildUpdateQuery } = require('../../utils/buildUpdateQuery');
 const { canModifyCharacter, requireDMUser } = require('./shared');
+const resource = require('./system-resource');
 
 // Powers are earned at the table: only the DM grants, edits, or revokes them.
 // Players track their own uses (current_uses) and can take a long rest.
@@ -22,13 +22,10 @@ router.post('/:id/powers', authenticate, asyncHandler((req, res) => {
         return res.status(400).json({ error: 'Power name is required' });
     }
 
-    const stmt = db.prepare(`
-        INSERT INTO character_powers (character_id, power_name, power_type, description, power_level, uses_per_day, current_uses)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    const result = stmt.run(req.params.id, power_name, power_type, description, power_level, uses_per_day, current_uses ?? uses_per_day);
-    const newPower = db.prepare('SELECT * FROM character_powers WHERE id = ?').get(result.lastInsertRowid);
+    const newPower = resource.create(db, req, 'powers', {
+        power_name, power_type: power_type ?? null, description: description ?? null, power_level,
+        uses_per_day, current_uses: current_uses ?? uses_per_day, created_at: resource.sqlTimestamp()
+    });
 
     res.status(201).json(newPower);
 }));
@@ -41,7 +38,7 @@ router.put('/:id/powers/:powerId', authenticate, asyncHandler((req, res) => {
     if (!canModifyCharacter(req.user, character)) {
         return res.status(403).json({ error: 'You do not have permission to modify this character' });
     }
-    const power = db.prepare('SELECT id FROM character_powers WHERE id = ? AND character_id = ?').get(req.params.powerId, req.params.id);
+    const power = resource.list(db, req, 'powers').find(item => String(item.id) === req.params.powerId);
     if (!power) return res.status(404).json({ error: 'Power not found' });
 
     const dm = isDMOrAdmin(req.user);
@@ -49,11 +46,9 @@ router.put('/:id/powers/:powerId', authenticate, asyncHandler((req, res) => {
         ? ['power_name', 'power_type', 'description', 'power_level', 'uses_per_day', 'current_uses']
         : ['current_uses'];
 
-    const query = buildUpdateQuery('character_powers', allowed, req.body, req.params.powerId, { touchUpdatedAt: false });
-    if (!query) return res.status(400).json({ error: 'No valid fields to update' });
-
-    db.prepare(query.sql).run(...query.values);
-    res.json(db.prepare('SELECT * FROM character_powers WHERE id = ?').get(req.params.powerId));
+    const updates = Object.fromEntries(Object.entries(req.body).filter(([key]) => allowed.includes(key)));
+    if (!Object.keys(updates).length) return res.status(400).json({ error: 'No valid fields to update' });
+    res.json(resource.update(db, req, 'powers', req.params.powerId, updates));
 }));
 
 // Long rest: reset all limited-use powers to full (owner or DM)
@@ -65,20 +60,19 @@ router.post('/:id/powers/rest', authenticate, asyncHandler((req, res) => {
         return res.status(403).json({ error: 'You do not have permission to modify this character' });
     }
 
-    db.prepare(`
-        UPDATE character_powers SET current_uses = uses_per_day
-        WHERE character_id = ? AND uses_per_day IS NOT NULL
-    `).run(req.params.id);
-
-    res.json(db.prepare('SELECT * FROM character_powers WHERE character_id = ?').all(req.params.id));
+    const system = resource.activeSystem(req, db);
+    const powers = system.sheet.mutateDocument(db, req.params.id, data => {
+        for (const power of data.powers || []) if (power.uses_per_day !== null) power.current_uses = power.uses_per_day;
+        return data.powers || [];
+    });
+    res.json(powers);
 }));
 
 // Revoke a power (DM only)
 router.delete('/:id/powers/:powerId', authenticate, asyncHandler((req, res) => {
     if (!requireDMUser(req, res)) return;
     const db = getDatabase();
-    const result = db.prepare('DELETE FROM character_powers WHERE id = ? AND character_id = ?').run(req.params.powerId, req.params.id);
-    if (result.changes === 0) return res.status(404).json({ error: 'Power not found' });
+    if (!resource.remove(db, req, 'powers', req.params.powerId)) return res.status(404).json({ error: 'Power not found' });
     res.json({ message: 'Power revoked' });
 }));
 

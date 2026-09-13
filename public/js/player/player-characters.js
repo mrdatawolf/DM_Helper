@@ -110,7 +110,7 @@ async function viewCharacter(characterId) {
         state.currentCharacter = character;
 
         // Show character sheet
-        displayCharacterSheet(character);
+        await displayCharacterSheet(character);
 
     } catch (error) {
         console.error('Error loading character:', error);
@@ -119,7 +119,8 @@ async function viewCharacter(characterId) {
 }
 
 // Display character sheet
-function displayCharacterSheet(character) {
+async function displayCharacterSheet(character) {
+    const system = await CharacterSystemRegistry.loadActiveSystem(localStorage.getItem('token'));
     const container = document.getElementById('character-details');
     const listContainer = document.getElementById('characters-list');
 
@@ -138,7 +139,7 @@ function displayCharacterSheet(character) {
 
         <div class="character-sheet-content">
             ${character.image_url ? `<img class="character-full-image" src="${escHtml(character.image_url)}" alt="${escHtml(character.name)}">` : ''}
-            ${renderDndCharacterSheet(character)}
+            ${system.sheet.render(character)}
 
             <h3>Amber Attributes</h3>
             <div class="form-grid">
@@ -174,7 +175,7 @@ function displayCharacterSheet(character) {
             </div>
         </div>
     `;
-    bindDndCharacterSheet(container.querySelector('.dnd-sheet'), character, () => viewCharacter(character.id));
+    system.sheet.bind(container.querySelector('.dnd-sheet'), character, () => viewCharacter(character.id));
 }
 
 // Close character sheet

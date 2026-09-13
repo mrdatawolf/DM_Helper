@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt');
 const { generateToken, verifyToken, authenticate } = require('../middleware/auth');
 const { getDatabase } = require('../database/connection');
 const { asyncHandler } = require('../middleware/errorHandler');
+const { getSystemForCampaign } = require('../systems/registry');
 
 const router = express.Router();
 
@@ -215,7 +216,6 @@ router.get('/characters', authenticate, asyncHandler((req, res, next) => {
         const characters = db.prepare(`
             SELECT
                 c.id, c.name, c.species, c.class_type, c.level,
-                c.current_hp, c.max_hp,
                 c.shadow_origin_id, c.current_shadow_id,
                 c.order_chaos_value,
                 c.pattern_imprint, c.logrus_imprint,
@@ -229,7 +229,11 @@ router.get('/characters', authenticate, asyncHandler((req, res, next) => {
             ORDER BY c.created_at DESC
         `).all(req.user.userId, req.user.currentCampaignId);
 
-        res.json({ characters });
+        const system = getSystemForCampaign(db, req.user.currentCampaignId);
+        res.json({ characters: characters.map(character => {
+            const sheet = system.sheet.readDocument(db, character.id).sheet;
+            return { ...character, current_hp: sheet.current_hp, max_hp: sheet.max_hp };
+        }) });
 
     } catch (error) {
         console.error('Get user characters error:', error);
@@ -244,6 +248,19 @@ router.get('/campaigns', authenticate, asyncHandler((req, res) => {
         WHERE cm.user_id = ? ORDER BY c.name, c.id
     `).all(req.user.userId);
     res.json({ campaigns, current_campaign_id: req.user.currentCampaignId });
+}));
+
+router.get('/campaigns/current-system', authenticate, asyncHandler((req, res) => {
+    const system = getSystemForCampaign(getDatabase(), req.user.currentCampaignId);
+    if (!system) return res.status(409).json({ error: 'Select a campaign before continuing' });
+    res.json({
+        id: system.id,
+        label: system.label,
+        sheet_renderer: system.sheet.browserRenderer,
+        dice_mechanic: system.dice.id,
+        pdf_template: system.pdfExport.template,
+        pdf_exporter: system.pdfExport.browserExporter
+    });
 }));
 
 router.post('/campaigns/switch', authenticate, asyncHandler((req, res) => {

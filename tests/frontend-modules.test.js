@@ -17,6 +17,15 @@ global.window = dom.window;
 global.document = dom.window.document;
 global.localStorage = dom.window.localStorage;
 
+require('../public/js/ability-conversion');
+require('../public/js/faserip-conversion');
+require('../public/js/faserip-sheet');
+require('../public/js/dnd-computed-character');
+require('../public/js/dnd-readonly-sheet');
+require('../public/js/dnd-full-sheet');
+require('../public/js/faserip-full-sheet');
+require('../public/js/system-registry');
+
 const shadowsModule = import('../public/js/player/player-shadows.js');
 const wizardCoreModule = import('../public/js/player/player-wizard-core.js');
 const characterSheetModule = import('../public/js/player/player-character-sheet.js');
@@ -96,6 +105,72 @@ test('D&D sheet displays converted ability scores after inline fields are bound'
     const displayedStrength = container.querySelector('[data-field="strength"]').textContent;
     assert.strictEqual(displayedStrength, '18');
     assert.notStrictEqual(displayedStrength, String(character.strength));
+});
+
+test('the active campaign registry dispatches sheet rendering, derived math, dice, and PDF export', async () => {
+    const sheet = await characterSheetModule;
+    const registry = require('../public/js/system-registry');
+    const active = registry.setActiveSystem('dnd5e');
+    assert.strictEqual(active.sheet.render, sheet.renderDndCharacterSheet);
+    assert.strictEqual(active.sheet.bind, sheet.bindDndCharacterSheet);
+    assert.strictEqual(active.derivedStats.compute, sheet.computedCharacter);
+    assert.strictEqual(active.pdfExport.export, sheet.downloadCharacterPdf);
+    assert.strictEqual(await active.dice.roll(async () => 13), 13);
+});
+
+test('browser registry selects runtime behavior from the current campaign system_id', async () => {
+    const registry = require('../public/js/system-registry');
+    const previousFetch = global.fetch;
+    global.fetch = async url => {
+        assert.strictEqual(url, '/api/auth/campaigns/current-system');
+        return { ok: true, json: async () => ({ id: 'dnd5e' }) };
+    };
+    try {
+        const selected = await registry.loadActiveSystem('token');
+        assert.strictEqual(selected.id, 'dnd5e');
+        assert.strictEqual(registry.getActiveSystem(), selected);
+    } finally { global.fetch = previousFetch; }
+});
+
+test('campaign-dispatched PDF export retains D&D field values', async () => {
+    const registry = require('../public/js/system-registry');
+    const active = registry.setActiveSystem('dnd5e');
+    const text = new Map();
+    const checks = new Map();
+    const previous = { fetch: global.fetch, PDFLib: global.PDFLib,
+        createObjectURL: global.URL.createObjectURL, revokeObjectURL: global.URL.revokeObjectURL };
+    global.fetch = async () => ({ arrayBuffer: async () => new ArrayBuffer(1) });
+    global.PDFLib = { PDFDocument: { load: async () => ({
+        getForm: () => ({
+            getTextField: name => ({ setText: value => text.set(name, value) }),
+            getCheckBox: name => ({ check: () => checks.set(name, true), uncheck: () => checks.set(name, false) })
+        }),
+        save: async () => new Uint8Array([1])
+    }) } };
+    global.URL.createObjectURL = () => 'blob:test';
+    global.URL.revokeObjectURL = () => {};
+    dom.window.HTMLAnchorElement.prototype.click = () => {};
+    try {
+        const { percentileFromScore } = require('../public/js/ability-conversion');
+        await active.pdfExport.export({
+            id: 9, name: 'PDF Hero', class_type: 'Wizard', level: 5,
+            strength: percentileFromScore(18), dexterity: percentileFromScore(14),
+            constitution: percentileFromScore(12), intelligence: percentileFromScore(16),
+            wisdom: percentileFromScore(10), charisma: percentileFromScore(8),
+            proficiency_bonus: 3, armor_class: 17, max_hp: 27, current_hp: 19,
+            heroic_inspiration: 1, weapons: [], spells: [], gear: []
+        });
+        assert.strictEqual(text.get('Character Name'), 'PDF Hero');
+        assert.strictEqual(text.get('Strength Ability Score'), '18');
+        assert.strictEqual(text.get('Armor Class'), '17');
+        assert.strictEqual(text.get('Hit Point Maximum'), '27');
+        assert.strictEqual(text.get('Current Hit Points'), '19');
+    } finally {
+        global.fetch = previous.fetch;
+        global.PDFLib = previous.PDFLib;
+        global.URL.createObjectURL = previous.createObjectURL;
+        global.URL.revokeObjectURL = previous.revokeObjectURL;
+    }
 });
 
 test('the "View As..." registry lists D&D 5e and FASERIP, and the read-only D&D view matches the real sheet\'s math', async () => {

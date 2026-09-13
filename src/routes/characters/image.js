@@ -7,6 +7,7 @@ const { getDatabase } = require('../../database/connection');
 const { authenticate } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { canModifyCharacter } = require('./shared');
+const { getSystemForCampaign } = require('../../systems/registry');
 
 const router = express.Router();
 const uploadsDirectory = path.join(__dirname, '../../../public/uploads/characters');
@@ -88,7 +89,8 @@ router.post('/:id/image', authenticate, authorizeCharacter, parseImage, asyncHan
     }
 
     removeUploadedFile(req.character.image_url);
-    res.json(db.prepare('SELECT * FROM characters WHERE id = ?').get(req.params.id));
+    const system = getSystemForCampaign(db, req.campaign.id);
+    res.json(system.sheet.hydrateSheet(db, db.prepare('SELECT * FROM characters WHERE id = ?').get(req.params.id), system));
 }));
 
 router.delete('/:id/image', authenticate, authorizeCharacter, asyncHandler((req, res) => {
@@ -96,7 +98,8 @@ router.delete('/:id/image', authenticate, authorizeCharacter, asyncHandler((req,
     db.prepare('UPDATE characters SET image_url = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
         .run(req.params.id);
     removeUploadedFile(req.character.image_url);
-    res.json(db.prepare('SELECT * FROM characters WHERE id = ?').get(req.params.id));
+    const system = getSystemForCampaign(db, req.campaign.id);
+    res.json(system.sheet.hydrateSheet(db, db.prepare('SELECT * FROM characters WHERE id = ?').get(req.params.id), system));
 }));
 
 module.exports = router;

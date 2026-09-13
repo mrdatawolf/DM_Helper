@@ -9,6 +9,7 @@ const {
 const { computeFamiliarPower } = require('../utils/familiars');
 const { collectUpdateFields } = require('../utils/buildUpdateQuery');
 const { asyncHandler } = require('../middleware/errorHandler');
+const { getSystemForCampaign } = require('../systems/registry');
 
 router.use(authenticate);
 
@@ -94,7 +95,7 @@ router.post('/', requireDM, asyncHandler((req, res) => {
         `).run(session_id, scene_id, title, visibility, req.user.userId);
         const encounterId = result.lastInsertRowid;
         for (const cb of combatants) {
-            insertCombatant(db, encounterId, cb);
+            insertCombatant(db, encounterId, cb, req.user.currentCampaignId);
         }
         return encounterId;
     });
@@ -105,17 +106,19 @@ router.post('/', requireDM, asyncHandler((req, res) => {
     res.status(201).json(encounter);
 }));
 
-function insertCombatant(db, encounterId, cb) {
+function insertCombatant(db, encounterId, cb, campaignId) {
     let { character_id = null, familiar_id = null, name, combatant_type = 'npc', initiative = 10, max_hp = 10, current_hp = null } = cb;
 
     // Linking a PC pulls name and HP from the character sheet unless overridden
     if (character_id) {
-        const c = db.prepare('SELECT name, max_hp, current_hp FROM characters WHERE id = ?').get(character_id);
+        const c = db.prepare('SELECT id, name FROM characters WHERE id = ?').get(character_id);
         if (!c) throw new Error(`Character ${character_id} not found`);
+        const system = getSystemForCampaign(db, campaignId);
+        const sheet = system.sheet.readDocument(db, character_id).sheet;
         combatant_type = 'pc';
         name = name || c.name;
-        max_hp = cb.max_hp ?? c.max_hp;
-        current_hp = cb.current_hp ?? c.current_hp;
+        max_hp = cb.max_hp ?? sheet.max_hp;
+        current_hp = cb.current_hp ?? sheet.current_hp;
     }
 
     // Linking a familiar pulls name and level-scaled HP unless overridden
@@ -173,7 +176,7 @@ router.post('/:id/combatants', requireDM, asyncHandler((req, res) => {
     const encounter = db.prepare('SELECT * FROM combat_encounters WHERE id = ?').get(req.params.id);
     if (!encounter) return res.status(404).json({ error: 'Encounter not found' });
 
-    const result = insertCombatant(db, encounter.id, req.body);
+    const result = insertCombatant(db, encounter.id, req.body, req.user.currentCampaignId);
     res.status(201).json(db.prepare('SELECT * FROM combatants WHERE id = ?').get(result.lastInsertRowid));
 }));
 
