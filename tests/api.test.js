@@ -295,6 +295,14 @@ test('campaign switching scopes character access and rejects non-members', async
         body: { name: 'Second Campaign', system_id: 'dnd5e', universe_id: 'amber' }
     });
     assert.strictEqual(createdCampaign.status, 201, JSON.stringify(createdCampaign.body));
+    const campaignList = await api('GET', '/api/auth/campaigns', { token: createdCampaign.body.token });
+    assert.strictEqual(campaignList.status, 200);
+    const activeCampaign = campaignList.body.campaigns.find(item => item.id === campaignList.body.current_campaign_id);
+    assert.strictEqual(activeCampaign.name, 'Second Campaign');
+    assert.strictEqual(activeCampaign.system_label, 'D&D 5e');
+    assert.strictEqual(activeCampaign.universe_label, 'Amber');
+    assert.strictEqual(activeCampaign.branding.logo, '/logo.png');
+    assert.match(activeCampaign.branding.tagline, /Amber multiverse/);
     assert.strictEqual(db.prepare('SELECT count(*) count FROM shadows WHERE campaign_id = ?').get(createdCampaign.body.id).count, 11);
     assert.strictEqual(db.prepare('SELECT count(*) count FROM primal_patterns WHERE campaign_id = ?').get(createdCampaign.body.id).count, 3);
     assert.strictEqual(db.prepare('SELECT count(*) count FROM primal_pattern_sections WHERE campaign_id = ?').get(createdCampaign.body.id).count, 17);

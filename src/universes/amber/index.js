@@ -64,6 +64,14 @@ module.exports = Object.freeze({
     seed: require('./seed').seed,
     content: Object.freeze({
         guidePath: path.join(__dirname, 'content', 'PLAYER_GUIDE.md'),
-        wizard: require('./content/player-wizard-data')
+        wizard: require('./content/player-wizard-data'),
+        branding: Object.freeze({
+            logo: '/logo.png',
+            tagline: 'Where D&D 5e meets the infinite possibilities of the Amber multiverse',
+            description: "A unique blend of D&D 5e mechanics with the rich multiverse of Roger Zelazny's Chronicles of Amber. This campaign management system helps you navigate a world where reality itself can be shaped by those with the right blood.",
+            dmPortalDescription: 'Manage your campaign, track characters across multiple shadows, orchestrate sessions, and weave the threads of Order and Chaos.',
+            playerPortalDescription: 'Create and manage your characters, track your journey through the shadows, allocate claim points, and communicate with your party.',
+            footer: 'Inspired by D&D 5e & Amber RPG'
+        })
     })
 });

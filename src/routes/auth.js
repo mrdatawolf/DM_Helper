@@ -244,11 +244,22 @@ router.get('/characters', authenticate, asyncHandler((req, res, next) => {
 }));
 
 router.get('/campaigns', authenticate, asyncHandler((req, res) => {
-    const campaigns = getDatabase().prepare(`
+    const db = getDatabase();
+    const campaigns = db.prepare(`
         SELECT c.id, c.name, c.system_id, c.universe_id, cm.role
         FROM campaign_members cm JOIN campaigns c ON c.id = cm.campaign_id
         WHERE cm.user_id = ? ORDER BY c.name, c.id
-    `).all(req.user.userId);
+    `).all(req.user.userId).map(campaign => {
+        const system = getSystemForCampaign(db, campaign.id);
+        const universe = getUniverse(campaign.universe_id);
+        return {
+            ...campaign,
+            universe_id: campaign.universe_id || null,
+            system_label: system?.label || campaign.system_id,
+            universe_label: universe?.label || null,
+            branding: universe?.content?.branding || null
+        };
+    });
     res.json({ campaigns, current_campaign_id: req.user.currentCampaignId });
 }));
 

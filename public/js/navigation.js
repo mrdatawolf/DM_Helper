@@ -69,14 +69,23 @@ async function loadCampaignSwitcher(token, user) {
     if (activeCampaign && globalThis.CharacterSystemRegistry) {
         try { CharacterSystemRegistry.setActiveSystem(activeCampaign.system_id); } catch (error) { console.error(error); }
     }
-    select.replaceChildren(...data.campaigns.map(campaign => {
+    const options = data.campaigns.map(campaign => {
         const option = document.createElement('option');
         option.value = campaign.id;
         option.textContent = `${campaign.name} (${campaign.role})`;
         option.selected = campaign.id === data.current_campaign_id;
         return option;
-    }));
-    select.hidden = data.campaigns.length < 2;
+    });
+    if (data.current_campaign_id == null && data.campaigns.length) {
+        const prompt = document.createElement('option');
+        prompt.value = '';
+        prompt.textContent = 'Select a campaign';
+        prompt.disabled = true;
+        prompt.selected = true;
+        options.unshift(prompt);
+    }
+    select.replaceChildren(...options);
+    select.hidden = data.campaigns.length < 2 && data.current_campaign_id != null;
     createButton.hidden = !(user.is_dm || user.is_admin || user.is_super_admin);
     select.onchange = () => switchCampaign(token, select.value);
     createButton.onclick = () => createCampaign(token);

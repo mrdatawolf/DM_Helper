@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-brand-page="home">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Amber Campaign - The Shattering of the Liminal</title>
+    <title>DM Helper</title>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="/css/navigation.css">
     <style>
@@ -318,13 +318,14 @@
 </head>
 <body data-user-role="guest">
     <!-- Navigation will be injected here -->
+    <script src="/js/campaign-branding.js"></script>
     <script src="/js/load-navigation.js"></script>
     <script src="/js/navigation.js"></script>
 
     <div class="landing-header">
-        <h1>The Shattering of the Liminal</h1>
-        <p class="subtitle">Amber Campaign Management System</p>
-        <p class="tagline">Where D&D 5e meets the infinite possibilities of the Amber multiverse</p>
+        <h1 data-campaign-name>DM Helper</h1>
+        <p class="subtitle" data-campaign-subtitle>Campaign Management</p>
+        <p class="tagline" data-campaign-tagline>A campaign management hub for game masters and players</p>
     </div>
 
     <div class="landing-content">
@@ -332,39 +333,36 @@
             <div class="portal-card dm-portal" onclick="window.location.href='/dm-dashboard.html'">
                 <span class="portal-icon">🎲</span>
                 <h2>Dungeon Master</h2>
-                <p>Manage your campaign, track characters across multiple shadows, orchestrate sessions, and weave the threads of Order and Chaos.</p>
+                <p data-campaign-dm-description>Manage campaigns, characters, sessions, progress, and storylines.</p>
                 <button class="btn">Enter DM Portal</button>
             </div>
 
             <div class="portal-card player-portal" onclick="window.location.href='/player-login.html'">
                 <span class="portal-icon">🎭</span>
                 <h2>Player Portal</h2>
-                <p>Create and manage your characters, track your journey through the shadows, allocate claim points, and communicate with your party.</p>
+                <p data-campaign-player-description>Create and manage characters, follow sessions, and stay connected with your party.</p>
                 <button class="btn">Enter Player Portal</button>
             </div>
         </div>
 
         <div class="info-section">
-            <h3>✨ What is The Shattering of the Liminal?</h3>
-            <p style="text-align: center; color: #ecf0f1; margin-bottom: 25px;">
-                A unique blend of D&D 5e mechanics with the rich multiverse of Roger Zelazny's Chronicles of Amber.
-                This campaign management system helps you navigate a world where reality itself can be shaped by those with the right blood.
-            </p>
+            <h3 data-campaign-about-heading>✨ What is DM Helper?</h3>
+            <p data-campaign-description style="text-align: center; color: #ecf0f1; margin-bottom: 25px;">Organize characters, sessions, storylines, and shared campaign activity in one place.</p>
 
             <div class="feature-list">
                 <div class="feature-item">
                     <span class="icon">🌍</span>
                     <div class="text">
-                        <strong>Shadow Walking</strong>
-                        <small>Travel between infinite parallel worlds</small>
+                        <strong>Character Management</strong>
+                        <small>Keep character details and stories together</small>
                     </div>
                 </div>
 
                 <div class="feature-item">
                     <span class="icon">⚖️</span>
                     <div class="text">
-                        <strong>Order vs Chaos</strong>
-                        <small>Balance between Pattern and Logrus</small>
+                        <strong>Campaign Worlds</strong>
+                        <small>Track locations, lore, and discoveries</small>
                     </div>
                 </div>
 
@@ -379,8 +377,8 @@
                 <div class="feature-item">
                     <span class="icon">🃏</span>
                     <div class="text">
-                        <strong>Trump Powers</strong>
-                        <small>Mystical trump cards and artistry</small>
+                        <strong>Rules Support</strong>
+                        <small>Use the game system selected by your campaign</small>
                     </div>
                 </div>
 
@@ -411,7 +409,7 @@
     </div>
 
     <div class="footer">
-        <p>The Shattering of the Liminal Campaign System • Inspired by D&D 5e & Amber RPG</p>
+        <p data-campaign-footer>Campaign management for game masters and players</p>
     </div>
 </body>
 </html>
