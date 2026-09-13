@@ -1,5 +1,34 @@
 -- Core Tables for DM Helper
 
+-- Campaign tenancy
+CREATE TABLE IF NOT EXISTS campaigns (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    owner_user_id INTEGER REFERENCES users(id),
+    system_id TEXT NOT NULL,
+    universe_id TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS campaign_members (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    campaign_id INTEGER NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role TEXT NOT NULL CHECK(role IN ('dm', 'player')),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(campaign_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS campaign_characters (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    campaign_id INTEGER NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+    character_id INTEGER NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+    current_shadow_id INTEGER REFERENCES shadows(id) ON DELETE SET NULL,
+    joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(campaign_id, character_id)
+);
+
 -- Shadows (Realms in the Amber multiverse)
 CREATE TABLE IF NOT EXISTS shadows (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -15,6 +44,7 @@ CREATE TABLE IF NOT EXISTS shadows (
 
     -- Ownership
     created_by INTEGER,
+    campaign_id INTEGER REFERENCES campaigns(id),
 
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -233,6 +263,7 @@ CREATE TABLE IF NOT EXISTS campaign_sessions (
     opening_notes TEXT,
     mid_notes TEXT,
     closing_notes TEXT,
+    campaign_id INTEGER REFERENCES campaigns(id),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -243,6 +274,7 @@ CREATE TABLE IF NOT EXISTS character_progress (
     character_id INTEGER NOT NULL,
     session_id INTEGER NOT NULL,
     shadow_id INTEGER, -- Where the character was during this session
+    campaign_id INTEGER REFERENCES campaigns(id),
 
     -- What happened this session
     summary TEXT NOT NULL,
@@ -277,6 +309,7 @@ CREATE TABLE IF NOT EXISTS npcs (
     name TEXT NOT NULL,
     creature_type TEXT, -- Shadow Eater, Eggari, Elevi, Djunkai, etc.
     shadow_id INTEGER, -- Which shadow they're currently in
+    campaign_id INTEGER REFERENCES campaigns(id),
 
     -- Stats (simplified for NPCs)
     armor_class INTEGER,
@@ -306,6 +339,7 @@ CREATE TABLE IF NOT EXISTS feat_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     character_id INTEGER NOT NULL,
     session_id INTEGER,
+    campaign_id INTEGER REFERENCES campaigns(id),
     feat_source TEXT CHECK(feat_source IN ('session', 'level', 'unknown_unknown')),
     description TEXT,
     earned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -318,6 +352,7 @@ CREATE TABLE IF NOT EXISTS feat_log (
 CREATE TABLE IF NOT EXISTS attribute_claims (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     character_id INTEGER NOT NULL,
+    campaign_id INTEGER REFERENCES campaigns(id),
     attribute_name TEXT NOT NULL, -- Warfare, Strength, Endurance, Pattern, Logrus, etc.
     points_spent INTEGER NOT NULL DEFAULT 0,
     justification TEXT, -- Why/how they achieved this level
@@ -333,6 +368,7 @@ CREATE TABLE IF NOT EXISTS perceived_rankings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     observer_character_id INTEGER NOT NULL, -- Who is doing the perceiving
     target_character_id INTEGER NOT NULL, -- Who they're perceiving
+    campaign_id INTEGER REFERENCES campaigns(id),
     attribute_name TEXT NOT NULL,
     perceived_points INTEGER NOT NULL, -- What they THINK the target has
     perception_notes TEXT, -- Why they think this (rumors, demonstrations, etc.)
@@ -347,6 +383,7 @@ CREATE TABLE IF NOT EXISTS perceived_rankings (
 -- Claim Point Pools (track available points for each character)
 CREATE TABLE IF NOT EXISTS claim_point_pools (
     character_id INTEGER PRIMARY KEY,
+    campaign_id INTEGER REFERENCES campaigns(id),
     total_points INTEGER DEFAULT 10, -- Total points ever earned
     spent_points INTEGER DEFAULT 0, -- Points currently allocated
     available_points INTEGER GENERATED ALWAYS AS (total_points - spent_points) STORED,
@@ -358,6 +395,7 @@ CREATE TABLE IF NOT EXISTS claim_point_pools (
 CREATE TABLE IF NOT EXISTS claim_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     character_id INTEGER NOT NULL,
+    campaign_id INTEGER REFERENCES campaigns(id),
     attribute_name TEXT NOT NULL,
     points_change INTEGER NOT NULL, -- Positive for increase, negative for decrease
     justification TEXT NOT NULL,
