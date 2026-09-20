@@ -266,7 +266,94 @@ Date: 2026-09-13
 
 ## Review
 
-Not reviewed.
+Reviewer: Claude
+Date: 2026-09-13
+
+This carries the same risk class as TASK-024 (live character-data migration)
+plus a genuinely delicate addition: a live `ALTER`-via-rebuild of the
+`shadows` table to drop its `pattern_influence` CHECK constraint. Reviewed
+accordingly — read every changed file, not a sample, and independently
+re-derived the riskiest pieces myself rather than trusting the handoff.
+
+Verified independently:
+
+- `git show --stat 52a380d`: 24 files, matches the handoff's described
+  surface (migration 015, the universe module tree, content relocation,
+  registry, route wiring, `migrate.js`'s transactional opt-out).
+- **Scrutinized the `shadows` table rebuild closely, since dropping a CHECK
+  constraint in SQLite requires a full table rebuild, not a simple
+  `ALTER`**: confirmed `db.pragma('foreign_keys')` is read and toggled
+  *outside* any open transaction (required — SQLite silently no-ops a pragma
+  change inside a transaction), the actual rebuild + character-extraction
+  work happens inside the migration's own `db.transaction()`, an explicit
+  `PRAGMA foreign_key_check` runs before commit and throws to force a
+  rollback on any violation, and the `finally` block restores the prior
+  foreign-key setting regardless of outcome. `migrate.js`'s new
+  `transactional: false` opt-out correctly stops the runner from wrapping the
+  migration in its own outer transaction (which would have made the
+  pragma-toggle silently no-op) while every other migration's behavior is
+  unchanged. This is the correct pattern for this kind of surgery in
+  better-sqlite3/SQLite, not a shortcut.
+- Compared the rebuilt `shadows` schema against the original directly (not
+  just trusting the diff): the only things genuinely dropped are the
+  column-level `UNIQUE` on `name` and the `CHECK` on `pattern_influence`;
+  every other column, and every foreign key pointing *into* `shadows` from
+  other tables, is unaffected since row `id` values are preserved verbatim
+  during the copy. The new `idx_shadows_campaign_name` unique index
+  (`COALESCE(campaign_id, 0), name`) correctly generalizes the old
+  per-column uniqueness rather than silently dropping the guarantee.
+- **Independently re-ran the full migration chain (013→014→015, including a
+  second call to 015) against a fresh copy of the real database**: shadow
+  count unchanged (21) after the rebuild, zero `foreign_key_check`
+  violations, the CHECK constraint confirmed gone from the live schema, the
+  new index confirmed present, and all 13 `AMBER_CHARACTER_COLUMNS` values
+  for every real character matched their pre-migration values exactly. Ran
+  the amber migration twice in a row with no duplication. Live `dm_helper.db`
+  SHA-256 confirmed byte-identical before and after (matches the handoff's
+  recorded hash), and the validation copy was deleted.
+- Independently reran `npm test`: 88/88 passing, matching the handoff.
+- Read `src/universes/amber/seed.js`: idempotent per campaign (checks
+  `count = 0` before inserting shadows/patterns, and `INSERT OR IGNORE`/
+  `WHERE NOT EXISTS` guards prevent in-call duplication) — confirms the
+  handoff's claim that existing campaign lore is never overwritten or
+  duplicated by reseeding.
+- Confirmed `getUniverseForCampaign(...)?.shadows?.validate(...)` in
+  `shadows.js` is correctly optional-chained, so a homebrew (no-universe)
+  campaign genuinely allows an arbitrary `pattern_influence` rather than
+  silently still enforcing Amber's rule — the validation moved to the
+  universe layer for real, not just nominally.
+- Confirmed `characters/index.js` now splits creation/update across three
+  destinations correctly: universal fields to `characters`, D&D fields to
+  `system:dnd5e` (unchanged from TASK-024), Amber fields to `universe:amber`,
+  conditionally on `if (universe)` — a homebrew campaign's character creation
+  correctly skips writing any Amber document at all. `hydrateCharacterForCampaign`
+  strips raw legacy Amber columns before overlaying the universe document,
+  so no stale legacy value can leak through a read.
+- Diffed the relocated `PLAYER_GUIDE.md` against its pre-move content byte
+  for byte (after normalizing line endings, since the diff tool otherwise
+  reports every line changed due to CRLF): identical, confirming the
+  handoff's claim directly rather than accepting it on faith.
+- `src/routes/universe-content.js`'s `/guide` and `/wizard` endpoints are
+  correctly gated by `requireCampaignMembership` and 404 when the active
+  campaign has no universe content — not publicly open.
+
+One non-blocking observation: `player-wizard-data.js` now uses a top-level
+`await fetch(...)` in an ES module to load campaign-specific wizard content
+before the rest of the module evaluates. This is a real (if modern-browser-only)
+behavioral shift from synchronous constant definitions to an async load
+gate for every module that imports it — reasonable given ADR-001's existing
+no-bundler/ES-module baseline, and the handoff is honest that no interactive
+browser regression could be performed here (no browser-control harness in
+this environment, same limitation noted since TASK-014). Worth a manual
+browser smoke-test before this reaches real users, but not a reason to block
+review.
+
+No blocking findings. This is another large, genuinely risky change (the
+`shadows` table rebuild especially) implemented with real care — the
+transactional opt-out is a deliberate, correctly-reasoned exception to the
+migration runner's normal behavior, not a workaround, and every claim in the
+handoff held up under independent re-verification against real data. Ready
+for human acceptance.
 
 ## Human acceptance
 

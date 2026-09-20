@@ -253,6 +253,30 @@ test('claim allocation respects character ownership', async () => {
     assert.strictEqual(other.status, 403);
 });
 
+test('shadow startingOnly filter excludes non-starting and spoiler shadows without changing the default list', async () => {
+    const campaignId = db.prepare('SELECT campaign_id FROM campaign_members WHERE user_id = ?').get(alice.user.id).campaign_id;
+    const insert = db.prepare(`
+        INSERT INTO shadows (name, is_starting_shadow, is_spoiler, campaign_id)
+        VALUES (?, ?, ?, ?)
+    `);
+    insert.run('Filter Visible Origin', 1, 0, campaignId);
+    insert.run('Filter Non-starting', 0, 0, campaignId);
+    insert.run('Filter Spoiler Origin', 1, 1, campaignId);
+
+    const unfiltered = await api('GET', '/api/shadows', { token: alice.token });
+    assert.strictEqual(unfiltered.status, 200);
+    assert.ok(unfiltered.body.some(shadow => shadow.name === 'Filter Visible Origin'));
+    assert.ok(unfiltered.body.some(shadow => shadow.name === 'Filter Non-starting'));
+    assert.ok(unfiltered.body.some(shadow => shadow.name === 'Filter Spoiler Origin'));
+
+    const filtered = await api('GET', '/api/shadows?startingOnly=true', { token: alice.token });
+    assert.strictEqual(filtered.status, 200);
+    assert.ok(filtered.body.some(shadow => shadow.name === 'Filter Visible Origin'));
+    assert.ok(filtered.body.every(shadow => shadow.is_starting_shadow === 1 && shadow.is_spoiler === 0));
+    assert.ok(!filtered.body.some(shadow => shadow.name === 'Filter Non-starting'));
+    assert.ok(!filtered.body.some(shadow => shadow.name === 'Filter Spoiler Origin'));
+});
+
 test('claim player actions remain accessible while point grants remain DM-only', async () => {
     const playerGrant = await api('POST', '/api/claims/grant-points', {
         token: alice.token,
@@ -309,6 +333,10 @@ test('campaign switching scopes character access and rejects non-members', async
     const wizardContent = await api('GET', '/api/universe/content/wizard', { token: createdCampaign.body.token });
     assert.strictEqual(wizardContent.status, 200);
     assert.strictEqual(wizardContent.body.IMPRINT_LORE.FirstPattern.title, 'The Pattern');
+    const systemWizardContent = await api('GET', '/api/system/content/wizard', { token: createdCampaign.body.token });
+    assert.strictEqual(systemWizardContent.status, 200);
+    assert.deepStrictEqual(systemWizardContent.body.STAT_KEYS, ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA']);
+    assert.ok(systemWizardContent.body.CLASSES_5E.some(item => item.id === 'Wizard'));
     const guideResponse = await fetch(base + '/api/universe/content/guide', {
         headers: { Authorization: `Bearer ${createdCampaign.body.token}` }
     });
@@ -501,6 +529,7 @@ test('a campaign with no universe receives no Amber attributes, content, or seed
     assert.strictEqual(db.prepare('SELECT count(*) count FROM primal_patterns WHERE campaign_id = ?').get(campaign.body.id).count, 0);
     assert.strictEqual(db.prepare('SELECT count(*) count FROM primal_pattern_sections WHERE campaign_id = ?').get(campaign.body.id).count, 0);
     assert.strictEqual((await api('GET', '/api/universe/content/wizard', { token: campaign.body.token })).status, 404);
+    assert.strictEqual((await api('GET', '/api/system/content/wizard', { token: campaign.body.token })).status, 200);
     assert.strictEqual((await api('GET', '/api/universe/content/guide', { token: campaign.body.token })).status, 404);
     assert.strictEqual((await api('POST', '/api/shadows', {
         token: campaign.body.token,

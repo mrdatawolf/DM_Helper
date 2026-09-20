@@ -33,7 +33,11 @@ router.get('/:id/lore', asyncHandler((req, res) => {
 // Get all shadows
 router.get('/', asyncHandler((req, res) => {
     const db = getDatabase();
-    const shadows = db.prepare('SELECT * FROM shadows WHERE campaign_id = ? ORDER BY name')
+    const startingOnly = req.query.startingOnly === 'true';
+    const sql = startingOnly
+        ? 'SELECT * FROM shadows WHERE campaign_id = ? AND is_starting_shadow = 1 AND is_spoiler = 0 ORDER BY name'
+        : 'SELECT * FROM shadows WHERE campaign_id = ? ORDER BY name';
+    const shadows = db.prepare(sql)
         .all(req.campaign.id);
     res.json(shadows);
 }));

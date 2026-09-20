@@ -5,9 +5,7 @@
 // file (e.g. loadVisitedShadows, which does real fetch + DOM writes, lives
 // in the same file as visitedInfluenceLabel but is never invoked here).
 //
-// A minimal jsdom `document`/`window` must exist before importing, because
-// player-shadows.js registers a real (harmless, no-op without a
-// `.wizard-body` element) event-delegation IIFE at module top level.
+// A minimal jsdom `document`/`window` must exist before importing browser modules.
 const test = require('node:test');
 const assert = require('node:assert');
 const { JSDOM } = require('jsdom');
@@ -16,13 +14,6 @@ const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', { url: 'http:
 global.window = dom.window;
 global.document = dom.window.document;
 global.localStorage = dom.window.localStorage;
-const amberWizardContent = require('../src/universes/amber/content/player-wizard-data');
-global.fetch = async url => {
-    if (url === '/api/universe/content/wizard') {
-        return { ok: true, json: async () => amberWizardContent };
-    }
-    throw new Error(`Unexpected fetch in frontend module test: ${url}`);
-};
 
 require('../public/js/ability-conversion');
 require('../public/js/faserip-conversion');
@@ -34,7 +25,6 @@ require('../public/js/faserip-full-sheet');
 require('../public/js/system-registry');
 
 const shadowsModule = import('../public/js/player/player-shadows.js');
-const wizardCoreModule = import('../public/js/player/player-wizard-core.js');
 const characterSheetModule = import('../public/js/player/player-character-sheet.js');
 
 test('visitedInfluenceLabel: maps internal imprint values to display labels', async () => {
@@ -56,23 +46,6 @@ test('visitedShadowCardStyle: returns a color style only for recognized influenc
     assert.strictEqual(visitedShadowCardStyle('something-unmapped'), '');
 });
 
-test('calcAmberMods: derives stat modifiers from wizard choices without touching the DOM', async () => {
-    const { wiz, calcAmberMods } = await wizardCoreModule;
-
-    Object.assign(wiz, {
-        orderChaos: 90, bloodPurity: 'Pure', imprint: 'FirstPattern',
-        noneBonus: null, penaltyShift: '',
-    });
-
-    const mods = calcAmberMods();
-
-    // Order >= 75 grants +1 INT/+1 WIS; First Pattern imprint grants +2
-    // WIS/+1 CON; Pure blood purity grants +1 WIS — these all stack on WIS.
-    assert.strictEqual(mods.INT, 1);
-    assert.strictEqual(mods.WIS, 4);
-    assert.strictEqual(mods.CON, 1);
-    assert.strictEqual(mods.STR, 0);
-});
 
 test('D&D sheet computed values use converted abilities for saves, skills, initiative, and spells', async () => {
     const { computedCharacter } = await characterSheetModule;

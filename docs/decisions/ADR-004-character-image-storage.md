@@ -1,6 +1,6 @@
 # ADR-004: Store one character image on the filesystem
 
-Status: Proposed
+Status: Accepted
 Date: 2026-09-06
 Decision owners: Patrick
 Related tasks and contracts: TASK-018 (implementation); no related contracts

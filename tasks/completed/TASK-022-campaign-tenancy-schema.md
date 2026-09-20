@@ -315,7 +315,76 @@ Date: 2026-09-12
 
 ## Review
 
-Not reviewed.
+Reviewer: Claude
+Date: 2026-09-13
+
+Verified independently rather than trusting the handoff's self-report:
+
+- `git show --stat 2af910e`: exactly the four expected files changed
+  (`013-campaign-tenancy.js`, `schema.sql`, `tests/migration.test.js`, and
+  this task file) — no route, middleware, or UI file touched, matching the
+  task's Excluded scope.
+- Read the full migration and confirmed each idempotency mechanism actually
+  works: `CREATE TABLE IF NOT EXISTS`, a `PRAGMA table_info` guard before each
+  `campaign_id` column addition, `ON CONFLICT(id) DO NOTHING` for the single
+  campaign row, `INSERT OR IGNORE` against `UNIQUE(campaign_id, user_id)` /
+  `UNIQUE(campaign_id, character_id)` for memberships and character links, and
+  an `UPDATE ... WHERE campaign_id IS NULL` backfill that only ever touches
+  still-null rows.
+- **Independently re-ran the migration myself against a fresh copy of the
+  real `dm_helper.db`** (not the handoff's copy, my own), calling `up(db)`
+  twice in a row: resulted in exactly one campaign
+  (`owner_user_id = 3`, `dnd5e`/`amber`), 7 `campaign_members` rows (3 `dm` —
+  matching all three legacy `is_dm=1` users `testdm`/`mrdatawolf`/
+  `lucas.norman@gmail.com` — and 4 `player`), 5 `campaign_characters` rows (one
+  per existing character), zero `NULL campaign_id` rows in `shadows`/`npcs`,
+  zero `PRAGMA foreign_key_check` violations, and confirmed `characters`
+  itself has no `campaign_id` column. This matches the handoff's claimed
+  numbers exactly and proves idempotency directly rather than trusting the
+  self-report. The copy was deleted after verification; the live
+  `dm_helper.db` was never touched by my check or (per the handoff, and
+  consistent with its absence from the commit) by Codex's.
+- Read `tests/migration.test.js`'s new test (`013 creates and idempotently
+  backfills campaign tenancy`): it's a real, non-vacuous test — it seeds the
+  exact multi-DM scenario (`testdm`/`player`/`mrdatawolf`/
+  `lucas.norman@gmail.com`) that produced the original blocker, asserts exact
+  membership roles and campaign/character-link contents, iterates every
+  `CAMPAIGN_TABLES` entry for both the column and its FK, and explicitly
+  asserts `characters` does *not* get `campaign_id` — directly encoding
+  ADR-005's many-to-many decision as a regression guard.
+- Ran `npm test` myself: 75/75 passing, matching the handoff.
+- **`schema.sql` placement decision**: sound and well-reasoned — the three new
+  tenancy tables are the FK *targets* for columns added to nine
+  already-baseline tables, so they belong in `schema.sql` for a fresh install
+  to have valid foreign keys from the start, unlike TASK-020's migration-only
+  precedent (which covered tables with no such baseline FK dependency). The
+  other sixteen `CAMPAIGN_TABLES` entries correctly stay migration-only,
+  consistent with that precedent.
+- **`campaign_characters` extra columns** (`current_shadow_id`, `joined_at`):
+  reasonable and minimal — correctly seeds from the legacy
+  `characters.current_shadow_id` without removing or repurposing that column,
+  and doesn't duplicate any shared-sheet data, consistent with ADR-005's
+  "one shared source of truth" decision.
+- Cleaned up two leftover timestamped validation database copies
+  (`dm_helper.db.task-022-validation-*`) that were left untracked in the repo
+  root after Codex's work — harmless (untracked, correctly excluded from the
+  commit) but worth removing rather than leaving stray multi-hundred-KB
+  database copies lying around.
+
+One non-blocking observation: `chooseOwnerUserId()` hardcodes the literal user
+id `3` as the historically-resolved owner, with a fallback to the lowest-id DM
+for databases where that id doesn't apply. This is a reasonable, clearly
+commented, one-time reconciliation for this specific live dataset — in the
+same spirit as migration 001's legacy-specific column renames — but a future
+reader encountering `id === 3` in permanent migration source without reading
+the comment could reasonably be confused. Not worth blocking on; ADR-005 and
+this review record the reasoning if it ever needs re-deriving.
+
+No blocking findings. All acceptance criteria are genuinely satisfied — this
+was independently verified against real data, not just checked off. Ready for
+human acceptance. Per the task's own note (and TASK-014's precedent), the live
+`dm_helper.db` has not yet been migrated — it will migrate automatically on
+the next server start, so take the normal backup before that deploy.
 
 ## Human acceptance
 

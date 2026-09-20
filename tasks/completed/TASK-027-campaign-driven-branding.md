@@ -209,7 +209,65 @@ Date: 2026-09-13
 
 ## Review
 
-Not reviewed.
+Reviewer: Claude
+Date: 2026-09-13
+
+Verified independently rather than trusting the handoff's self-report:
+
+- `git show --stat 48df56c`: 15 files, matches the handoff's described
+  surface (one new shared runtime, every scoped HTML page, the campaigns
+  endpoint, the Amber universe module's new branding block, tests).
+- **Read `public/js/campaign-branding.js` in full**: uses `data-campaign-*`
+  attributes plus `.textContent` assignment throughout — never `innerHTML` —
+  so a DM-supplied campaign name can't inject markup/script through this
+  mechanism. Correctly falls back to the frozen `neutral` object on fetch
+  failure, non-OK response, or a missing/unmatched current campaign, and
+  distinguishes the neutral case by object identity (`current === neutral`)
+  rather than a fragile name comparison.
+- **Checked the nav-injection race directly**, since `campaign-branding.js`
+  loads and starts its async campaign fetch before `load-navigation.js` (a
+  separate async `fetch`) actually inserts the nav markup containing
+  `data-campaign-name`/`data-campaign-logo` into the DOM: `load-navigation.js`
+  explicitly calls `CampaignBranding.applyCurrent()` immediately after
+  inserting the nav, and `campaign-branding.js`'s own `load()` re-sweeps
+  every `data-campaign-*` element (including the nav, whenever it resolves)
+  when the campaign fetch completes. Whichever of the two async operations
+  finishes first, the nav ends up correctly branded either way — not a race
+  bug.
+- Confirmed `campaign_branding` payload is sourced from the universe plugin
+  (`src/universes/amber/index.js`'s new `content.branding` block), not
+  hardcoded in the route or frontend, consistent with the code-defined-plugin
+  pattern used throughout ADR-005 — `src/routes/auth.js`'s `/campaigns`
+  endpoint only assembles `system_label`/`universe_label`/`branding` from
+  the already-existing system/universe registries, no new authorization path.
+- Independently reran `npm test`: 93/93 passing, matching the handoff.
+- Independently grepped all of `public/` for `Amber Campaign`, `The
+  Shattering of the Liminal`, and `Amber multiverse`: zero remaining
+  occurrences, matching the handoff's claim exactly.
+- Read `tests/campaign-branding.test.js`: genuinely strong verification —
+  it loads the actual shipped `campaign-branding.js` file into a real jsdom
+  document via `runScripts: 'dangerously'` and exercises the real DOM
+  manipulation (title, textContent, logo `hidden`/`src`) for both the active-
+  campaign and neutral states, plus a static sweep asserting every one of
+  the six scoped pages has the correct title, includes the branding script,
+  and contains no leftover hardcoded Amber strings. This runs the real
+  browser file, not a reimplementation of its logic.
+- Spot-checked the campaign-switcher visibility logic
+  (`public/js/navigation.js`): correctly keeps the selector visible and
+  offers a disabled "Select a campaign" placeholder when a user has at least
+  one campaign but none currently active — the task's own requirement that
+  the no-context state be "actionable," not just informational.
+- The `README.md` non-change is a reasonable, explicitly documented scope
+  call (repo-level docs vs. runtime chrome), not an oversight.
+
+No blocking findings. This is a clean, low-risk implementation relative to
+the schema/migration work earlier in this sequence, executed carefully
+regardless — the async-race handling and the XSS-safe `textContent` choice
+in particular reflect real attention rather than a surface-level pass. Ready
+for human acceptance. As with prior frontend-only tasks, no interactive
+browser session was available to click through live; the honest limitation
+is called out in the handoff rather than overclaimed, and a manual smoke
+test before wider use remains a reasonable final step.
 
 ## Human acceptance
 

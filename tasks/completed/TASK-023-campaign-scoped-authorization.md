@@ -260,7 +260,73 @@ Date: 2026-09-12
 
 ## Review
 
-Not reviewed.
+Reviewer: Claude
+Date: 2026-09-13
+
+This is a deliberately partial implementation, sent to review as such per the
+task's own Blocker section — reviewed on that basis, not as claiming full
+16-router coverage.
+
+Verified independently rather than trusting the handoff's self-report:
+
+- `git show --stat 66f2141`: `src/middleware/auth.js`, `src/routes/auth.js`,
+  `src/routes/characters/index.js`, `src/routes/characters/shared.js`, plus
+  navigation UI files and tests. No other router touched.
+- **Confirmed the "live re-check, not trusted JWT claim" design decision is
+  real, not just asserted**: `requireCampaignMembership`
+  (`src/middleware/auth.js`) queries `campaign_members` against the database
+  on every request and overwrites `req.user.isDM` from that live row before
+  any downstream authorization runs — the JWT's `currentCampaignId` only says
+  *which* campaign to check, it never grants access by itself. This is exactly
+  the property ADR-005/TASK-023 needed and directly addresses the stale-token
+  tradeoff the handoff documents (a copied pre-switch token can't select a
+  campaign the user isn't currently a member of, because membership is
+  re-checked live every time).
+- **Confirmed character-router scoping is real query-level filtering, not just
+  a top-of-route gate**: `GET /`, `GET /:id`, `POST /`, and `/api/auth/characters`
+  all join/filter through `campaign_characters.campaign_id = req.campaign.id`
+  (or `req.user.currentCampaignId`). `router.use('/:id', requireCampaignCharacter)`
+  is registered before the six mounted subrouters (`gear`, `powers`,
+  `familiars`, `weapons`, `spells`, `image`, `story` — confirmed via
+  `src/routes/characters/index.js` lines 205-211), so a character outside the
+  current campaign 404s before any subrouter handler runs, without needing to
+  edit each subrouter individually.
+- **Confirmed the "not yet migrated" list is accurate, not just claimed**:
+  grepped every file under `src/routes/` for `requireCampaignMembership`/
+  `requireCampaignRole` — only `characters/index.js` uses it. All 13 routers
+  named in the Blocker section (`arcs.js` through `tracker-shared.js`) still
+  have zero references to the new middleware, matching the handoff exactly.
+  `admin.js` correctly untouched (account-level, not campaign-owned, per the
+  task's own scope).
+- Read the new `campaign switching scopes character access and rejects
+  non-members` test (`tests/api.test.js`): genuinely exercises both directions
+  — a second campaign's character is reachable with that campaign's token and
+  returns 404 for the original DM's (different-campaign) token, a non-member
+  is refused a switch (403), and switching back restores access. Not a
+  vacuous test.
+- Independently ran `npm test`: 77/77 passing, matching the handoff.
+- Registration/login backward-compatibility shims (new registrants join
+  campaign #1 as players; a legacy `is_dm=1` login reflects into campaign #1's
+  membership role) are reasonable, narrow, and clearly commented as
+  migration-era compatibility rather than permanent design.
+- `POST /api/auth/campaigns` correctly restricts creation to
+  DM/admin/super-admin and creates the owner's membership in the same
+  transaction as the campaign row — no window where a campaign exists without
+  its owner being a member.
+- The 404-not-403 choice for an out-of-campaign character (to avoid confirming
+  another campaign's id exists) is a sound, deliberate information-disclosure
+  call, not an oversight.
+
+No blocking findings **for the scope actually delivered**. The Blocker
+section's framing is exactly right and I'd underline it rather than soften
+it: this task is not done, multi-campaign isolation is not yet real for 13 of
+16 routers, and none of that unmigrated surface should be treated as
+tenant-safe. What's here is a solid, correctly verified foundation (auth
+middleware + the campaign-switch/create endpoints + the full character
+surface) for the remaining routers to build on — recommend a follow-up task
+(or several, per router group, as ADR-005's own risk note suggested) to
+finish the migration, rather than treating this as complete. Ready for human
+acceptance **as a partial, honestly-scoped increment**.
 
 ## Human acceptance
 

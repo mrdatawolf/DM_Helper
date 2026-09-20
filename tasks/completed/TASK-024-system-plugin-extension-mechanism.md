@@ -251,7 +251,94 @@ Date: 2026-09-12
 
 ## Review
 
-Not reviewed.
+Reviewer: Claude
+Date: 2026-09-13
+
+This is the riskiest change in the ADR-005 sequence so far (it changes live
+character read/write behavior, not just adds scoping), so I reviewed it more
+heavily than prior tasks — reading essentially every changed file rather than
+sampling, and running my own independent checks against a copy of the real
+database rather than relying on the handoff's self-report.
+
+Verified independently:
+
+- `git show --stat 9554ba3`: 22 files, matches the handoff's described
+  surface area (character routes/subrouters, the dnd5e manifest, the
+  extension-data helpers, browser sheet/dice/registry dispatch, plus
+  `combats.js` and `navigation.js` for reasons explained below).
+- **Confirmed reads/writes actually go through the extension document, not
+  the legacy columns** — read `src/systems/extension-data.js`
+  (`readDocument`/`writeDocument`/`mutateDocument`, transactional, using
+  `ON CONFLICT ... DO UPDATE`) and `src/systems/dnd5e/index.js`'s
+  `hydrateSheet`/`hydrateCharacter`/`updateSheet`, then traced every call site
+  in `characters/index.js`, `characters/fields.js`, and all five related
+  resource routers (`gear.js`, `powers.js`, `spells.js`, `weapons.js`, and the
+  new `feats.js`, all now built on the shared `system-resource.js` helper).
+  The split between `UNIVERSAL_CHARACTER_UPDATE_FIELDS` (fields.js) and
+  `system.sheet.fields` (from `DND5E_CHARACTER_COLUMNS`) is exhaustive and
+  correctly non-overlapping — diffed the old vs new `fields.js` and confirmed
+  every removed field is present in `DND5E_CHARACTER_COLUMNS` from migration
+  014, nothing silently dropped.
+- **Confirmed the `req.campaign` plumbing that `system-resource.js` depends on
+  is actually in place** for the five related-resource subrouters even though
+  their own route declarations only list `authenticate`: they're mounted
+  inside `characters/index.js` *after* `router.use(authenticate,
+  requireCampaignMembership)`, sharing the same `req` object, so
+  `req.campaign` is populated before any subrouter handler runs. Also
+  reconfirmed `router.use('/:id', requireCampaignCharacter)` still gates
+  every `/:id/*` path (including the new `/:id/feats`) before reaching a
+  handler.
+- **Independently reran the full test suite**: 86/86 passing, matching the
+  handoff.
+- **Independently re-verified the live-data migration end to end on a fresh
+  copy of the real database** (not reusing Codex's copy): ran migrations 013
+  then 014 against a copy, then called `dnd5e.sheet.hydrateSheet` directly
+  against every one of the 5 real characters' rows and asserted every one of
+  the 77 `DND5E_CHARACTER_COLUMNS` values exactly equals the pre-migration
+  legacy value — zero mismatches. Confirmed the live `dm_helper.db`'s SHA-256
+  (`f9f5b2d7...d5b5244`) is byte-identical to what the handoff recorded before
+  its own validation — the live file was genuinely never touched by either of
+  us.
+- Read `tests/system-extension-runtime.test.js` in full: this is a strong,
+  non-vacuous, real-HTTP integration test. It proves the exact property that
+  matters most for this cutover — after a scalar edit (`armor_class: 17`),
+  the API-visible value is 17 while the row in the legacy `characters` table
+  stays at its default (10), and the value lives in the extension JSON
+  instead. The five-resource CRUD test round-trips create/update/delete
+  through the real routes and then asserts all five legacy tables have zero
+  rows for that character throughout — directly proving mutations never
+  touch legacy storage at all, not just that reads happen to look right.
+- **Confirmed the `combats.js` change is a genuine, necessary catch, not
+  scope creep**: linking a PC combatant used to read `max_hp`/`current_hp`
+  directly off `characters` (lines removed in this diff); since this cutover
+  makes those columns stale, leaving that read unfixed would have silently
+  frozen every PC combatant's HP at the legacy default. Codex caught a real
+  regression outside its originally-listed file list rather than only doing
+  what was explicitly named — correct judgment call, not overreach.
+- Confirmed `player-characters.js`, `player-dice.js`, `player-character-sheet.js`,
+  and `navigation.js` genuinely dispatch through
+  `CharacterSystemRegistry`/`src/systems/registry.js` rather than superficially
+  referencing it — `system.sheet.render`/`.bind` and
+  `system.dice.roll(rollD20WithClaims)` replace the previously hardcoded
+  direct calls, with the dnd5e runtime registered as a thin passthrough that
+  preserves exact prior behavior.
+- The legacy-column-retention design call (keep D&D columns/tables physically
+  present but inactive, rather than also dropping them in this same pass) is
+  the right call given everything else already at risk in this change — it's
+  explicitly permitted by the task's own acceptance criteria, and reviewed
+  and re-confirmed as inactive by the integration test above, not just
+  asserted.
+- No interactive browser regression was performed (no browser-control harness
+  in this environment, consistent with TASK-014's precedent) — behavioral
+  equivalence is proven via the real-HTTP integration test and direct
+  call-site tracing instead, which is the strongest verification available
+  here and was honestly represented as such rather than overclaimed.
+
+No blocking findings. This is a large, genuinely risky change that was
+implemented with real discipline — verified against live data, not just
+tested in the abstract, and with the one caught cross-cutting regression
+(`combats.js`) fixed rather than left as a surprise for later. Ready for
+human acceptance.
 
 ## Human acceptance
 

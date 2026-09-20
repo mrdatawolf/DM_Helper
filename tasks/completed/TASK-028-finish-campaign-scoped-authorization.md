@@ -382,13 +382,53 @@ handoff's self-report**:
   property that matters most here (a stale/forged DM claim can't bypass a
   live campaign-role demotion) — not just incidental coverage.
 
-No blocking findings across either round. This is a well-executed, honestly
-self-limited increment covering 9 of 14 total routers (`admin.js` correctly
-never in scope). Remaining: `journal.js`, `arcs.js`, `beats.js`,
-`primal-patterns.js`, `claims.js` — still legacy global authorization, not
-yet tenant-isolated. Ready for human acceptance as a partial increment;
-recommend continuing this same task for the remaining narrative/claims
-group.
+**Round 3 verification (final group: `journal.js`, `arcs.js`, `beats.js`,
+`primal-patterns.js`, `claims.js`), independent of the handoff's self-report
+— this closes the task, so reviewed at the same depth as the riskier rounds**:
+
+- `git show --stat c1a24c5`: exactly the five named routers, tests, and the
+  task file.
+- **Read `claims.js`'s full diff closely, since preserving its non-uniform
+  authorization was the one place a naive migration could go wrong**:
+  `ownsCharacter(db, reqUser, campaign, characterId)` correctly keeps its
+  DM-bypass (`campaign.role === 'dm' || c.user_id === reqUser.userId`) rather
+  than collapsing to a single gate; `allocate`/`perception`/`resolve` remain
+  reachable by any campaign member (no `requireCampaignRole` on them), while
+  `grant-points` alone keeps `requireCampaignRole('dm')`. Every one of the
+  router's ~15 queries (pool, claims, rankings ×4 variants, allocate,
+  perception, grant-points, history, resolve) now carries `campaign_id`
+  scoping — confirmed by reading the full diff, not sampling.
+- Two genuine, correct strengthenings beyond mechanical scoping, both
+  necessary consequences of real isolation rather than scope creep: `POST
+  /perception` now 404s if the target character isn't in the requester's
+  campaign (previously any character id could be perceived-about
+  unconditionally — a real cross-campaign leak this closes), and `POST
+  /grant-points` now checks `changes === 0` to 404 on a nonexistent/wrong-
+  campaign pool instead of silently succeeding on nothing.
+- Independently reran `npm test`: 90/90 passing, matching the handoff.
+- Independently re-grepped the full `src/routes/` tree: every campaign-owned
+  router now uses `requireCampaignMembership`/`requireCampaignRole` — the
+  only files without it are `admin.js` (correctly account-level, never in
+  scope), `auth.js` (establishes/switches campaign context rather than
+  consuming it, already reviewed under TASK-023), and `tracker-shared.js`
+  (a helper module, not a router, already independently confirmed
+  campaign-aware in round 2).
+- Read the round's new cross-campaign tests: real, non-vacuous coverage for
+  all five routers (journal, arcs, beats, primal-patterns, claims pool),
+  plus a dedicated test proving `claims.js`'s split survived — a player
+  token gets 403 on `grant-points`, a DM token gets 200.
+- The updated "formerly anonymous narrative reads require authentication"
+  test correctly extends round 1's pattern (documenting the same accepted
+  anonymous-access removal for `arcs`, `beats`, `primal-patterns`, and
+  `claims` rankings) rather than treating it differently this time.
+
+No blocking findings across any of the three rounds. TASK-028 is now
+genuinely complete: every campaign-owned router (14 of 14, `admin.js`
+correctly excluded throughout) filters and authorizes by live campaign
+membership, not a global or stale JWT claim. Every acceptance criterion
+checked off in this task file was independently re-verified against the
+actual code and a live test run, not accepted on the implementer's word.
+Ready for human acceptance.
 
 ## Human acceptance
 

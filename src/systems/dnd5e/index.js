@@ -53,6 +53,7 @@ module.exports = Object.freeze({
     id: 'dnd5e',
     label: 'D&D 5e',
     namespace: 'system:dnd5e',
+    content: Object.freeze({ wizard: require('./content/player-wizard-data') }),
     sheet: Object.freeze({
         read: 'character_extension_data',
         browserRenderer: '/js/player/player-character-sheet.js',

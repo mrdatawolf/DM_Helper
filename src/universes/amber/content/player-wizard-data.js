@@ -363,6 +363,7 @@ const FLAW_TRAIT_PAIRS = {
     }
 };
 
-// Used by player-wizard-core.js / player-wizard-steps.js.
-module.exports = { STAT_KEYS, STAT_FULL, CLASSES_5E, IMPRINT_LORE, WIZARD_STEP_INFO, FIELD_INFO, FLAW_TRAIT_PAIRS };
+module.exports = {
+    IMPRINT_LORE, WIZARD_STEP_INFO, FIELD_INFO, FLAW_TRAIT_PAIRS
+};
 

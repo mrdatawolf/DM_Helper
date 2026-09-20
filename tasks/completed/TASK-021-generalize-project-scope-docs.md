@@ -198,7 +198,36 @@ Date: 2026-09-12
 
 ## Review
 
-Not reviewed.
+Reviewer: Claude
+Date: 2026-09-12
+
+Verified independently rather than trusting the handoff's self-report:
+
+- `git show --stat fe9c745`: confirms only `docs/ARCHITECTURE.md`,
+  `docs/PROJECT.md`, and this task file changed — no code, schema, route, or
+  test file was touched, matching the acceptance criteria and the task's
+  Excluded scope.
+- Read the full diff for both documents directly. `docs/PROJECT.md` no longer
+  asserts single-campaign/non-multi-tenant scope anywhere (Purpose, Users and
+  stakeholders, Desired outcomes, Scope, Domain language all updated
+  consistently); its Excluded list now names ADR-005's actual exclusions
+  (runtime-installable packs/plugin manager/sandboxing, public self-signup,
+  production-grade tenant hardening) rather than the blanket statement this
+  ADR superseded. `docs/ARCHITECTURE.md` correctly distinguishes "currently
+  implemented around one implicit campaign" from "accepted direction is
+  multi-tenant," rather than overclaiming the ADR-005 follow-up work is
+  already done — this is the right level of honesty for a docs-only task that
+  precedes the actual schema/code changes.
+- Cross-checked the new wording against ADR-005's Decision, Alternatives
+  considered, and Costs and risks sections by hand; found no contradiction
+  and no invented detail beyond what ADR-005 actually decided.
+- Independently ran `npm test`: 74/74 passing, matching the handoff's claim.
+- Domain language section's new framing ("other universes may define
+  different domain language") is a reasonable, minimal addition — doesn't
+  overreach into defining what a non-Amber universe's terms would look like.
+
+No blocking findings. Acceptance criteria are genuinely satisfied, not just
+checked off. Ready for human acceptance.
 
 ## Human acceptance
 

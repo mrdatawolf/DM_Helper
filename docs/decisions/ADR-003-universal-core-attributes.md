@@ -1,6 +1,6 @@
 # ADR-003: Store universal core attributes as percentiles
 
-Status: Proposed
+Status: Accepted
 Date: 2026-08-31
 Decision owners: Patrick
 Related tasks and contracts: TASK-014 (implementation); TASK-015 (D&D 5e
