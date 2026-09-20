@@ -3,10 +3,16 @@ const bcrypt = require('bcrypt');
 const { generateToken, verifyToken, authenticate } = require('../middleware/auth');
 const { getDatabase } = require('../database/connection');
 const { asyncHandler } = require('../middleware/errorHandler');
+const { getSystemForCampaign, requireSystem } = require('../systems/registry');
+const { getUniverse, hydrateCharacterForCampaign, requireUniverse } = require('../universes/registry');
 
 const router = express.Router();
 
 const SALT_ROUNDS = 10;
+
+function firstCampaignId(db, userId) {
+    return db.prepare('SELECT campaign_id FROM campaign_members WHERE user_id = ? ORDER BY campaign_id LIMIT 1').get(userId)?.campaign_id || null;
+}
 
 /**
  * POST /api/auth/register
@@ -48,6 +54,13 @@ router.post('/register', asyncHandler(async (req, res, next) => {
 
         const result = stmt.run(username, password_hash, email || null, is_dm ? 1 : 0);
 
+        // Preserve the pre-tenancy sign-up behavior for the migrated campaign:
+        // a newly registered player joins campaign #1 when it exists.
+        if (db.prepare('SELECT id FROM campaigns WHERE id = 1').get()) {
+            db.prepare("INSERT OR IGNORE INTO campaign_members (campaign_id, user_id, role) VALUES (1, ?, 'player')")
+                .run(result.lastInsertRowid);
+        }
+
         // Generate token
         const user = {
             id: result.lastInsertRowid,
@@ -55,7 +68,7 @@ router.post('/register', asyncHandler(async (req, res, next) => {
             is_dm: is_dm ? 1 : 0
         };
 
-        const token = generateToken(user);
+        const token = generateToken(user, firstCampaignId(db, user.id));
 
         // Set cookie
         res.cookie('token', token, {
@@ -114,11 +127,19 @@ router.post('/login', asyncHandler(async (req, res, next) => {
             return res.status(403).json({ error: 'This account has been deactivated. Please contact your DM.' });
         }
 
+        // Compatibility for the migrated campaign while the account-admin UI
+        // still grants the legacy is_dm flag: reflect that grant in campaign #1.
+        if (user.is_dm) {
+            db.prepare("UPDATE campaign_members SET role = 'dm' WHERE campaign_id = 1 AND user_id = ?")
+                .run(user.id);
+        }
+
         // Update last login
         db.prepare('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?').run(user.id);
 
         // Generate token
-        const token = generateToken(user);
+        const currentCampaignId = firstCampaignId(db, user.id);
+        const token = generateToken(user, currentCampaignId);
 
         // Set cookie
         res.cookie('token', token, {
@@ -135,7 +156,8 @@ router.post('/login', asyncHandler(async (req, res, next) => {
                 email: user.email,
                 is_dm: user.is_dm,
                 is_admin: user.username === 'admin',
-                is_super_admin: !!user.is_super_admin
+                is_super_admin: !!user.is_super_admin,
+                current_campaign_id: currentCampaignId
             },
             token
         });
@@ -173,7 +195,11 @@ router.get('/me', authenticate, asyncHandler((req, res, next) => {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        res.json({ user: { ...user, is_admin: user.username === 'admin', is_super_admin: !!user.is_super_admin } });
+        const membership = req.user.currentCampaignId ? db.prepare(
+            'SELECT role FROM campaign_members WHERE campaign_id = ? AND user_id = ?'
+        ).get(req.user.currentCampaignId, req.user.userId) : null;
+        res.json({ user: { ...user, is_admin: user.username === 'admin', is_super_admin: !!user.is_super_admin,
+            is_dm: membership?.role === 'dm' ? 1 : 0, current_campaign_id: membership ? req.user.currentCampaignId : null } });
 
     } catch (error) {
         console.error('Get user error:', error);
@@ -190,26 +216,106 @@ router.get('/characters', authenticate, asyncHandler((req, res, next) => {
         const db = getDatabase();
         const characters = db.prepare(`
             SELECT
-                id, name, species, class_type, level,
-                current_hp, max_hp,
-                shadow_origin_id, current_shadow_id,
-                order_chaos_value,
-                pattern_imprint, logrus_imprint,
-                blood_purity, trump_artist,
-                strength, dexterity, constitution,
-                intelligence, wisdom, charisma,
-                created_at
-            FROM characters
-            WHERE user_id = ?
-            ORDER BY created_at DESC
-        `).all(req.user.userId);
+                c.id, c.name, c.species, c.class_type, c.level,
+                c.shadow_origin_id, c.current_shadow_id,
+                c.order_chaos_value,
+                c.pattern_imprint, c.logrus_imprint,
+                c.blood_purity, c.trump_artist,
+                c.strength, c.dexterity, c.constitution,
+                c.intelligence, c.wisdom, c.charisma,
+                c.created_at
+            FROM characters c
+            JOIN campaign_characters cc ON cc.character_id = c.id
+            WHERE c.user_id = ? AND cc.campaign_id = ?
+            ORDER BY c.created_at DESC
+        `).all(req.user.userId, req.user.currentCampaignId);
 
-        res.json({ characters });
+        const system = getSystemForCampaign(db, req.user.currentCampaignId);
+        res.json({ characters: characters.map(character => {
+            const sheet = system.sheet.readDocument(db, character.id).sheet;
+            return hydrateCharacterForCampaign(db, req.user.currentCampaignId,
+                { ...character, current_hp: sheet.current_hp, max_hp: sheet.max_hp });
+        }) });
 
     } catch (error) {
         console.error('Get user characters error:', error);
         next(Object.assign(error, { clientMessage: 'Failed to get characters' }));
     }
+}));
+
+router.get('/campaigns', authenticate, asyncHandler((req, res) => {
+    const db = getDatabase();
+    const campaigns = db.prepare(`
+        SELECT c.id, c.name, c.system_id, c.universe_id, cm.role
+        FROM campaign_members cm JOIN campaigns c ON c.id = cm.campaign_id
+        WHERE cm.user_id = ? ORDER BY c.name, c.id
+    `).all(req.user.userId).map(campaign => {
+        const system = getSystemForCampaign(db, campaign.id);
+        const universe = getUniverse(campaign.universe_id);
+        return {
+            ...campaign,
+            universe_id: campaign.universe_id || null,
+            system_label: system?.label || campaign.system_id,
+            universe_label: universe?.label || null,
+            branding: universe?.content?.branding || null
+        };
+    });
+    res.json({ campaigns, current_campaign_id: req.user.currentCampaignId });
+}));
+
+router.get('/campaigns/current-system', authenticate, asyncHandler((req, res) => {
+    const system = getSystemForCampaign(getDatabase(), req.user.currentCampaignId);
+    if (!system) return res.status(409).json({ error: 'Select a campaign before continuing' });
+    res.json({
+        id: system.id,
+        label: system.label,
+        sheet_renderer: system.sheet.browserRenderer,
+        dice_mechanic: system.dice.id,
+        pdf_template: system.pdfExport.template,
+        pdf_exporter: system.pdfExport.browserExporter
+    });
+}));
+
+router.post('/campaigns/switch', authenticate, asyncHandler((req, res) => {
+    const campaignId = Number(req.body.campaign_id);
+    const db = getDatabase();
+    const membership = db.prepare('SELECT role FROM campaign_members WHERE campaign_id = ? AND user_id = ?').get(campaignId, req.user.userId);
+    if (!membership) return res.status(403).json({ error: 'Campaign access denied' });
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.userId);
+    const token = generateToken(user, campaignId);
+    res.cookie('token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 24 * 60 * 60 * 1000 });
+    res.json({ token, current_campaign_id: campaignId, role: membership.role });
+}));
+
+router.post('/campaigns', authenticate, asyncHandler((req, res) => {
+    const db = getDatabase();
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.userId);
+    if (!user.is_dm && req.user.username !== 'admin' && !req.user.isSuperAdmin) {
+        return res.status(403).json({ error: 'DM access required to create a campaign' });
+    }
+    const { name, system_id = 'dnd5e', universe_id = 'amber' } = req.body;
+    if (!name) return res.status(400).json({ error: 'Campaign name is required' });
+    try {
+        requireSystem(system_id);
+        if (universe_id) requireUniverse(universe_id);
+    } catch (error) {
+        return res.status(400).json({ error: error.message });
+    }
+    // Empty string is the backwards-compatible on-disk representation for
+    // "no universe" in databases created before universe_id became nullable.
+    const storedUniverseId = universe_id || '';
+    const create = db.transaction(() => {
+        const result = db.prepare('INSERT INTO campaigns (name, owner_user_id, system_id, universe_id) VALUES (?, ?, ?, ?)')
+            .run(name, req.user.userId, system_id, storedUniverseId);
+        db.prepare("INSERT INTO campaign_members (campaign_id, user_id, role) VALUES (?, ?, 'dm')").run(result.lastInsertRowid, req.user.userId);
+        const universe = getUniverse(storedUniverseId);
+        if (universe?.seed) universe.seed(db, Number(result.lastInsertRowid));
+        return Number(result.lastInsertRowid);
+    });
+    const campaignId = create();
+    const token = generateToken(user, campaignId);
+    res.cookie('token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 24 * 60 * 60 * 1000 });
+    res.status(201).json({ id: campaignId, name, system_id, universe_id: storedUniverseId || null, token, current_campaign_id: campaignId, role: 'dm' });
 }));
 
 module.exports = router;

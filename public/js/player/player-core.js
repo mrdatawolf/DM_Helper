@@ -3,7 +3,7 @@
 
 import { state } from './player-state.js';
 import { loadCharacters, loadClaims, loadProgress } from './player-characters.js';
-import { applyGuideGate } from './player-wizard-core.js';
+import { applyGuideGate } from './player-wizard.js';
 import { loadJournalEntries } from './player-journal.js';
 import { syncSpoilerButton, loadVisitedShadows } from './player-shadows.js';
 import { syncCreatureSpoilerButton, loadCreatures } from './player-creatures.js';

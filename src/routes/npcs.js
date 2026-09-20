@@ -1,17 +1,17 @@
 const express = require('express');
 const router = express.Router();
 const { getDatabase } = require('../database/connection');
-const { optionalAuth, requireDM, isDMOrAdmin } = require('../middleware/auth');
+const { authenticate, isDMOrAdmin, requireCampaignMembership, requireCampaignRole } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { collectUpdateFields } = require('../utils/buildUpdateQuery');
 
-router.use(optionalAuth);
+router.use(authenticate, requireCampaignMembership);
 
-// Writes require a logged-in DM (or admin-equivalent); reads stay open
-// (dm_notes is stripped below for non-DMs)
+// Writes require a live DM campaign role (or admin-equivalent); campaign
+// members may read, with dm_notes stripped below for non-DMs.
 router.use((req, res, next) => {
     if (req.method === 'GET') return next();
-    requireDM(req, res, next);
+    requireCampaignRole('dm')(req, res, next);
 });
 
 function serialize(npc, isDM) {
@@ -25,13 +25,15 @@ function serialize(npc, isDM) {
 
 router.get('/', asyncHandler((req, res) => {
     const db = getDatabase();
-    const npcs = db.prepare('SELECT * FROM npcs ORDER BY name ASC').all();
+    const npcs = db.prepare('SELECT * FROM npcs WHERE campaign_id = ? ORDER BY name ASC')
+        .all(req.campaign.id);
     res.json(npcs.map(n => serialize(n, isDMOrAdmin(req.user))));
 }));
 
 router.get('/:id', asyncHandler((req, res) => {
     const db = getDatabase();
-    const npc = db.prepare('SELECT * FROM npcs WHERE id = ?').get(req.params.id);
+    const npc = db.prepare('SELECT * FROM npcs WHERE id = ? AND campaign_id = ?')
+        .get(req.params.id, req.campaign.id);
     if (!npc) return res.status(404).json({ error: 'NPC not found' });
     res.json(serialize(npc, isDMOrAdmin(req.user)));
 }));
@@ -48,9 +50,9 @@ router.post('/', asyncHandler((req, res) => {
         'is_important', 'is_spoiler'
     ];
 
-    const columns = [];
-    const placeholders = [];
-    const values = [];
+    const columns = ['campaign_id'];
+    const placeholders = ['?'];
+    const values = [req.campaign.id];
     for (const field of fields) {
         if (Object.prototype.hasOwnProperty.call(req.body, field)) {
             columns.push(field);
@@ -68,13 +70,15 @@ router.post('/', asyncHandler((req, res) => {
         `INSERT INTO npcs (${columns.join(', ')}) VALUES (${placeholders.join(', ')})`
     ).run(...values);
 
-    const created = db.prepare('SELECT * FROM npcs WHERE id = ?').get(result.lastInsertRowid);
+    const created = db.prepare('SELECT * FROM npcs WHERE id = ? AND campaign_id = ?')
+        .get(result.lastInsertRowid, req.campaign.id);
     res.status(201).json(serialize(created, true));
 }));
 
 router.put('/:id', asyncHandler((req, res) => {
     const db = getDatabase();
-    const npc = db.prepare('SELECT id FROM npcs WHERE id = ?').get(req.params.id);
+    const npc = db.prepare('SELECT id FROM npcs WHERE id = ? AND campaign_id = ?')
+        .get(req.params.id, req.campaign.id);
     if (!npc) return res.status(404).json({ error: 'NPC not found' });
 
     const allowedFields = [
@@ -94,16 +98,18 @@ router.put('/:id', asyncHandler((req, res) => {
     if (setClauses.length === 0) return res.status(400).json({ error: 'No valid fields to update' });
 
     setClauses.push('updated_at = CURRENT_TIMESTAMP');
-    values.push(req.params.id);
-    db.prepare(`UPDATE npcs SET ${setClauses.join(', ')} WHERE id = ?`).run(...values);
+    values.push(req.params.id, req.campaign.id);
+    db.prepare(`UPDATE npcs SET ${setClauses.join(', ')} WHERE id = ? AND campaign_id = ?`).run(...values);
 
-    const updated = db.prepare('SELECT * FROM npcs WHERE id = ?').get(req.params.id);
+    const updated = db.prepare('SELECT * FROM npcs WHERE id = ? AND campaign_id = ?')
+        .get(req.params.id, req.campaign.id);
     res.json(serialize(updated, true));
 }));
 
 router.delete('/:id', asyncHandler((req, res) => {
     const db = getDatabase();
-    const result = db.prepare('DELETE FROM npcs WHERE id = ?').run(req.params.id);
+    const result = db.prepare('DELETE FROM npcs WHERE id = ? AND campaign_id = ?')
+        .run(req.params.id, req.campaign.id);
     if (result.changes === 0) return res.status(404).json({ error: 'NPC not found' });
     res.json({ message: 'NPC deleted successfully' });
 }));

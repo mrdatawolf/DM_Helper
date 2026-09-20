@@ -3,16 +3,20 @@ const router = express.Router();
 const fs = require('fs');
 const path = require('path');
 const { getDatabase } = require('../database/connection');
-const { authenticate, isDMOrAdmin } = require('../middleware/auth');
+const { authenticate, isDMOrAdmin, requireCampaignMembership } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { buildUpdateQuery } = require('../utils/buildUpdateQuery');
+const { getUniverseForCampaign } = require('../universes/registry');
 
 const LORE_DIR = path.join(__dirname, '..', '..', 'Shadow Lore');
+
+router.use(authenticate, requireCampaignMembership);
 
 // Get a shadow's deep lore markdown, if a file matching its name exists
 router.get('/:id/lore', asyncHandler((req, res) => {
     const db = getDatabase();
-    const shadow = db.prepare('SELECT name FROM shadows WHERE id = ?').get(req.params.id);
+    const shadow = db.prepare('SELECT name FROM shadows WHERE id = ? AND campaign_id = ?')
+        .get(req.params.id, req.campaign.id);
     if (!shadow) {
         return res.status(404).json({ error: 'Shadow not found' });
     }
@@ -29,18 +33,28 @@ router.get('/:id/lore', asyncHandler((req, res) => {
 // Get all shadows
 router.get('/', asyncHandler((req, res) => {
     const db = getDatabase();
-    const shadows = db.prepare('SELECT * FROM shadows ORDER BY name').all();
+    const startingOnly = req.query.startingOnly === 'true';
+    const sql = startingOnly
+        ? 'SELECT * FROM shadows WHERE campaign_id = ? AND is_starting_shadow = 1 AND is_spoiler = 0 ORDER BY name'
+        : 'SELECT * FROM shadows WHERE campaign_id = ? ORDER BY name';
+    const shadows = db.prepare(sql)
+        .all(req.campaign.id);
     res.json(shadows);
 }));
 
 // Shadows a character has visited (player-facing)
 // Only counts completed or in-progress sessions — enough time to truly feel the world.
-router.get('/character/:characterId/visited', authenticate, asyncHandler((req, res) => {
+router.get('/character/:characterId/visited', asyncHandler((req, res) => {
     const db = getDatabase();
     const characterId = parseInt(req.params.characterId, 10);
 
     // Verify the character belongs to the requesting user
-    const character = db.prepare('SELECT id, user_id FROM characters WHERE id = ?').get(characterId);
+    const character = db.prepare(`
+        SELECT c.id, c.user_id
+        FROM characters c
+        JOIN campaign_characters cc ON cc.character_id = c.id
+        WHERE c.id = ? AND cc.campaign_id = ?
+    `).get(characterId, req.campaign.id);
     if (!character) return res.status(404).json({ error: 'Character not found' });
     if (character.user_id !== req.user.userId && !isDMOrAdmin(req.user)) {
         return res.status(403).json({ error: 'Access denied' });
@@ -60,10 +74,13 @@ router.get('/character/:characterId/visited', authenticate, asyncHandler((req, r
         JOIN character_progress cp ON cp.shadow_id = s.id
         JOIN campaign_sessions cs  ON cs.id = cp.session_id
         WHERE cp.character_id = ?
+          AND cp.campaign_id = ?
+          AND s.campaign_id = ?
+          AND cs.campaign_id = ?
           AND cs.session_status IN ('completed', 'in-progress')
         GROUP BY s.id
         ORDER BY MIN(cs.session_date) ASC
-    `).all(characterId);
+    `).all(characterId, req.campaign.id, req.campaign.id, req.campaign.id);
 
     res.json(visited);
 }));
@@ -71,7 +88,8 @@ router.get('/character/:characterId/visited', authenticate, asyncHandler((req, r
 // Get single shadow by ID
 router.get('/:id', asyncHandler((req, res) => {
     const db = getDatabase();
-    const shadow = db.prepare('SELECT * FROM shadows WHERE id = ?').get(req.params.id);
+    const shadow = db.prepare('SELECT * FROM shadows WHERE id = ? AND campaign_id = ?')
+        .get(req.params.id, req.campaign.id);
 
     if (!shadow) {
         return res.status(404).json({ error: 'Shadow not found' });
@@ -79,15 +97,16 @@ router.get('/:id', asyncHandler((req, res) => {
 
     // Get characters currently in this shadow
     const characters = db.prepare(`
-        SELECT id, name, player_name, species, class_type, level
-        FROM characters
-        WHERE current_shadow_id = ?
-    `).all(req.params.id);
+        SELECT c.id, c.name, c.player_name, c.species, c.class_type, c.level
+        FROM characters c
+        JOIN campaign_characters cc ON cc.character_id = c.id
+        WHERE cc.current_shadow_id = ? AND cc.campaign_id = ?
+    `).all(req.params.id, req.campaign.id);
 
     // Get NPCs in this shadow
     const npcs = db.prepare(`
-        SELECT * FROM npcs WHERE shadow_id = ?
-    `).all(req.params.id);
+        SELECT * FROM npcs WHERE shadow_id = ? AND campaign_id = ?
+    `).all(req.params.id, req.campaign.id);
 
     res.json({
         ...shadow,
@@ -97,7 +116,7 @@ router.get('/:id', asyncHandler((req, res) => {
 }));
 
 // Create new shadow (players may create one for their home shadow)
-router.post('/', authenticate, asyncHandler((req, res) => {
+router.post('/', asyncHandler((req, res) => {
     const db = getDatabase();
     const {
         name,
@@ -113,24 +132,27 @@ router.post('/', authenticate, asyncHandler((req, res) => {
     if (!name) {
         return res.status(400).json({ error: 'Shadow name is required' });
     }
+    getUniverseForCampaign(db, req.campaign.id)?.shadows?.validate(req.body);
 
     const stmt = db.prepare(`
-        INSERT INTO shadows (name, description, order_level, chaos_level, dream_level, pattern_influence, corruption_status, is_starting_shadow, created_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO shadows (name, description, order_level, chaos_level, dream_level, pattern_influence, corruption_status, is_starting_shadow, created_by, campaign_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
-    const result = stmt.run(name, description, order_level, chaos_level, dream_level, pattern_influence, corruption_status, is_starting_shadow ? 1 : 0, req.user.userId);
-    const newShadow = db.prepare('SELECT * FROM shadows WHERE id = ?').get(result.lastInsertRowid);
+    const result = stmt.run(name, description, order_level, chaos_level, dream_level, pattern_influence, corruption_status, is_starting_shadow ? 1 : 0, req.user.userId, req.campaign.id);
+    const newShadow = db.prepare('SELECT * FROM shadows WHERE id = ? AND campaign_id = ?')
+        .get(result.lastInsertRowid, req.campaign.id);
 
     res.status(201).json(newShadow);
 }));
 
 // Update shadow
-router.put('/:id', authenticate, asyncHandler((req, res) => {
+router.put('/:id', asyncHandler((req, res) => {
     const db = getDatabase();
     const shadowId = req.params.id;
 
-    const existing = db.prepare('SELECT id, created_by FROM shadows WHERE id = ?').get(shadowId);
+    const existing = db.prepare('SELECT id, created_by, campaign_id FROM shadows WHERE id = ? AND campaign_id = ?')
+        .get(shadowId, req.campaign.id);
     if (!existing) {
         return res.status(404).json({ error: 'Shadow not found' });
     }
@@ -140,23 +162,27 @@ router.put('/:id', authenticate, asyncHandler((req, res) => {
     }
 
     const allowedFields = ['name', 'description', 'order_level', 'chaos_level', 'dream_level', 'pattern_influence', 'corruption_status', 'is_starting_shadow', 'is_spoiler'];
+    getUniverseForCampaign(db, existing.campaign_id)?.shadows?.validate(req.body);
 
     const query = buildUpdateQuery('shadows', allowedFields, req.body, shadowId);
     if (!query) {
         return res.status(400).json({ error: 'No valid fields to update' });
     }
 
-    db.prepare(query.sql).run(...query.values);
+    db.prepare(query.sql.replace('WHERE id = ?', 'WHERE id = ? AND campaign_id = ?'))
+        .run(...query.values, req.campaign.id);
 
-    const updated = db.prepare('SELECT * FROM shadows WHERE id = ?').get(shadowId);
+    const updated = db.prepare('SELECT * FROM shadows WHERE id = ? AND campaign_id = ?')
+        .get(shadowId, req.campaign.id);
     res.json(updated);
 }));
 
 // Delete shadow
-router.delete('/:id', authenticate, asyncHandler((req, res) => {
+router.delete('/:id', asyncHandler((req, res) => {
     const db = getDatabase();
 
-    const existing = db.prepare('SELECT id, created_by FROM shadows WHERE id = ?').get(req.params.id);
+    const existing = db.prepare('SELECT id, created_by FROM shadows WHERE id = ? AND campaign_id = ?')
+        .get(req.params.id, req.campaign.id);
     if (!existing) {
         return res.status(404).json({ error: 'Shadow not found' });
     }
@@ -165,7 +191,8 @@ router.delete('/:id', authenticate, asyncHandler((req, res) => {
         return res.status(403).json({ error: 'Only this shadow\'s creator or a super admin can delete it' });
     }
 
-    const result = db.prepare('DELETE FROM shadows WHERE id = ?').run(req.params.id);
+    const result = db.prepare('DELETE FROM shadows WHERE id = ? AND campaign_id = ?')
+        .run(req.params.id, req.campaign.id);
 
     if (result.changes === 0) {
         return res.status(404).json({ error: 'Shadow not found' });

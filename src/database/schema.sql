@@ -1,20 +1,50 @@
 -- Core Tables for DM Helper
 
+-- Campaign tenancy
+CREATE TABLE IF NOT EXISTS campaigns (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    owner_user_id INTEGER REFERENCES users(id),
+    system_id TEXT NOT NULL,
+    universe_id TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS campaign_members (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    campaign_id INTEGER NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role TEXT NOT NULL CHECK(role IN ('dm', 'player')),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(campaign_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS campaign_characters (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    campaign_id INTEGER NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+    character_id INTEGER NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+    current_shadow_id INTEGER REFERENCES shadows(id) ON DELETE SET NULL,
+    joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(campaign_id, character_id)
+);
+
 -- Shadows (Realms in the Amber multiverse)
 CREATE TABLE IF NOT EXISTS shadows (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
     description TEXT,
     order_level INTEGER DEFAULT 50,
     chaos_level INTEGER DEFAULT 50,
     dream_level INTEGER DEFAULT 0,
-    pattern_influence TEXT CHECK(pattern_influence IN ('Pattern', 'Argent Refrain', 'Logrus', 'Mixed', 'None', 'Nexus')),
+    pattern_influence TEXT,
     corruption_status TEXT,
     is_starting_shadow BOOLEAN DEFAULT 0,
     is_spoiler BOOLEAN DEFAULT 0,
 
     -- Ownership
     created_by INTEGER,
+    campaign_id INTEGER REFERENCES campaigns(id),
 
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -192,6 +222,21 @@ CREATE TABLE IF NOT EXISTS characters (
     FOREIGN KEY (current_shadow_id) REFERENCES shadows(id)
 );
 
+-- Namespaced system/universe character data. A character has at most one JSON
+-- document per plugin namespace (for example system:dnd5e or universe:amber).
+CREATE TABLE IF NOT EXISTS character_extension_data (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    character_id INTEGER NOT NULL,
+    namespace TEXT NOT NULL,
+    data JSON NOT NULL DEFAULT '{}',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
+    UNIQUE(character_id, namespace),
+    CHECK(length(namespace) > 2 AND instr(namespace, ':') > 1),
+    CHECK(json_valid(data))
+);
+
 -- Character Inventory/Gear
 CREATE TABLE IF NOT EXISTS character_gear (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -233,6 +278,7 @@ CREATE TABLE IF NOT EXISTS campaign_sessions (
     opening_notes TEXT,
     mid_notes TEXT,
     closing_notes TEXT,
+    campaign_id INTEGER REFERENCES campaigns(id),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -243,6 +289,7 @@ CREATE TABLE IF NOT EXISTS character_progress (
     character_id INTEGER NOT NULL,
     session_id INTEGER NOT NULL,
     shadow_id INTEGER, -- Where the character was during this session
+    campaign_id INTEGER REFERENCES campaigns(id),
 
     -- What happened this session
     summary TEXT NOT NULL,
@@ -277,6 +324,7 @@ CREATE TABLE IF NOT EXISTS npcs (
     name TEXT NOT NULL,
     creature_type TEXT, -- Shadow Eater, Eggari, Elevi, Djunkai, etc.
     shadow_id INTEGER, -- Which shadow they're currently in
+    campaign_id INTEGER REFERENCES campaigns(id),
 
     -- Stats (simplified for NPCs)
     armor_class INTEGER,
@@ -306,6 +354,7 @@ CREATE TABLE IF NOT EXISTS feat_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     character_id INTEGER NOT NULL,
     session_id INTEGER,
+    campaign_id INTEGER REFERENCES campaigns(id),
     feat_source TEXT CHECK(feat_source IN ('session', 'level', 'unknown_unknown')),
     description TEXT,
     earned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -318,6 +367,7 @@ CREATE TABLE IF NOT EXISTS feat_log (
 CREATE TABLE IF NOT EXISTS attribute_claims (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     character_id INTEGER NOT NULL,
+    campaign_id INTEGER REFERENCES campaigns(id),
     attribute_name TEXT NOT NULL, -- Warfare, Strength, Endurance, Pattern, Logrus, etc.
     points_spent INTEGER NOT NULL DEFAULT 0,
     justification TEXT, -- Why/how they achieved this level
@@ -333,6 +383,7 @@ CREATE TABLE IF NOT EXISTS perceived_rankings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     observer_character_id INTEGER NOT NULL, -- Who is doing the perceiving
     target_character_id INTEGER NOT NULL, -- Who they're perceiving
+    campaign_id INTEGER REFERENCES campaigns(id),
     attribute_name TEXT NOT NULL,
     perceived_points INTEGER NOT NULL, -- What they THINK the target has
     perception_notes TEXT, -- Why they think this (rumors, demonstrations, etc.)
@@ -347,6 +398,7 @@ CREATE TABLE IF NOT EXISTS perceived_rankings (
 -- Claim Point Pools (track available points for each character)
 CREATE TABLE IF NOT EXISTS claim_point_pools (
     character_id INTEGER PRIMARY KEY,
+    campaign_id INTEGER REFERENCES campaigns(id),
     total_points INTEGER DEFAULT 10, -- Total points ever earned
     spent_points INTEGER DEFAULT 0, -- Points currently allocated
     available_points INTEGER GENERATED ALWAYS AS (total_points - spent_points) STORED,
@@ -358,6 +410,7 @@ CREATE TABLE IF NOT EXISTS claim_point_pools (
 CREATE TABLE IF NOT EXISTS claim_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     character_id INTEGER NOT NULL,
+    campaign_id INTEGER REFERENCES campaigns(id),
     attribute_name TEXT NOT NULL,
     points_change INTEGER NOT NULL, -- Positive for increase, negative for decrease
     justification TEXT NOT NULL,
@@ -383,6 +436,9 @@ CREATE TABLE IF NOT EXISTS users (
 
 -- Indexes for better query performance
 CREATE INDEX IF NOT EXISTS idx_characters_current_shadow ON characters(current_shadow_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_shadows_campaign_name ON shadows(COALESCE(campaign_id, 0), name);
+CREATE INDEX IF NOT EXISTS idx_character_extension_data_character ON character_extension_data(character_id);
+CREATE INDEX IF NOT EXISTS idx_character_extension_data_namespace ON character_extension_data(namespace);
 CREATE INDEX IF NOT EXISTS idx_character_progress_character ON character_progress(character_id);
 CREATE INDEX IF NOT EXISTS idx_character_progress_session ON character_progress(session_id);
 CREATE INDEX IF NOT EXISTS idx_character_gear_character ON character_gear(character_id);

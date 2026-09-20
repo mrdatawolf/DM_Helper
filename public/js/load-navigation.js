@@ -8,6 +8,8 @@
         const navContainer = document.createElement('div');
         navContainer.innerHTML = html;
         document.body.insertBefore(navContainer.firstElementChild, document.body.firstChild);
+        if (globalThis.CampaignBranding) CampaignBranding.applyCurrent();
+        if (typeof checkAuthStatus === 'function') checkAuthStatus();
 
     } catch (error) {
         console.error('Failed to load navigation:', error);

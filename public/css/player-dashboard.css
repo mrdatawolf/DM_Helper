@@ -997,6 +997,23 @@ header {
 .class-card.soft-warn { border-style: dashed; border-color: #f39c12; }
 .class-card.soft-warn.selected { border-style: solid; }
 
+.shadow-filter-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.shadow-filter-controls .btn-secondary[aria-pressed="true"] {
+    background: var(--primary);
+    color: white;
+}
+
+.shadow-card { text-align: left; }
+.shadow-card strong { display: block; margin-bottom: 8px; }
+.shadow-description { margin: 0 0 10px; line-height: 1.4; }
+.shadow-influence-levels { display: block; color: #666; }
+
 .cls-badge {
     position: absolute;
     top: -1px;
@@ -1034,6 +1051,7 @@ header {
 .cls-desc { font-size: 0.75rem; color: #666; line-height: 1.4; }
 
 .cls-warn-msg {
+    display: block;
     font-size: 0.72rem;
     color: #b7700a;
     margin-top: 5px;

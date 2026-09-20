@@ -3,8 +3,8 @@ const router = express.Router();
 const { getDatabase } = require('../../database/connection');
 const { authenticate } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
-const { collectUpdateFields } = require('../../utils/buildUpdateQuery');
 const { canModifyCharacter } = require('./shared');
+const resource = require('./system-resource');
 
 // Add gear to character
 router.post('/:id/gear', authenticate, asyncHandler((req, res) => {
@@ -23,13 +23,11 @@ router.post('/:id/gear', authenticate, asyncHandler((req, res) => {
         return res.status(400).json({ error: 'Item name is required' });
     }
 
-    const stmt = db.prepare(`
-        INSERT INTO character_gear (character_id, item_name, item_type, description, quantity, is_equipped, magical_properties)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    const result = stmt.run(req.params.id, item_name, item_type, description, quantity, is_equipped ? 1 : 0, magical_properties);
-    const newGear = db.prepare('SELECT * FROM character_gear WHERE id = ?').get(result.lastInsertRowid);
+    const newGear = resource.create(db, req, 'gear', {
+        item_name, item_type: item_type ?? null, description: description ?? null, quantity,
+        is_equipped: is_equipped ? 1 : 0, magical_properties: magical_properties ?? null,
+        created_at: resource.sqlTimestamp()
+    });
 
     res.status(201).json(newGear);
 }));
@@ -42,23 +40,14 @@ router.put('/:id/gear/:gearId', authenticate, asyncHandler((req, res) => {
     if (!canModifyCharacter(req.user, character)) {
         return res.status(403).json({ error: 'You do not have permission to modify this character' });
     }
-    const gear = db.prepare('SELECT id FROM character_gear WHERE id = ? AND character_id = ?').get(req.params.gearId, req.params.id);
+    const gear = resource.list(db, req, 'gear').find(item => String(item.id) === req.params.gearId);
     if (!gear) return res.status(404).json({ error: 'Gear item not found' });
 
-    const allowed = ['item_name', 'item_type', 'description', 'quantity'];
-    const { setClauses, values } = collectUpdateFields(allowed, req.body);
-    if (Object.prototype.hasOwnProperty.call(req.body, 'is_equipped')) {
-        setClauses.push('is_equipped = ?');
-        values.push(req.body.is_equipped ? 1 : 0);
-    }
-    const magicalProperties = collectUpdateFields(['magical_properties'], req.body);
-    setClauses.push(...magicalProperties.setClauses);
-    values.push(...magicalProperties.values);
-    if (!setClauses.length) return res.status(400).json({ error: 'No valid fields to update' });
-
-    values.push(req.params.gearId);
-    db.prepare(`UPDATE character_gear SET ${setClauses.join(', ')} WHERE id = ?`).run(...values);
-    res.json(db.prepare('SELECT * FROM character_gear WHERE id = ?').get(req.params.gearId));
+    const allowed = new Set(['item_name', 'item_type', 'description', 'quantity', 'magical_properties']);
+    const updates = Object.fromEntries(Object.entries(req.body).filter(([key]) => allowed.has(key)));
+    if (Object.hasOwn(req.body, 'is_equipped')) updates.is_equipped = req.body.is_equipped ? 1 : 0;
+    if (!Object.keys(updates).length) return res.status(400).json({ error: 'No valid fields to update' });
+    res.json(resource.update(db, req, 'gear', req.params.gearId, updates));
 }));
 
 // Delete a gear item (owner or DM)
@@ -69,8 +58,7 @@ router.delete('/:id/gear/:gearId', authenticate, asyncHandler((req, res) => {
     if (!canModifyCharacter(req.user, character)) {
         return res.status(403).json({ error: 'You do not have permission to modify this character' });
     }
-    const result = db.prepare('DELETE FROM character_gear WHERE id = ? AND character_id = ?').run(req.params.gearId, req.params.id);
-    if (result.changes === 0) return res.status(404).json({ error: 'Gear item not found' });
+    if (!resource.remove(db, req, 'gear', req.params.gearId)) return res.status(404).json({ error: 'Gear item not found' });
     res.json({ message: 'Gear item deleted' });
 }));
 

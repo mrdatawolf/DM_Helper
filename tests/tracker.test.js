@@ -61,6 +61,8 @@ test('setup: users, characters, DM session with alice attending', async () => {
     getDatabase().prepare("UPDATE users SET is_dm = 1 WHERE username = 'dungeon_master'").run();
     const login = await api('POST', '/api/auth/login', { body: { username: 'dungeon_master', password: 'testpass123' } });
     dm = { token: login.body.token, user: login.body.user };
+    getDatabase().prepare("UPDATE campaign_members SET role = 'dm' WHERE campaign_id = 1 AND user_id = ?")
+        .run(dm.user.id);
 
     aliceChar = (await api('POST', '/api/characters', {
         token: alice.token,
@@ -106,6 +108,18 @@ test('players draft scenes for their own characters only; drafts stay hidden', a
 
     const asDM = await api('GET', '/api/scenes', { token: dm.token });
     assert.ok(asDM.body.some(s => s.id === sceneId), 'DM sees drafts');
+});
+
+test('tracker authorization uses the live campaign role, not the JWT DM claim', async () => {
+    getDatabase().prepare("UPDATE campaign_members SET role = 'player' WHERE campaign_id = 1 AND user_id = ?")
+        .run(dm.user.id);
+
+    const demoted = await api('GET', '/api/scenes', { token: dm.token });
+    assert.ok(!demoted.body.some(s => s.id === sceneId),
+        'a stale JWT DM claim does not reveal another player\'s draft');
+
+    getDatabase().prepare("UPDATE campaign_members SET role = 'dm' WHERE campaign_id = 1 AND user_id = ?")
+        .run(dm.user.id);
 });
 
 test('only the DM can approve a scene; public approved scenes become visible', async () => {

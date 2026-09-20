@@ -953,6 +953,13 @@ select option {
     box-shadow: 0 0 0 3px rgba(41, 128, 185, 0.18) !important;
 }
 
+.shadow-filter-controls .btn-secondary[aria-pressed="true"] {
+    background: #3498db !important;
+    color: white !important;
+}
+
+.shadow-influence-levels { color: #9aabbf !important; }
+
 .cls-name {
     color: #ecf0f1 !important;
 }

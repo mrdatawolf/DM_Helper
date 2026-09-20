@@ -246,4 +246,14 @@ function bindDndCharacterSheet(container, character, refresh) {
     container.querySelector('[data-download-pdf]').addEventListener('click', () => downloadCharacterPdf(character).catch(error => showToast(error.message)));
 }
 
+if (globalThis.CharacterSystemRegistry) {
+    CharacterSystemRegistry.registerRuntime({
+        id: 'dnd5e', label: 'D&D 5e',
+        sheet: { render: renderDndCharacterSheet, bind: bindDndCharacterSheet },
+        dice: { id: 'd20', roll: rollD20WithClaims => rollD20WithClaims() },
+        derivedStats: { compute: computedCharacter },
+        pdfExport: { export: downloadCharacterPdf }
+    });
+}
+
 export { bindDndCharacterSheet, computedCharacter, downloadCharacterPdf, editableField, editableList, renderDndCharacterSheet };

@@ -39,6 +39,7 @@ async function checkAuthStatus() {
                     }
                 }
                 updateNavForUser(data.user);
+                await loadCampaignSwitcher(token, data.user);
             } else {
                 // Token is confirmed invalid/expired server-side - clear the stale
                 // copy so pages that only check localStorage (see dm-auth-guard.js)
@@ -55,6 +56,65 @@ async function checkAuthStatus() {
     } else {
         updateNavForGuest();
     }
+}
+
+async function loadCampaignSwitcher(token, user) {
+    const select = document.querySelector('.nav-campaign');
+    const createButton = document.querySelector('.nav-create-campaign');
+    if (!select || !createButton) return;
+    const response = await fetch('/api/auth/campaigns', { headers: { Authorization: `Bearer ${token}` } });
+    if (!response.ok) return;
+    const data = await response.json();
+    const activeCampaign = data.campaigns.find(campaign => campaign.id === data.current_campaign_id);
+    if (activeCampaign && globalThis.CharacterSystemRegistry) {
+        try { CharacterSystemRegistry.setActiveSystem(activeCampaign.system_id); } catch (error) { console.error(error); }
+    }
+    const options = data.campaigns.map(campaign => {
+        const option = document.createElement('option');
+        option.value = campaign.id;
+        option.textContent = `${campaign.name} (${campaign.role})`;
+        option.selected = campaign.id === data.current_campaign_id;
+        return option;
+    });
+    if (data.current_campaign_id == null && data.campaigns.length) {
+        const prompt = document.createElement('option');
+        prompt.value = '';
+        prompt.textContent = 'Select a campaign';
+        prompt.disabled = true;
+        prompt.selected = true;
+        options.unshift(prompt);
+    }
+    select.replaceChildren(...options);
+    select.hidden = data.campaigns.length < 2 && data.current_campaign_id != null;
+    createButton.hidden = !(user.is_dm || user.is_admin || user.is_super_admin);
+    select.onchange = () => switchCampaign(token, select.value);
+    createButton.onclick = () => createCampaign(token);
+}
+
+async function switchCampaign(token, campaignId) {
+    const response = await fetch('/api/auth/campaigns/switch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ campaign_id: Number(campaignId) })
+    });
+    const data = await response.json();
+    if (!response.ok) return window.alert(data.error || 'Unable to switch campaign');
+    localStorage.setItem('token', data.token);
+    window.location.reload();
+}
+
+async function createCampaign(token) {
+    const name = window.prompt('Campaign name');
+    if (!name) return;
+    const response = await fetch('/api/auth/campaigns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name, system_id: 'dnd5e', universe_id: 'amber' })
+    });
+    const data = await response.json();
+    if (!response.ok) return window.alert(data.error || 'Unable to create campaign');
+    localStorage.setItem('token', data.token);
+    window.location.reload();
 }
 
 // Update navigation for authenticated user

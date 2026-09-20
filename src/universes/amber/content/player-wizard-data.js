@@ -1,4 +1,4 @@
-// player-wizard-data.js — split from player-dashboard.js (behavior unchanged)
+// Amber character-wizard content. Served through the active universe API.
 // ═══════════════════════════════════════════════════════════════
 //  CHARACTER CREATION WIZARD
 // ═══════════════════════════════════════════════════════════════
@@ -363,6 +363,7 @@ const FLAW_TRAIT_PAIRS = {
     }
 };
 
-// Used by player-wizard-core.js / player-wizard-steps.js.
-export { STAT_KEYS, STAT_FULL, CLASSES_5E, IMPRINT_LORE, WIZARD_STEP_INFO, FIELD_INFO, FLAW_TRAIT_PAIRS };
+module.exports = {
+    IMPRINT_LORE, WIZARD_STEP_INFO, FIELD_INFO, FLAW_TRAIT_PAIRS
+};
 

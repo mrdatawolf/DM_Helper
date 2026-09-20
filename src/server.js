@@ -25,6 +25,8 @@ const npcRoutes   = require('./routes/npcs');
 const sceneRoutes = require('./routes/scenes');
 const sessionNoteRoutes = require('./routes/session-notes');
 const combatRoutes = require('./routes/combats');
+const universeContentRoutes = require('./routes/universe-content');
+const systemContentRoutes = require('./routes/system-content');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -75,6 +77,8 @@ app.use('/api/npcs',  npcRoutes);
 app.use('/api/scenes', sceneRoutes);
 app.use('/api/session-notes', sessionNoteRoutes);
 app.use('/api/combats', combatRoutes);
+app.use('/api/universe/content', universeContentRoutes);
+app.use('/api/system/content', systemContentRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const { getDatabase } = require('../database/connection');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -11,14 +12,15 @@ const JWT_EXPIRES_IN = '24h';
 /**
  * Generate JWT token for user
  */
-function generateToken(user) {
+function generateToken(user, currentCampaignId = null) {
     return jwt.sign(
         {
             userId: user.id,
             username: user.username,
             isDM: user.is_dm,
             isAdmin: user.username === 'admin',
-            isSuperAdmin: !!user.is_super_admin
+            isSuperAdmin: !!user.is_super_admin,
+            currentCampaignId: currentCampaignId == null ? null : Number(currentCampaignId)
         },
         JWT_SECRET,
         { expiresIn: JWT_EXPIRES_IN }
@@ -67,7 +69,8 @@ function authenticate(req, res, next) {
         username: decoded.username,
         isDM: decoded.isDM,
         isAdmin: decoded.isAdmin || false,
-        isSuperAdmin: decoded.isSuperAdmin || false
+        isSuperAdmin: decoded.isSuperAdmin || false,
+        currentCampaignId: decoded.currentCampaignId == null ? null : Number(decoded.currentCampaignId)
     };
 
     next();
@@ -95,12 +98,42 @@ function optionalAuth(req, res, next) {
                 username: decoded.username,
                 isDM: decoded.isDM,
                 isAdmin: decoded.isAdmin || false,
-                isSuperAdmin: decoded.isSuperAdmin || false
+                isSuperAdmin: decoded.isSuperAdmin || false,
+                currentCampaignId: decoded.currentCampaignId == null ? null : Number(decoded.currentCampaignId)
             };
         }
     }
 
     next();
+}
+
+function requireCampaignMembership(req, res, next) {
+    if (!req.user) return res.status(401).json({ error: 'Authentication required' });
+    if (!req.user.currentCampaignId) return res.status(409).json({ error: 'Select a campaign before continuing' });
+
+    const membership = getDatabase().prepare(`
+        SELECT cm.role, c.name, c.system_id, c.universe_id
+        FROM campaign_members cm
+        JOIN campaigns c ON c.id = cm.campaign_id
+        WHERE cm.campaign_id = ? AND cm.user_id = ?
+    `).get(req.user.currentCampaignId, req.user.userId);
+    if (!membership) return res.status(403).json({ error: 'Campaign access denied' });
+
+    req.campaign = { id: req.user.currentCampaignId, ...membership };
+    // Campaign authority is live data, never the legacy JWT claim.
+    req.user.isDM = membership.role === 'dm';
+    next();
+}
+
+function requireCampaignRole(role) {
+    return function campaignRoleMiddleware(req, res, next) {
+        requireCampaignMembership(req, res, () => {
+            if (role === 'player' || req.campaign.role === role || req.user.isAdmin || req.user.isSuperAdmin) {
+                return next();
+            }
+            return res.status(403).json({ error: `${role.toUpperCase()} campaign access required` });
+        });
+    };
 }
 
 /**
@@ -149,6 +182,8 @@ module.exports = {
     optionalAuth,
     requireDM,
     requireAdmin,
+    requireCampaignMembership,
+    requireCampaignRole,
     isDMOrAdmin,
     JWT_SECRET,
     JWT_EXPIRES_IN

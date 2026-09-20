@@ -2,37 +2,43 @@
 
 ## Purpose
 
-DM Helper is a campaign management tool for a tabletop RPG campaign: "The
-Shattering of the Liminal," an Amber Diceless / D&D 5e hybrid. It replaces ad hoc
-notes and spreadsheets with a shared web app where the DM manages campaign state
-(characters, shadows/worlds, NPCs, sessions, story arcs) and players view and
-manage their own characters.
+DM Helper is a multi-tenant campaign management tool for tabletop RPGs. It
+replaces ad hoc notes and spreadsheets with a shared web app where multiple DMs
+can each run one or more campaigns, choose an independent game system and
+universe/setting for each campaign, manage campaign state, and let players view
+and manage their characters. The existing Amber Diceless / D&D 5e hybrid,
+"The Shattering of the Liminal," is the first campaign and reference
+implementation rather than the definition of the whole product.
 
 ## Users and stakeholders
 
 - **DM (game master)**: the primary operator. Creates and edits shadows, NPCs,
   sessions, story arcs, and campaign progress; controls what is visible to
-  players; runs the single campaign this tool currently serves.
+  players; and runs one or more of their own campaigns.
 - **Players**: view and manage their own character sheets, gear, powers, familiars,
-  and the shadows (worlds) their character has visited or knows about.
-- Both roles authenticate against the same app; a user's `is_dm` flag (and a
-  separate admin flag) determines which dashboard and permissions apply.
+  and the campaign knowledge their character has visited, discovered, or knows
+  about. A character may participate in more than one campaign while retaining
+  one shared character sheet.
+- Both roles authenticate against the same app. Campaign membership determines
+  whether a user is a DM or player for a particular campaign; separate
+  application-level administration roles govern account/system administration.
 
-This is a small, single-campaign tool, not a multi-tenant product. There is one
-DM and a handful of players.
+This remains a personal, self-hosted tool for a small, trusted group of DMs and
+players, not a public multi-tenant SaaS product.
 
 ## Desired outcomes
 
-- The DM can manage all campaign entities (characters, shadows, NPCs, sessions,
-  story arcs, combats, progress) from one dashboard without leaving the browser.
-- Players can see their own character's full state and the subset of campaign
-  knowledge (shadows/worlds, NPCs, lore) their character has legitimately
-  discovered in-fiction.
-- Spoiler-sensitive content (e.g., a shadow's true nature) can be flagged by the
-  DM and hidden from players until revealed.
-- The tool stays simple enough for one DM to operate and extend without a build
-  pipeline or hosting complexity beyond a single Node.js process and a SQLite
-  file.
+- For each campaign, its DM can manage all campaign entities (characters,
+  worlds, NPCs, sessions, story arcs, combats, progress) from one dashboard
+  without leaving the browser.
+- Within each campaign, players can see their own character's full state and the
+  subset of campaign knowledge (worlds, NPCs, lore) their character has
+  legitimately discovered in-fiction.
+- Spoiler-sensitive campaign content (e.g., a world's true nature) can be
+  flagged by the DM and hidden from that campaign's players until revealed.
+- The tool stays simple enough for a small group of DMs to operate and extend
+  without a build pipeline or hosting complexity beyond a single Node.js
+  process and a SQLite file.
 
 ## Scope
 
@@ -46,10 +52,15 @@ DM and a handful of players.
   creation wizard.
 - JWT-based authentication with DM/admin/super-admin role distinctions.
 - A spoiler system so the DM can mark shadows/NPCs as hidden-until-revealed.
+- Multiple campaigns in one deployment, each owned and run by a DM with its own
+  members and independently selected, code-defined system and universe.
 
 ### Excluded
 
-- Multi-campaign or multi-tenant support.
+- Runtime-installable system or universe packs, a DM-facing plugin manager, and
+  plugin sandboxing; adding a pack requires a code change and deployment.
+- Public self-signup and production-grade tenant-isolation hardening such as
+  rate limiting, abuse prevention, and billing.
 - Real-time/live collaboration (no websockets; standard request/response).
 - Mobile native apps — the frontend is server-rendered static HTML + vanilla JS
   intended to work in a desktop or mobile browser, not a packaged app.
@@ -73,6 +84,12 @@ DM and a handful of players.
   without an explicit, reviewed migration path.
 
 ## Domain language
+
+Campaign is the product-wide tenant boundary. System and Universe are
+independent selections for each campaign: a System supplies rules mechanics,
+while a Universe supplies setting-specific lore and content. The remaining
+terms in this section describe the `amber` reference universe and its current
+campaign implementation; other universes may define different domain language.
 
 - **Shadow**: a "world" or reality in the Amber-diceless sense — a place a
   character can visit or originate from. Distinct from a D&D "plane"; shadows

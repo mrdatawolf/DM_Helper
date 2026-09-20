@@ -1,7 +1,6 @@
 // player-shadows.js — split from player-dashboard.js (behavior unchanged)
 // ── Known Shadows ─────────────────────────────────────────────────────────────
 import { state } from './player-state.js';
-import { wizardFocusField, wizardBlurField, _fieldInfoForElement } from './player-wizard-core.js';
 
 async function loadVisitedShadows() {
     const container = document.getElementById('player-shadows-list');
@@ -292,20 +291,6 @@ function visitedBalanceBar(s) {
 }
 
 // escHtml now comes from /js/dom-utils.js (loaded before this file).
-
-// ── Wizard field-focus delegation (runs once at page load) ────
-(function () {
-    const body = document.querySelector('.wizard-body');
-    if (!body) return;
-    body.addEventListener('focusin', e => {
-        const info = _fieldInfoForElement(e.target);
-        if (info) wizardFocusField(info);
-    });
-    body.addEventListener('focusout', e => {
-        if (!_fieldInfoForElement(e.target)) return;
-        if (!_fieldInfoForElement(e.relatedTarget)) wizardBlurField();
-    });
-}());
 
 // Referenced from generated onclick="..." HTML (see ADR-001).
 Object.assign(window, {

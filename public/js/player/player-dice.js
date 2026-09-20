@@ -67,6 +67,11 @@ async function loadDiceCharacterData(characterId) {
     const token = localStorage.getItem('token');
 
     try {
+        const system = await CharacterSystemRegistry.loadActiveSystem(token);
+        diceSelectedSystem = system.dice.id;
+        document.querySelectorAll('.dice-system-btn').forEach(button => {
+            button.hidden = button.dataset.system !== system.dice.id;
+        });
         // Load character's claims
         const claims = await apiFetch(`/api/claims/character/${characterId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
@@ -88,6 +93,12 @@ async function loadDiceCharacterData(characterId) {
 
 // Select dice system (d20, d10, d6)
 function selectDiceSystem(system) {
+    try {
+        const activeDice = CharacterSystemRegistry.getActiveSystem().dice.id;
+        if (system !== activeDice) return;
+    } catch {
+        // The initial selection is completed once character data loads the campaign manifest.
+    }
     diceSelectedSystem = system;
 
     // Update button states
@@ -186,7 +197,7 @@ async function rollDice() {
                 return;
             }
 
-            rollResult = await rollD20WithClaims();
+            rollResult = await CharacterSystemRegistry.getActiveSystem().dice.roll(rollD20WithClaims);
 
         } else if (diceSelectedSystem === 'd10') {
             // World of Darkness d10 system

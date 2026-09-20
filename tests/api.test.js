@@ -65,10 +65,10 @@ test('anonymous requests are rejected on protected routes', async () => {
     assert.strictEqual((await api('POST', '/api/sessions', { body: {} })).status, 401);
 });
 
-test('public reads stay open', async () => {
-    const res = await api('GET', '/api/shadows');
-    assert.strictEqual(res.status, 200);
-    assert.ok(Array.isArray(res.body));
+test('campaign-owned reads, including formerly anonymous narrative reads, require authentication', async () => {
+    for (const route of ['/api/shadows', '/api/arcs', '/api/beats', '/api/primal-patterns', '/api/claims/rankings/all']) {
+        assert.strictEqual((await api('GET', route)).status, 401, `${route} should require authentication`);
+    }
 });
 
 test('a player can create a character with unified field names', async () => {
@@ -135,6 +135,8 @@ test('a DM can edit any character', async () => {
     });
     assert.strictEqual(login.status, 200);
     dm = { token: login.body.token, user: login.body.user };
+    getDatabase().prepare("UPDATE campaign_members SET role = 'dm' WHERE campaign_id = 1 AND user_id = ?")
+        .run(dm.user.id);
 
     const res = await api('PUT', `/api/characters/${charId}`, {
         token: dm.token, body: { feat_pool: 3 }
@@ -251,6 +253,44 @@ test('claim allocation respects character ownership', async () => {
     assert.strictEqual(other.status, 403);
 });
 
+test('shadow startingOnly filter excludes non-starting and spoiler shadows without changing the default list', async () => {
+    const campaignId = db.prepare('SELECT campaign_id FROM campaign_members WHERE user_id = ?').get(alice.user.id).campaign_id;
+    const insert = db.prepare(`
+        INSERT INTO shadows (name, is_starting_shadow, is_spoiler, campaign_id)
+        VALUES (?, ?, ?, ?)
+    `);
+    insert.run('Filter Visible Origin', 1, 0, campaignId);
+    insert.run('Filter Non-starting', 0, 0, campaignId);
+    insert.run('Filter Spoiler Origin', 1, 1, campaignId);
+
+    const unfiltered = await api('GET', '/api/shadows', { token: alice.token });
+    assert.strictEqual(unfiltered.status, 200);
+    assert.ok(unfiltered.body.some(shadow => shadow.name === 'Filter Visible Origin'));
+    assert.ok(unfiltered.body.some(shadow => shadow.name === 'Filter Non-starting'));
+    assert.ok(unfiltered.body.some(shadow => shadow.name === 'Filter Spoiler Origin'));
+
+    const filtered = await api('GET', '/api/shadows?startingOnly=true', { token: alice.token });
+    assert.strictEqual(filtered.status, 200);
+    assert.ok(filtered.body.some(shadow => shadow.name === 'Filter Visible Origin'));
+    assert.ok(filtered.body.every(shadow => shadow.is_starting_shadow === 1 && shadow.is_spoiler === 0));
+    assert.ok(!filtered.body.some(shadow => shadow.name === 'Filter Non-starting'));
+    assert.ok(!filtered.body.some(shadow => shadow.name === 'Filter Spoiler Origin'));
+});
+
+test('claim player actions remain accessible while point grants remain DM-only', async () => {
+    const playerGrant = await api('POST', '/api/claims/grant-points', {
+        token: alice.token,
+        body: { character_id: charId, points: 2, reason: 'Not authorized' }
+    });
+    assert.strictEqual(playerGrant.status, 403);
+
+    const dmGrant = await api('POST', '/api/claims/grant-points', {
+        token: dm.token,
+        body: { character_id: charId, points: 2, reason: 'Story reward' }
+    });
+    assert.strictEqual(dmGrant.status, 200, JSON.stringify(dmGrant.body));
+});
+
 test('claim resolution derives its ability bonus from the stored percentile', async () => {
     const resolved = await api('POST', '/api/claims/resolve', {
         token: alice.token,
@@ -271,6 +311,246 @@ test('/api/auth/characters returns unified column names', async () => {
     assert.strictEqual(c.class_type, 'Warlock');
     assert.strictEqual(c.max_hp, 22);
     assert.ok('shadow_origin_id' in c, 'shadow_origin_id exposed for Known Shadows tab');
+});
+
+test('campaign switching scopes character access and rejects non-members', async () => {
+    const createdCampaign = await api('POST', '/api/auth/campaigns', {
+        token: dm.token,
+        body: { name: 'Second Campaign', system_id: 'dnd5e', universe_id: 'amber' }
+    });
+    assert.strictEqual(createdCampaign.status, 201, JSON.stringify(createdCampaign.body));
+    const campaignList = await api('GET', '/api/auth/campaigns', { token: createdCampaign.body.token });
+    assert.strictEqual(campaignList.status, 200);
+    const activeCampaign = campaignList.body.campaigns.find(item => item.id === campaignList.body.current_campaign_id);
+    assert.strictEqual(activeCampaign.name, 'Second Campaign');
+    assert.strictEqual(activeCampaign.system_label, 'D&D 5e');
+    assert.strictEqual(activeCampaign.universe_label, 'Amber');
+    assert.strictEqual(activeCampaign.branding.logo, '/logo.png');
+    assert.match(activeCampaign.branding.tagline, /Amber multiverse/);
+    assert.strictEqual(db.prepare('SELECT count(*) count FROM shadows WHERE campaign_id = ?').get(createdCampaign.body.id).count, 11);
+    assert.strictEqual(db.prepare('SELECT count(*) count FROM primal_patterns WHERE campaign_id = ?').get(createdCampaign.body.id).count, 3);
+    assert.strictEqual(db.prepare('SELECT count(*) count FROM primal_pattern_sections WHERE campaign_id = ?').get(createdCampaign.body.id).count, 17);
+    const wizardContent = await api('GET', '/api/universe/content/wizard', { token: createdCampaign.body.token });
+    assert.strictEqual(wizardContent.status, 200);
+    assert.strictEqual(wizardContent.body.IMPRINT_LORE.FirstPattern.title, 'The Pattern');
+    const systemWizardContent = await api('GET', '/api/system/content/wizard', { token: createdCampaign.body.token });
+    assert.strictEqual(systemWizardContent.status, 200);
+    assert.deepStrictEqual(systemWizardContent.body.STAT_KEYS, ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA']);
+    assert.ok(systemWizardContent.body.CLASSES_5E.some(item => item.id === 'Wizard'));
+    const guideResponse = await fetch(base + '/api/universe/content/guide', {
+        headers: { Authorization: `Bearer ${createdCampaign.body.token}` }
+    });
+    assert.strictEqual(guideResponse.status, 200);
+    assert.strictEqual(await guideResponse.text(), fs.readFileSync(path.join(__dirname, '../src/universes/amber/content/PLAYER_GUIDE.md'), 'utf8'));
+    assert.strictEqual((await api('POST', '/api/shadows', {
+        token: createdCampaign.body.token,
+        body: { name: 'Invalid Amber Influence', pattern_influence: 'Homebrew Power' }
+    })).status, 400);
+
+    const secondCampaignToken = createdCampaign.body.token;
+    const secondShadow = await api('POST', '/api/shadows', {
+        token: secondCampaignToken,
+        body: { name: 'Second Campaign Shadow', description: 'Campaign two only' }
+    });
+    assert.strictEqual(secondShadow.status, 201, JSON.stringify(secondShadow.body));
+    assert.strictEqual((await api('GET', `/api/shadows/${secondShadow.body.id}`, {
+        token: secondCampaignToken
+    })).status, 200, 'same-campaign shadow access is allowed');
+    assert.strictEqual((await api('GET', `/api/shadows/${secondShadow.body.id}`, {
+        token: dm.token
+    })).status, 404, 'a token in another campaign cannot see the shadow');
+
+    const secondNpc = await api('POST', '/api/npcs', {
+        token: secondCampaignToken,
+        body: { name: 'Second Campaign NPC', description: 'Campaign two only' }
+    });
+    assert.strictEqual(secondNpc.status, 201, JSON.stringify(secondNpc.body));
+    assert.strictEqual((await api('GET', `/api/npcs/${secondNpc.body.id}`, {
+        token: secondCampaignToken
+    })).status, 200, 'same-campaign NPC access is allowed');
+    assert.strictEqual((await api('GET', `/api/npcs/${secondNpc.body.id}`, {
+        token: dm.token
+    })).status, 404, 'a token in another campaign cannot see the NPC');
+
+    const secondCharacter = await api('POST', '/api/characters', {
+        token: secondCampaignToken,
+        body: { name: 'Elsewhere', species: 'Human', class_type: 'Rogue' }
+    });
+    assert.strictEqual(secondCharacter.status, 201, JSON.stringify(secondCharacter.body));
+
+    assert.strictEqual((await api('GET', `/api/characters/${secondCharacter.body.id}`, {
+        token: secondCampaignToken
+    })).status, 200, 'same-campaign character access is allowed');
+    assert.strictEqual((await api('GET', `/api/characters/${secondCharacter.body.id}`, {
+        token: dm.token
+    })).status, 404, 'a token in another campaign cannot see the character');
+
+    const secondJournal = await api('POST', '/api/journal', {
+        token: secondCampaignToken,
+        body: { character_id: secondCharacter.body.id, title: 'Elsewhere Notes', content: 'Campaign two only' }
+    });
+    assert.strictEqual(secondJournal.status, 201, JSON.stringify(secondJournal.body));
+    const sameCampaignJournal = await api('GET', `/api/journal/character/${secondCharacter.body.id}`, {
+        token: secondCampaignToken
+    });
+    assert.ok(sameCampaignJournal.body.entries.some(entry => entry.id === secondJournal.body.id),
+        'same-campaign journal access is allowed');
+    assert.strictEqual((await api('GET', `/api/journal/character/${secondCharacter.body.id}`, {
+        token: dm.token
+    })).status, 404, 'a token in another campaign cannot see the journal character');
+
+    const secondArc = await api('POST', '/api/arcs', {
+        token: secondCampaignToken,
+        body: { character_id: secondCharacter.body.id, title: 'Elsewhere Arc' }
+    });
+    assert.strictEqual(secondArc.status, 201, JSON.stringify(secondArc.body));
+    assert.strictEqual((await api('GET', `/api/arcs/${secondArc.body.id}`, {
+        token: secondCampaignToken
+    })).status, 200, 'same-campaign arc access is allowed');
+    assert.strictEqual((await api('GET', `/api/arcs/${secondArc.body.id}`, {
+        token: dm.token
+    })).status, 404, 'a token in another campaign cannot see the arc');
+
+    const secondBeat = await api('POST', '/api/beats', {
+        token: secondCampaignToken,
+        body: { title: 'Elsewhere Beat' }
+    });
+    assert.strictEqual(secondBeat.status, 201, JSON.stringify(secondBeat.body));
+    const sameCampaignBeats = await api('GET', '/api/beats', { token: secondCampaignToken });
+    const otherCampaignBeats = await api('GET', '/api/beats', { token: dm.token });
+    assert.ok(sameCampaignBeats.body.some(beat => beat.id === secondBeat.body.id),
+        'same-campaign beat access is allowed');
+    assert.ok(!otherCampaignBeats.body.some(beat => beat.id === secondBeat.body.id),
+        'a token in another campaign cannot see the beat');
+
+    const secondPatternId = db.prepare(
+        'SELECT id FROM primal_patterns WHERE campaign_id = ? ORDER BY id LIMIT 1'
+    ).get(createdCampaign.body.id).id;
+    assert.strictEqual((await api('GET', `/api/primal-patterns/${secondPatternId}`, {
+        token: secondCampaignToken
+    })).status, 200, 'same-campaign primal-pattern access is allowed');
+    assert.strictEqual((await api('GET', `/api/primal-patterns/${secondPatternId}`, {
+        token: dm.token
+    })).status, 404, 'a token in another campaign cannot see the primal pattern');
+
+    assert.strictEqual((await api('GET', `/api/claims/pool/${secondCharacter.body.id}`, {
+        token: secondCampaignToken
+    })).status, 200, 'same-campaign claim access is allowed');
+    assert.strictEqual((await api('GET', `/api/claims/pool/${secondCharacter.body.id}`, {
+        token: dm.token
+    })).status, 404, 'a token in another campaign cannot see the claim pool');
+
+    const secondSession = await api('POST', '/api/sessions', {
+        token: secondCampaignToken,
+        body: { session_number: 9028, session_date: '2026-09-13', session_title: 'Campaign Two Session' }
+    });
+    assert.strictEqual(secondSession.status, 201, JSON.stringify(secondSession.body));
+    assert.strictEqual((await api('GET', `/api/sessions/${secondSession.body.id}`, {
+        token: secondCampaignToken
+    })).status, 200, 'same-campaign session access is allowed');
+    assert.strictEqual((await api('GET', `/api/sessions/${secondSession.body.id}`, {
+        token: dm.token
+    })).status, 404, 'a token in another campaign cannot see the session');
+
+    const secondScene = await api('POST', '/api/scenes', {
+        token: secondCampaignToken,
+        body: { character_id: secondCharacter.body.id, title: 'Campaign Two Scene', status: 'approved' }
+    });
+    assert.strictEqual(secondScene.status, 201, JSON.stringify(secondScene.body));
+    const sameCampaignScenes = await api('GET', '/api/scenes', { token: secondCampaignToken });
+    const otherCampaignScenes = await api('GET', '/api/scenes', { token: dm.token });
+    assert.ok(sameCampaignScenes.body.some(scene => scene.id === secondScene.body.id),
+        'same-campaign scene access is allowed');
+    assert.ok(!otherCampaignScenes.body.some(scene => scene.id === secondScene.body.id),
+        'a token in another campaign cannot see the scene');
+
+    const secondNote = await api('POST', '/api/session-notes', {
+        token: secondCampaignToken,
+        body: { session_id: secondSession.body.id, content: 'Campaign two only', visibility: 'public' }
+    });
+    assert.strictEqual(secondNote.status, 201, JSON.stringify(secondNote.body));
+    const sameCampaignNotes = await api('GET',
+        `/api/session-notes?session_id=${secondSession.body.id}`, { token: secondCampaignToken });
+    const otherCampaignNotes = await api('GET',
+        `/api/session-notes?session_id=${secondSession.body.id}`, { token: dm.token });
+    assert.ok(sameCampaignNotes.body.some(note => note.id === secondNote.body.id),
+        'same-campaign session-note access is allowed');
+    assert.strictEqual(otherCampaignNotes.body.length, 0,
+        'a token in another campaign cannot see session notes');
+
+    const secondCombat = await api('POST', '/api/combats', {
+        token: secondCampaignToken,
+        body: { session_id: secondSession.body.id, title: 'Campaign Two Combat' }
+    });
+    assert.strictEqual(secondCombat.status, 201, JSON.stringify(secondCombat.body));
+    assert.strictEqual((await api('GET', `/api/combats/${secondCombat.body.id}`, {
+        token: secondCampaignToken
+    })).status, 200, 'same-campaign combat access is allowed');
+    assert.strictEqual((await api('GET', `/api/combats/${secondCombat.body.id}`, {
+        token: dm.token
+    })).status, 404, 'a token in another campaign cannot see the combat');
+
+    const secondProgress = await api('POST', '/api/progress', {
+        token: secondCampaignToken,
+        body: {
+            character_id: secondCharacter.body.id,
+            session_id: secondSession.body.id,
+            summary: 'Campaign two progress'
+        }
+    });
+    assert.strictEqual(secondProgress.status, 201, JSON.stringify(secondProgress.body));
+    assert.strictEqual((await api('GET', `/api/progress/${secondProgress.body.id}`, {
+        token: secondCampaignToken
+    })).status, 200, 'same-campaign progress access is allowed');
+    assert.strictEqual((await api('GET', `/api/progress/${secondProgress.body.id}`, {
+        token: dm.token
+    })).status, 404, 'a token in another campaign cannot see progress');
+
+    const deniedSwitch = await api('POST', '/api/auth/campaigns/switch', {
+        token: alice.token, body: { campaign_id: createdCampaign.body.id }
+    });
+    assert.strictEqual(deniedSwitch.status, 403, 'non-members cannot switch into a campaign');
+
+    const switchedBack = await api('POST', '/api/auth/campaigns/switch', {
+        token: secondCampaignToken, body: { campaign_id: 1 }
+    });
+    assert.strictEqual(switchedBack.status, 200);
+    assert.strictEqual((await api('GET', `/api/characters/${charId}`, { token: switchedBack.body.token })).status, 200);
+});
+
+test('a campaign with no universe receives no Amber attributes, content, or seeds', async () => {
+    const campaign = await api('POST', '/api/auth/campaigns', {
+        token: dm.token,
+        body: { name: 'Homebrew', system_id: 'dnd5e', universe_id: null }
+    });
+    assert.strictEqual(campaign.status, 201, JSON.stringify(campaign.body));
+    assert.strictEqual(campaign.body.universe_id, null);
+    assert.strictEqual(db.prepare('SELECT count(*) count FROM shadows WHERE campaign_id = ?').get(campaign.body.id).count, 0);
+    assert.strictEqual(db.prepare('SELECT count(*) count FROM primal_patterns WHERE campaign_id = ?').get(campaign.body.id).count, 0);
+    assert.strictEqual(db.prepare('SELECT count(*) count FROM primal_pattern_sections WHERE campaign_id = ?').get(campaign.body.id).count, 0);
+    assert.strictEqual((await api('GET', '/api/universe/content/wizard', { token: campaign.body.token })).status, 404);
+    assert.strictEqual((await api('GET', '/api/system/content/wizard', { token: campaign.body.token })).status, 200);
+    assert.strictEqual((await api('GET', '/api/universe/content/guide', { token: campaign.body.token })).status, 404);
+    assert.strictEqual((await api('POST', '/api/shadows', {
+        token: campaign.body.token,
+        body: { name: 'Homebrew Influence', pattern_influence: 'Homebrew Power' }
+    })).status, 201);
+
+    const character = await api('POST', '/api/characters', {
+        token: campaign.body.token,
+        body: { name: 'Generic', species: 'Human', class_type: 'Fighter', blood_purity: 'Pure', pattern_imprint: 1 }
+    });
+    assert.strictEqual(character.status, 201, JSON.stringify(character.body));
+    assert.ok(!('blood_purity' in character.body));
+    assert.ok(!('pattern_imprint' in character.body));
+    assert.strictEqual(db.prepare("SELECT count(*) count FROM character_extension_data WHERE character_id = ? AND namespace = 'universe:amber'").get(character.body.id).count, 0);
+});
+
+test('account-level admin authorization remains global', async () => {
+    const admin = await register('admin');
+    const users = await api('GET', '/api/admin/users', { token: admin.token });
+    assert.strictEqual(users.status, 200);
+    assert.ok(Array.isArray(users.body.users));
 });
 
 test('the owner can delete their character', async () => {

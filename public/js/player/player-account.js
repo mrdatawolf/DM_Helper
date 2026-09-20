@@ -1,5 +1,5 @@
 // player-account.js — split from player-dashboard.js (behavior unchanged)
-import { closeCreateCharacter } from './player-wizard-core.js';
+import { closeCreateCharacter } from './player-wizard.js';
 import { closeJournalEntry } from './player-journal.js';
 import { closeEditCharacter } from './player-edit-form.js';
 
