@@ -17,7 +17,7 @@ async function editSession(id) {
             const att    = attendanceMap[c.id] || 'expected';
             const color  = attendanceColors[att] || '#888';
             return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-                <span style="flex:1">${escHtml(c.name)}${c.player_name ? ` <span style="color:#999;font-size:0.85em">(${escHtml(c.player_name)})</span>` : ''}</span>
+                <span style="flex:1">${escHtml(c.name)}${c.owner_username ? ` <span style="color:#999;font-size:0.85em">(${escHtml(c.owner_username)})</span>` : ''}</span>
                 ${linked
                     ? `<select onchange="updateSessionCharAttendance(${id},${c.id},this.value)" style="font-size:0.85em;color:${color}">
                           ${['expected','attended','absent'].map(a => `<option value="${a}"${att===a?' selected':''}>${a}</option>`).join('')}

@@ -29,7 +29,7 @@ function renderCharacters() {
             <h3>${escHtml(char.name)}</h3>
             <div class="card-row">
                 <span class="card-label">Player:</span>
-                <span class="card-value">${escHtml(char.player_name) || 'NPC'}</span>
+                <span class="card-value">${escHtml(char.owner_username) || 'NPC'}</span>
             </div>
             <div class="card-row">
                 <span class="card-label">Race/Class:</span>

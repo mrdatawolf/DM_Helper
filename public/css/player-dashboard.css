@@ -304,13 +304,19 @@ header {
 .sheet-panel h3, .sheet-panel h4 { margin: 0 0 12px; }
 .sheet-editable { display: inline-block; min-width: 2em; padding: 2px 5px; border-bottom: 1px dashed #8e44ad; cursor: pointer; white-space: pre-wrap; }
 .sheet-editable:hover, .sheet-editable:focus { background: rgba(142, 68, 173, .18); outline: none; }
-.sheet-editable input, .sheet-editable textarea { width: min(100%, 360px); color: inherit; background: #17172b; border: 1px solid #8e44ad; padding: 5px; }
+.sheet-editable input, .sheet-editable textarea, .sheet-editable select { width: min(100%, 360px); color: inherit; background: #17172b; border: 1px solid #8e44ad; padding: 5px; }
+/* Wide enough that the value stays visible beside the browser's up/down spinner */
+.sheet-editable input[type="number"] { width: 4.5em; min-width: 4.5em; box-sizing: border-box; }
+.sheet-readonly { display: inline-block; padding: 2px 5px; }
 .sheet-editable textarea { min-width: 240px; min-height: 80px; }
 .dnd-ability .sheet-save { font-size: .75rem; margin-top: 5px; }
-.sheet-skill { display: grid; grid-template-columns: 34px 1fr auto; gap: 8px; align-items: center; padding: 4px 0; }
+.sheet-skill { display: grid; grid-template-columns: 4.5em 1fr auto; gap: 8px; align-items: center; padding: 4px 0; }
 .sheet-list-row { display: grid; grid-template-columns: auto minmax(120px, 1fr) minmax(140px, 2fr) auto auto; gap: 8px; align-items: center; padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,.08); }
 .spell-slots { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 5px 12px; margin: 12px 0; }
 .detail-grid label { display: flex; flex-direction: column; gap: 6px; }
+.detail-grid .detail-wide { grid-column: 1 / -1; }
+.detail-grid .detail-wide .sheet-editable { display: block; }
+.detail-grid .detail-wide .sheet-editable textarea { width: 100%; min-height: 240px; box-sizing: border-box; }
 @media (max-width: 800px) {
     .dnd-sheet-grid { grid-template-columns: 1fr; }
     .sheet-list-row { grid-template-columns: auto 1fr; }

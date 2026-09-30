@@ -134,7 +134,7 @@
                 <header class="sheet-header">
                     <h2>${escapeHtml(character.name || 'Character')}</h2>
                     <div class="sheet-subtitle">${escapeHtml(character.class_type)}${character.subclass ? ` (${escapeHtml(character.subclass)})` : ''} · Level ${character.level || 1} · ${escapeHtml(character.species)} · ${escapeHtml(character.background)}</div>
-                    <div class="sheet-subtitle">${escapeHtml(character.alignment)} · Player: ${escapeHtml(character.player_name)} · XP: ${character.experience_points ?? 0}</div>
+                    <div class="sheet-subtitle">${escapeHtml(character.alignment)} · Player: ${escapeHtml(character.owner_username)} · XP: ${character.experience_points ?? 0}</div>
                 </header>
 
                 <section class="sheet-section">

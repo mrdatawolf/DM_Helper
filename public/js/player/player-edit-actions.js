@@ -139,8 +139,6 @@ async function handleEditCharacter(event) {
 
         // Spells
         spellcasting_ability: document.getElementById('edit-spellcasting-ability').value || null,
-        spell_save_dc: parseInt(document.getElementById('edit-spell-save-dc').value),
-        spell_attack_bonus: parseInt(document.getElementById('edit-spell-attack-bonus').value),
 
         // Spell Slots (1-9)
         spell_slots_1_total: parseInt(document.getElementById('edit-slots-1-total').value),

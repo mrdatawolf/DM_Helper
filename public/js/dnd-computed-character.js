@@ -45,10 +45,13 @@
         const skills = Object.fromEntries(SKILLS.map(([key, , abilityKey]) => [key,
             ability[abilityKey].modifier + proficiency * number(character[`skill_${key}`])
         ]));
-        const spellAbility = String(character.spellcasting_ability || '').toLowerCase();
+        // The edit form stores the abbreviation (CHA); older data may hold the full name.
+        const storedSpellAbility = String(character.spellcasting_ability || '').toLowerCase();
+        const spellAbility = ABILITIES.find(([key, abbreviation]) =>
+            storedSpellAbility === key || storedSpellAbility === abbreviation.toLowerCase())?.[0];
         const spellModifier = ability[spellAbility]?.modifier ?? 0;
         return {
-            ability, skills, proficiency,
+            ability, skills, proficiency, spellAbility: spellAbility ?? null,
             initiative: ability.dexterity.modifier + number(character.initiative_bonus),
             passivePerception: 10 + skills.perception,
             spellSaveDc: 8 + proficiency + spellModifier,

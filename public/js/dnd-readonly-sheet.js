@@ -26,7 +26,7 @@
         return `
             <div style="background:#eaf2fb;border:1px solid #4a7fc9;border-radius:8px;padding:10px;text-align:center">
                 <div style="color:#1c3f66;font-size:.78rem;font-weight:700;text-transform:uppercase">${label}</div>
-                <div style="font-size:1.05rem;font-weight:700">${ability.score}</div>
+                <div style="color:#1c3f66;font-size:1.05rem;font-weight:700">${ability.score}</div>
                 <div style="color:#2c5a8f;font-size:.85rem">${signed(ability.modifier)} · save ${signed(ability.save)}</div>
             </div>`;
     }
@@ -43,6 +43,13 @@
     function renderDndReadOnlySheet(character) {
         const computed = dndComputedCharacter.computedCharacter(character);
         const abilitiesHtml = ABILITIES.map(([key, label]) => renderAbility(label, computed.ability[key])).join('');
+        const spellcastingHtml = computed.spellAbility ? `
+                    <div class="dnd-readonly-spellcasting" style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:14px;background:#eaf2fb;border:1px solid #4a7fc9;border-radius:8px;padding:10px 14px;color:#1c3f66">
+                        <strong>Spellcasting</strong>
+                        <span>${computed.spellAbility[0].toUpperCase()}${computed.spellAbility.slice(1)}</span>
+                        <span>Save DC <strong>${computed.spellSaveDc}</strong></span>
+                        <span>Attack <strong>${signed(computed.spellAttackBonus)}</strong></span>
+                    </div>` : '';
 
         return `
             <section class="dnd-readonly-sheet" style="border:3px solid #2c5a8f;border-radius:12px;overflow:hidden;background:#fdfeff">
@@ -62,6 +69,7 @@
                         <div style="background:#1c3f66;color:white;border-radius:8px;padding:10px;text-align:center"><strong>Proficiency</strong><div style="font-size:1.3rem">${signed(computed.proficiency)}</div></div>
                         <div style="background:#1c3f66;color:white;border-radius:8px;padding:10px;text-align:center"><strong>Passive Perception</strong><div style="font-size:1.3rem">${computed.passivePerception}</div></div>
                     </div>
+                    ${spellcastingHtml}
                 </div>
             </section>`;
     }

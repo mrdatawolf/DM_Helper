@@ -67,6 +67,23 @@ test('D&D sheet computed values use converted abilities for saves, skills, initi
     assert.strictEqual(computed.spellAttackBonus, 6);
 });
 
+test('D&D spellcasting ability resolves from the edit form abbreviation or the full name', async () => {
+    const { computedCharacter } = await characterSheetModule;
+    const { percentileFromScore } = require('../public/js/ability-conversion');
+    const base = { charisma: percentileFromScore(16), proficiency_bonus: 2 };
+
+    for (const spellcasting_ability of ['CHA', 'cha', 'charisma', 'Charisma']) {
+        const computed = computedCharacter({ ...base, spellcasting_ability });
+        assert.strictEqual(computed.spellSaveDc, 13, spellcasting_ability);
+        assert.strictEqual(computed.spellAttackBonus, 5, spellcasting_ability);
+    }
+    for (const spellcasting_ability of [null, '', 'XYZ']) {
+        const computed = computedCharacter({ ...base, spellcasting_ability });
+        assert.strictEqual(computed.spellSaveDc, 10, String(spellcasting_ability));
+        assert.strictEqual(computed.spellAttackBonus, 2, String(spellcasting_ability));
+    }
+});
+
 test('D&D sheet displays converted ability scores after inline fields are bound', async () => {
     const { bindDndCharacterSheet, renderDndCharacterSheet } = await characterSheetModule;
     const { percentileFromScore } = require('../public/js/ability-conversion');
@@ -85,6 +102,33 @@ test('D&D sheet displays converted ability scores after inline fields are bound'
     const displayedStrength = container.querySelector('[data-field="strength"]').textContent;
     assert.strictEqual(displayedStrength, '18');
     assert.notStrictEqual(displayedStrength, String(character.strength));
+});
+
+test('D&D sheet spellcasting ability is a dropdown that stores the abbreviation', async () => {
+    const { bindDndCharacterSheet, renderDndCharacterSheet } = await characterSheetModule;
+    const saved = [];
+    globalThis.apiFetch = async (url, options) => { saved.push(JSON.parse(options.body)); return {}; };
+    const character = { id: 1, spellcasting_ability: 'Charisma', owner_username: 'mrdatawolf', weapons: [], spells: [] };
+    const container = document.createElement('div');
+    container.innerHTML = renderDndCharacterSheet(character);
+    bindDndCharacterSheet(container, character, async () => {});
+
+    const slot = container.querySelector('[data-field="spellcasting_ability"]');
+    assert.strictEqual(slot.textContent, 'Charisma', 'a stored full name displays as the option label');
+    slot.click();
+    const select = slot.querySelector('select');
+    assert.ok(select, 'editing opens a dropdown, not a text box');
+    assert.deepStrictEqual([...select.options].map(option => option.value), ['', 'INT', 'WIS', 'CHA']);
+    assert.strictEqual(select.value, 'CHA', 'a stored full name preselects its abbreviation');
+
+    select.value = 'WIS';
+    select.dispatchEvent(new window.Event('change'));
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.deepStrictEqual(saved, [{ spellcasting_ability: 'WIS' }]);
+
+    assert.ok(container.textContent.includes('Player mrdatawolf'), 'Player shows the owner username');
+    assert.ok(!container.querySelector('[data-field="player_name"]'), 'Player is not editable');
+    delete globalThis.apiFetch;
 });
 
 test('the active campaign registry dispatches sheet rendering, derived math, dice, and PDF export', async () => {
@@ -199,6 +243,23 @@ test('the "View As..." registry lists D&D 5e and FASERIP, and the read-only D&D 
     assert.ok(html.includes(`>${expected.ability.strength.score}<`), 'shows the converted D&D score, not the raw percentile');
     assert.ok(!html.includes(`>${character.strength}<`), 'never shows the raw stored percentile as the score');
     assert.ok(html.includes(String(expected.passivePerception)), 'matches computedCharacter\'s passive perception');
+});
+
+test('D&D summary card shows a spellcasting row only for characters with a spellcasting ability', () => {
+    const { renderDndReadOnlySheet } = require('../public/js/dnd-readonly-sheet');
+    const { percentileFromScore } = require('../public/js/ability-conversion');
+    const base = { name: 'Caster', charisma: percentileFromScore(16), proficiency_bonus: 2 };
+
+    const caster = renderDndReadOnlySheet({ ...base, spellcasting_ability: 'CHA' });
+    assert.ok(caster.includes('dnd-readonly-spellcasting'));
+    assert.ok(caster.includes('Charisma'));
+    assert.ok(caster.includes('Save DC <strong>13</strong>'));
+    assert.ok(caster.includes('Attack <strong>+5</strong>'));
+
+    for (const spellcasting_ability of [null, '', 'XYZ']) {
+        const html = renderDndReadOnlySheet({ ...base, spellcasting_ability });
+        assert.ok(!html.includes('dnd-readonly-spellcasting'), String(spellcasting_ability));
+    }
 });
 
 test('the "Full Sheet" views are section-complete, read-only, and work with no player module loaded at all', () => {

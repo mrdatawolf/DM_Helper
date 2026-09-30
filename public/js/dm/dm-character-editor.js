@@ -40,7 +40,7 @@ async function viewCharacter(id) {
                     </div>
                     <div style="color:#888;font-size:0.85em">${escHtml(f.creature_type || 'Familiar')} — ${escHtml(f.bond_type || 'Psychic')} bond</div>
                     <div style="font-size:0.85em;margin-top:2px">AC ${f.effective_ac ?? '—'} · HP ${f.effective_hp ?? '—'}${f.current_tier_level ? ` · Tier: Lv ${f.current_tier_level}` : ''}${f.next_tier ? ` · Next at Lv ${f.next_tier.level}` : ''}</div>
-                    ${f.unlocked_abilities && f.unlocked_abilities.length ? `<div style="font-size:0.85em;color:#555">Abilities: ${f.unlocked_abilities.map(escHtml).join(', ')}</div>` : ''}
+                    ${f.unlocked_abilities && f.unlocked_abilities.length ? `<div style="font-size:0.85em;color:#b8c2cf">Abilities: ${f.unlocked_abilities.map(escHtml).join(', ')}</div>` : ''}
                 </div>
             `).join('')
             : '<p style="color:#999;font-style:italic;margin:4px 0">No familiar bonded yet.</p>';
@@ -52,7 +52,7 @@ async function viewCharacter(id) {
         const html = `
             <div style="margin-bottom:12px">
                 <span style="color:#888;font-size:0.9em">${escHtml(c.species)} ${escHtml(c.class_type)} — Level ${c.level}</span>
-                ${c.player_name ? `<span style="margin-left:12px;color:#888;font-size:0.9em">Player: <strong>${escHtml(c.player_name)}</strong></span>` : ''}
+                ${c.owner_username ? `<span style="margin-left:12px;color:#888;font-size:0.9em">Player: <strong>${escHtml(c.owner_username)}</strong></span>` : ''}
                 <div style="margin-top:6px">${badges}</div>
             </div>
 
@@ -69,12 +69,12 @@ async function viewCharacter(id) {
 
             <div class="stat-block" style="margin-bottom:16px">${statBlock}</div>
 
-            ${c.character_notes ? `<div style="margin-bottom:16px"><strong>Notes:</strong><p style="margin:6px 0 0;color:#555">${escHtml(c.character_notes)}</p></div>` : ''}
+            ${c.character_notes ? `<div style="margin-bottom:16px"><strong>Notes:</strong><p style="margin:6px 0 0;color:#b8c2cf">${escHtml(c.character_notes)}</p></div>` : ''}
 
             <details open style="margin-bottom:12px">
                 <summary style="cursor:pointer;font-weight:600;margin-bottom:6px">Gear (${(c.gear||[]).length})</summary>
                 <table style="width:100%;border-collapse:collapse;font-size:0.9em">
-                    <thead><tr style="background:#f5efe0"><th style="text-align:left;padding:4px 8px">Item</th><th style="text-align:left;padding:4px 8px">Type</th><th style="text-align:left;padding:4px 8px">Equipped</th><th style="text-align:left;padding:4px 8px">Notes</th><th></th></tr></thead>
+                    <thead><tr style="background:rgba(255,255,255,0.08);color:#ecf0f1"><th style="text-align:left;padding:4px 8px">Item</th><th style="text-align:left;padding:4px 8px">Type</th><th style="text-align:left;padding:4px 8px">Equipped</th><th style="text-align:left;padding:4px 8px">Notes</th><th></th></tr></thead>
                     <tbody>${gearRows}</tbody>
                 </table>
                 <button type="button" class="btn-secondary btn-sm" style="margin-top:6px" onclick="dmAddGear(${id})">+ Add Gear</button>
@@ -83,7 +83,7 @@ async function viewCharacter(id) {
             <details open style="margin-bottom:12px">
                 <summary style="cursor:pointer;font-weight:600;margin-bottom:6px">Powers & Abilities (${(c.powers||[]).length})</summary>
                 <table style="width:100%;border-collapse:collapse;font-size:0.9em">
-                    <thead><tr style="background:#f5efe0"><th style="text-align:left;padding:4px 8px">Power</th><th style="text-align:left;padding:4px 8px">Type</th><th style="text-align:left;padding:4px 8px">Uses</th><th style="text-align:left;padding:4px 8px">Description</th><th></th></tr></thead>
+                    <thead><tr style="background:rgba(255,255,255,0.08);color:#ecf0f1"><th style="text-align:left;padding:4px 8px">Power</th><th style="text-align:left;padding:4px 8px">Type</th><th style="text-align:left;padding:4px 8px">Uses</th><th style="text-align:left;padding:4px 8px">Description</th><th></th></tr></thead>
                     <tbody>${powerRows}</tbody>
                 </table>
                 <button type="button" class="btn-secondary btn-sm" style="margin-top:6px" onclick="dmGrantPower(${id})">+ Grant Power</button>
@@ -98,7 +98,7 @@ async function viewCharacter(id) {
             <details style="margin-bottom:4px">
                 <summary style="cursor:pointer;font-weight:600;margin-bottom:6px">Recent Progress</summary>
                 <table style="width:100%;border-collapse:collapse;font-size:0.9em">
-                    <thead><tr style="background:#f5efe0"><th style="text-align:left;padding:4px 8px">Session</th><th style="text-align:left;padding:4px 8px">Shadow</th><th style="text-align:left;padding:4px 8px">Description</th></tr></thead>
+                    <thead><tr style="background:rgba(255,255,255,0.08);color:#ecf0f1"><th style="text-align:left;padding:4px 8px">Session</th><th style="text-align:left;padding:4px 8px">Shadow</th><th style="text-align:left;padding:4px 8px">Description</th></tr></thead>
                     <tbody>${progressRows}</tbody>
                 </table>
             </details>
@@ -287,10 +287,6 @@ async function editCharacter(id) {
                     <div class="form-group">
                         <label>Character Name *</label>
                         <input type="text" name="name" value="${escHtml(c.name)}" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Player Name</label>
-                        <input type="text" name="player_name" value="${escHtml(c.player_name || '')}">
                     </div>
                 </div>
                 <div class="form-row">

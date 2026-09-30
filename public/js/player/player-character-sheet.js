@@ -27,6 +27,22 @@ const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({
 const signed = value => Number(value) >= 0 ? `+${Number(value)}` : String(Number(value));
 const number = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 
+// Choices for 'select' slots. Values match the edit form's Spells tab; a stored
+// full ability name (e.g. "Charisma") resolves to its abbreviation.
+const SELECT_FIELDS = {
+    spellcasting_ability: {
+        options: [['', 'None'], ['INT', 'Intelligence'], ['WIS', 'Wisdom'], ['CHA', 'Charisma']],
+        normalize: value => {
+            const stored = String(value ?? '').toLowerCase();
+            return ABILITIES.find(([key, short]) => stored === key || stored === short.toLowerCase())?.[1] ?? '';
+        },
+    },
+};
+const selectLabel = (field, value) => {
+    const { options, normalize } = SELECT_FIELDS[field];
+    return options.find(([optionValue]) => optionValue && optionValue === normalize(value))?.[1] ?? value;
+};
+
 // Creates the one reusable inline-edit control used by every scalar sheet field.
 function editableField(container, fieldName, value, type = 'text') {
     const element = document.createElement('span');
@@ -52,7 +68,8 @@ function activateInlineEditing(container, character, refresh) {
     container.querySelectorAll('[data-edit-slot]').forEach(slot => {
         const type = slot.dataset.editType || 'text';
         const storedValue = character[slot.dataset.editSlot];
-        const displayValue = type === 'ability' ? scoreFromPercentile(number(storedValue, 31)) : storedValue;
+        const displayValue = type === 'ability' ? scoreFromPercentile(number(storedValue, 31))
+            : type === 'select' ? selectLabel(slot.dataset.editSlot, storedValue) : storedValue;
         editableField(slot, slot.dataset.editSlot, displayValue, type);
     });
     const begin = async element => {
@@ -65,13 +82,25 @@ function activateInlineEditing(container, character, refresh) {
         }
         if (element.querySelector('input, textarea, select')) return;
         const oldValue = character[element.dataset.field] ?? '';
-        const input = element.dataset.type === 'textarea' ? document.createElement('textarea') : document.createElement('input');
-        input.type = element.dataset.type === 'ability' ? 'number' : (element.dataset.type || 'text');
-        input.value = element.dataset.type === 'ability' ? scoreFromPercentile(number(oldValue, 31)) : oldValue;
-        if (element.dataset.type === 'ability') { input.min = '1'; input.max = '30'; }
+        let input;
+        if (element.dataset.type === 'select') {
+            const { options, normalize } = SELECT_FIELDS[element.dataset.field];
+            input = document.createElement('select');
+            options.forEach(([value, label]) => {
+                const option = document.createElement('option');
+                option.value = value; option.textContent = label;
+                input.append(option);
+            });
+            input.value = normalize(oldValue);
+        } else {
+            input = element.dataset.type === 'textarea' ? document.createElement('textarea') : document.createElement('input');
+            input.type = element.dataset.type === 'ability' ? 'number' : (element.dataset.type || 'text');
+            input.value = element.dataset.type === 'ability' ? scoreFromPercentile(number(oldValue, 31)) : oldValue;
+            if (element.dataset.type === 'ability') { input.min = '1'; input.max = '30'; }
+        }
         element.textContent = '';
         element.append(input);
-        input.focus(); input.select();
+        input.focus(); if (input.select) input.select();
         let saving = false;
         const save = async () => {
             if (saving) return; saving = true;
@@ -82,6 +111,7 @@ function activateInlineEditing(container, character, refresh) {
             catch (error) { showToast(error.message); await refresh(); }
         };
         input.addEventListener('blur', save, { once: true });
+        if (input.tagName === 'SELECT') input.addEventListener('change', save, { once: true });
         input.addEventListener('keydown', event => { if (event.key === 'Enter' && input.tagName !== 'TEXTAREA') input.blur(); });
     };
     container.addEventListener('click', event => {
@@ -183,7 +213,7 @@ function renderDndCharacterSheet(character) {
         <div class="sheet-header-grid">
             <label>Background ${slot('background')}</label><label>Alignment ${slot('alignment')}</label>
             <label>Species ${slot('species')}</label><label>XP ${slot('experience_points', 'number')}</label>
-            <label>Player ${slot('player_name')}</label>
+            <label>Player <span class="sheet-readonly">${escapeHtml(character.owner_username || '—')}</span></label>
         </div>
         <div class="ability-scores">${abilityHtml}</div>
         <div class="dnd-sheet-grid">
@@ -197,7 +227,7 @@ function renderDndCharacterSheet(character) {
             </section>
         </div>
         <section class="sheet-panel" data-list="weapons"><div class="sheet-panel-heading"><h3>Attacks</h3><button data-list-action="add">+ Weapon</button></div>${weapons}</section>
-        <section class="sheet-panel"><h3>Spellcasting</h3><div class="spell-summary"><label>Ability ${slot('spellcasting_ability')}</label><label>Save DC ${computed.spellSaveDc}</label><label>Attack ${signed(computed.spellAttackBonus)}</label></div>
+        <section class="sheet-panel"><h3>Spellcasting</h3><div class="spell-summary"><label>Ability ${slot('spellcasting_ability', 'select')}</label><label>Save DC ${computed.spellSaveDc}</label><label>Attack ${signed(computed.spellAttackBonus)}</label></div>
             <div class="spell-slots">${slots}</div><div data-list="spells"><div class="sheet-panel-heading"><h4>Spells</h4><button data-list-action="add">+ Spell</button></div>${spells}</div></section>
         <section class="sheet-panel"><h3>Equipment & Training</h3>
             <div class="currency">CP ${slot('copper_pieces','number')} SP ${slot('silver_pieces','number')} EP ${slot('electrum_pieces','number')} GP ${slot('gold_pieces','number')} PP ${slot('platinum_pieces','number')}</div>
@@ -207,7 +237,7 @@ function renderDndCharacterSheet(character) {
         </section>
         <section class="sheet-panel"><h3>Personality & Appearance</h3>
             <div class="sheet-header-grid"><label>Age ${slot('age')}</label><label>Height ${slot('height')}</label><label>Weight ${slot('weight')}</label><label>Eyes ${slot('eyes')}</label><label>Skin ${slot('skin')}</label><label>Hair ${slot('hair')}</label></div>
-            <div class="detail-grid"><label>Appearance ${slot('appearance','textarea')}</label><label>Personality ${slot('personality','textarea')}</label><label>Desires ${slot('desires','textarea')}</label><label>Fears ${slot('fears','textarea')}</label><label>Allies & Organizations ${slot('allies_organizations','textarea')}</label><label>Treasure ${slot('treasure','textarea')}</label><label>Backstory ${slot('backstory','textarea')}</label></div>
+            <div class="detail-grid"><label>Appearance ${slot('appearance','textarea')}</label><label>Personality ${slot('personality','textarea')}</label><label>Desires ${slot('desires','textarea')}</label><label>Fears ${slot('fears','textarea')}</label><label>Allies & Organizations ${slot('allies_organizations','textarea')}</label><label>Treasure ${slot('treasure','textarea')}</label><label class="detail-wide">Backstory ${slot('backstory','textarea')}</label></div>
         </section>
     </section>`;
 }
@@ -221,7 +251,7 @@ async function downloadCharacterPdf(character) {
     const setText = (name, value) => { try { form.getTextField(name).setText(String(value ?? '')); } catch {} };
     const setCheck = (name, checked) => { try { if (checked) form.getCheckBox(name).check(); else form.getCheckBox(name).uncheck(); } catch {} };
     setText('Character Name', character.name); setText('Class & Level', `${character.class_type || ''} ${character.subclass || ''} ${character.level || ''}`.trim());
-    setText('Background', character.background); setText('Player Name', character.player_name); setText('Race', character.species); setText('Alignment', character.alignment); setText('Experience Points', character.experience_points);
+    setText('Background', character.background); setText('Player Name', character.owner_username); setText('Race', character.species); setText('Alignment', character.alignment); setText('Experience Points', character.experience_points);
     for (const [key, , label] of ABILITIES) { setText(`${label} Ability Score`, computed.ability[key].score); setText(`${label} Bonus`, signed(computed.ability[key].modifier)); setText(`${label} Save Score`, signed(computed.ability[key].save)); }
     setText('Inspiration', character.heroic_inspiration ? 'Yes' : ''); setText('Proficiency Bonus', signed(computed.proficiency)); setText('Passive Perception', computed.passivePerception); setText('Initiative', signed(computed.initiative)); setText('Speed', character.speed); setText('Armor Class', character.armor_class);
     setText('Hit Point Maximum', character.max_hp); setText('Current Hit Points', character.current_hp); setText('Temporary Hit Points', character.temp_hit_points); setText('Hit Dice Total', character.hit_dice_total); setText('Hit Dice Tally', character.hit_dice_current);

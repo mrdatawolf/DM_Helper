@@ -21,9 +21,11 @@ router.get('/', asyncHandler((req, res) => {
         SELECT
             c.*,
             so.name as shadow_origin_name,
-            cs.name as current_shadow_name
+            cs.name as current_shadow_name,
+            u.username as owner_username
         FROM characters c
         JOIN campaign_characters cc ON cc.character_id = c.id AND cc.campaign_id = ?
+        LEFT JOIN users u ON c.user_id = u.id
         LEFT JOIN shadows so ON c.shadow_origin_id = so.id
         LEFT JOIN shadows cs ON c.current_shadow_id = cs.id
         ORDER BY c.created_at DESC
@@ -41,8 +43,10 @@ router.get('/:id', asyncHandler((req, res) => {
         SELECT
             c.*,
             so.name as shadow_origin_name,
-            cs.name as current_shadow_name
+            cs.name as current_shadow_name,
+            u.username as owner_username
         FROM characters c
+        LEFT JOIN users u ON c.user_id = u.id
         LEFT JOIN shadows so ON c.shadow_origin_id = so.id
         LEFT JOIN shadows cs ON c.current_shadow_id = cs.id
         JOIN campaign_characters cc ON cc.character_id = c.id

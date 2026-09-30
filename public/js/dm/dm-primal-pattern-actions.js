@@ -13,7 +13,7 @@ function openGrantModal(sectionId, patternId) {
                 <input type="checkbox" value="${c.id}" ${grantedIds.has(c.id) ? 'checked' : ''}>
                 <span>
                     <strong>${escHtml(c.name)}</strong>
-                    ${c.player_name ? `<span style="color:#999; font-size:0.8rem; margin-left:6px;">(${escHtml(c.player_name)})</span>` : ''}
+                    ${c.owner_username ? `<span style="color:#999; font-size:0.8rem; margin-left:6px;">(${escHtml(c.owner_username)})</span>` : ''}
                 </span>
             </label>`).join('');
 

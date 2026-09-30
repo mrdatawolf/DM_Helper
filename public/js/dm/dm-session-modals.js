@@ -10,7 +10,7 @@ function showCreateSessionModal() {
     const charChecks = state.characters.map(c =>
         `<label style="display:block;margin-bottom:4px;cursor:pointer">
             <input type="checkbox" class="char-check" value="${c.id}">
-            ${escHtml(c.name)}${c.player_name ? ` <span style="color:#999;font-size:0.85em">(${escHtml(c.player_name)})</span>` : ''}
+            ${escHtml(c.name)}${c.owner_username ? ` <span style="color:#999;font-size:0.85em">(${escHtml(c.owner_username)})</span>` : ''}
          </label>`
     ).join('');
 

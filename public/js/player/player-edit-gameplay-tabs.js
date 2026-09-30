@@ -99,14 +99,6 @@ function generateSpellsTab(char) {
                         <option value="CHA" ${char.spellcasting_ability === 'CHA' ? 'selected' : ''}>Charisma</option>
                     </select>
                 </div>
-                <div class="form-group">
-                    <label for="edit-spell-save-dc">Spell Save DC</label>
-                    <input type="number" id="edit-spell-save-dc" min="0" value="${char.spell_save_dc || 8}">
-                </div>
-                <div class="form-group">
-                    <label for="edit-spell-attack-bonus">Spell Attack Bonus</label>
-                    <input type="number" id="edit-spell-attack-bonus" value="${char.spell_attack_bonus || 0}">
-                </div>
             </div>
 
             <h4>Spell Slots</h4>

@@ -11,10 +11,6 @@ function showCreateCharacterModal() {
                 <label>Character Name *</label>
                 <input type="text" name="name" required>
             </div>
-            <div class="form-group">
-                <label>Player Name</label>
-                <input type="text" name="player_name">
-            </div>
             <div class="form-row">
                 <div class="form-group">
                     <label>Species/Race *</label>

@@ -1,7 +1,7 @@
 # TASK-040: Spell save DC / attack ignore abbreviated spellcasting ability
 
 Owner role: Implementer
-Assigned agent: TBD
+Assigned agent: Claude
 Proposed by: Claude
 Proposed date: 2026-09-29
 Approved by: Patrick

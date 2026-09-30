@@ -112,6 +112,16 @@ test('the owner can edit their character via unified fields', async () => {
     assert.strictEqual(fetched.body.max_hp, 22);
 });
 
+test("character reads carry the owner's username for the Player display", async () => {
+    await api('PUT', `/api/characters/${charId}`, { token: alice.token, body: { player_name: 'Someone Else' } });
+
+    const single = await api('GET', `/api/characters/${charId}`, { token: alice.token });
+    assert.strictEqual(single.body.owner_username, 'alice', 'owner, not the typed player_name');
+
+    const list = await api('GET', '/api/characters', { token: alice.token });
+    assert.strictEqual(list.body.find(c => c.id === charId).owner_username, 'alice');
+});
+
 test("another player cannot edit or delete someone else's character", async () => {
     mallory = await register('mallory');
 
