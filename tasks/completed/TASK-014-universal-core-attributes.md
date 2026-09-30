@@ -395,7 +395,3 @@ could reasonably misread a value like `59` as a nonsensical D&D score
 rather than a percentile. ADR-003 is the mitigation for this and does its
 job — just flagging it as the one piece of "you have to know the ADR
 exists" friction this design accepts.
-
-## Human acceptance
-
-Pending.

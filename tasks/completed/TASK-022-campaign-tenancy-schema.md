@@ -385,7 +385,3 @@ was independently verified against real data, not just checked off. Ready for
 human acceptance. Per the task's own note (and TASK-014's precedent), the live
 `dm_helper.db` has not yet been migrated — it will migrate automatically on
 the next server start, so take the normal backup before that deploy.
-
-## Human acceptance
-
-Pending.

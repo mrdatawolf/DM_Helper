@@ -429,7 +429,3 @@ membership, not a global or stale JWT claim. Every acceptance criterion
 checked off in this task file was independently re-verified against the
 actual code and a live test run, not accepted on the implementer's word.
 Ready for human acceptance.
-
-## Human acceptance
-
-Pending.

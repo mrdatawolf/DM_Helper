@@ -227,7 +227,3 @@ Date: 2026-09-19
 No blocking findings. This closes the data-leak cleanly with real regression
 coverage. Ready for human acceptance — manual browser confirmation is still
 the one open item, same as the rest of this batch.
-
-## Human acceptance
-
-Pending.

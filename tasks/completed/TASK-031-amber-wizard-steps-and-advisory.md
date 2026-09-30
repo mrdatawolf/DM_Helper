@@ -274,7 +274,3 @@ for the shared modifier key) is cosmetic and already proven to interoperate
 correctly with TASK-030's real consumer — flagging it for TASK-032's
 awareness rather than sending this back. Ready for human acceptance.
 TASK-032 can proceed against both real system and universe step modules.
-
-## Human acceptance
-
-Pending.

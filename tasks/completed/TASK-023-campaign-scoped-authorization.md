@@ -327,7 +327,3 @@ surface) for the remaining routers to build on — recommend a follow-up task
 (or several, per router group, as ADR-005's own risk note suggested) to
 finish the migration, rather than treating this as complete. Ready for human
 acceptance **as a partial, honestly-scoped increment**.
-
-## Human acceptance
-
-Pending.

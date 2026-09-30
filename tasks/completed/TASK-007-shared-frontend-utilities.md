@@ -298,7 +298,3 @@ Findings — two raised, one real and fixed, one a review-scoping artifact:
    hidden. Confirmed this is not a real problem: `npm test` was re-run
    immediately after restoring the stash and passed 39/39, including that
    file's 7 tests. No code change needed for this one.
-
-## Human acceptance
-
-Pending.

@@ -339,7 +339,3 @@ implemented with real discipline — verified against live data, not just
 tested in the abstract, and with the one caught cross-cutting regression
 (`combats.js`) fixed rather than left as a surprise for later. Ready for
 human acceptance.
-
-## Human acceptance
-
-Pending.

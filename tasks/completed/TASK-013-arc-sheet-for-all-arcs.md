@@ -267,7 +267,3 @@ harness — verified instead through served code inspection and traced
 logic, consistent with the implementer's own validation approach.
 
 No blocking findings.
-
-## Human acceptance
-
-Pending.

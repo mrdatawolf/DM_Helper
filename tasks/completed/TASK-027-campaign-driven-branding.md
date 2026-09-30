@@ -268,7 +268,3 @@ for human acceptance. As with prior frontend-only tasks, no interactive
 browser session was available to click through live; the honest limitation
 is called out in the handoff rather than overclaimed, and a manual smoke
 test before wider use remains a reasonable final step.
-
-## Human acceptance
-
-Pending.

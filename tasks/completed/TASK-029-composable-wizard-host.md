@@ -235,7 +235,3 @@ No blocking findings. This task is implemented within scope, its tests are
 real and non-vacuous, and the review-step design decision is documented and
 reasonable. Ready for human acceptance. TASK-030 can proceed against this
 host.
-
-## Human acceptance
-
-Pending.

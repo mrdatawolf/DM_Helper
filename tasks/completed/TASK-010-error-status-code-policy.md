@@ -202,7 +202,3 @@ touched can hide the completed dependency that documentation or tests
 correctly reference, producing exactly this false-positive shape (also seen
 once in TASK-007's review, for the same underlying reason). No code or doc
 change was needed in response to either finding.
-
-## Human acceptance
-
-Pending.

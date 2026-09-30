@@ -267,7 +267,3 @@ flavor paragraph, and was honest about a real architectural limit
 (dnd5e/Amber content independence) rather than working around it improperly.
 Ready for human acceptance — manual visual verification (panel layout,
 dark theme, the neutral-default sigil state) is still the one open item.
-
-## Human acceptance
-
-Pending.

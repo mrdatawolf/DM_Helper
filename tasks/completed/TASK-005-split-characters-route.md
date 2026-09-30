@@ -197,7 +197,3 @@ existing route behavior while centralizing error handling, update-query
 construction, and authorization checks (the cumulative effect of the four
 tasks reviewed together). Full test suite passes, run independently by
 Codex as in its prior reviews.
-
-## Human acceptance
-
-Pending.

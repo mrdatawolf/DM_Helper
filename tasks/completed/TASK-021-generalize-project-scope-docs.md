@@ -228,7 +228,3 @@ Verified independently rather than trusting the handoff's self-report:
 
 No blocking findings. Acceptance criteria are genuinely satisfied, not just
 checked off. Ready for human acceptance.
-
-## Human acceptance
-
-Pending.

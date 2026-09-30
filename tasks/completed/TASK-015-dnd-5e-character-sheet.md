@@ -502,7 +502,3 @@ click-through (open a character, edit a field, reload, confirm it stuck)
 before or shortly after marking this accepted — not because anything found
 so far suggests it's broken, but because it's the one criterion no one has
 actually watched happen in a browser yet.
-
-## Human acceptance
-
-Pending.

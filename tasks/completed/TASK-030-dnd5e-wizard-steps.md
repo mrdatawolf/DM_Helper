@@ -286,7 +286,3 @@ No blocking findings. This is careful, correct work that also strengthens
 TASK-031's job by proving the shared-modifiers contract actually works
 end-to-end rather than just in isolation. Ready for human acceptance.
 TASK-031 can proceed against this system module.
-
-## Human acceptance
-
-Pending.

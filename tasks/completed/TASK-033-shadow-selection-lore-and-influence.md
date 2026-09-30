@@ -304,7 +304,3 @@ verification, not actually a gap for the live campaign. Ready for human
 acceptance. The manual browser walkthrough (card layout, filter buttons,
 dark theme) is still genuinely unperformed — worth doing before/while
 accepting this one, since it's the most visually involved of this batch.
-
-## Human acceptance
-
-Pending.

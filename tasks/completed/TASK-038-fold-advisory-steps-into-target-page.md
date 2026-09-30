@@ -284,7 +284,3 @@ breaking any of the four other features already layered on top of it this
 session — info panel, footnotes, shouldSkip, filterForReview all continue
 to pass). Ready for human acceptance — manual browser confirmation of the
 folded page and the now-shorter step counter is the one open item.
-
-## Human acceptance
-
-Pending.

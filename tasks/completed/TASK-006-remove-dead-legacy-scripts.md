@@ -135,7 +135,3 @@ schema (the `primal_patterns`, `primal_pattern_sections`, and
 column additions (e.g. `subclass`) are superseded by
 `src/database/migrations/002-expand-character-columns.js`. No active code
 references any of the three removed files. No issues raised.
-
-## Human acceptance
-
-Pending.

@@ -378,7 +378,3 @@ system, not isolated units. Ready for human acceptance — the one outstanding
 item is the manual real-browser walkthrough the handoff honestly flags as
 unperformed (no browser available in this environment), consistent with
 this project's established pattern for frontend-only tasks.
-
-## Human acceptance
-
-Pending.

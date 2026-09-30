@@ -354,7 +354,3 @@ transactional opt-out is a deliberate, correctly-reasoned exception to the
 migration runner's normal behavior, not a workaround, and every claim in the
 handoff held up under independent re-verification against real data. Ready
 for human acceptance.
-
-## Human acceptance
-
-Pending.

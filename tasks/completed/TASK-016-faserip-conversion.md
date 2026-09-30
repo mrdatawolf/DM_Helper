@@ -392,7 +392,3 @@ genuinely satisfied, independently re-verified against the shipped code
 rather than taken on the implementer's word — including the one that
 required fixing a mistake in the task file itself before implementation
 could even proceed correctly.
-
-## Human acceptance
-
-Pending.

@@ -216,7 +216,3 @@ Not applicable in the usual code-review sense — this task's own Validation
 requirements route directly to your review of the contract itself (and
 particularly its three open questions) rather than a separate independent
 code-review pass, since no code was produced.
-
-## Human acceptance
-
-Pending.

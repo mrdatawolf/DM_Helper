@@ -322,7 +322,3 @@ accident of script-tag order. Throwaway test data cleaned up afterward.
 
 **Recommendation**: accept. Both findings resolved and independently
 re-verified; no other issues remain.
-
-## Human acceptance
-
-Pending.

@@ -219,7 +219,3 @@ Date: 2026-09-19
 No blocking findings. This is careful, well-verified work on the trickiest
 part of this batch (live state re-evaluation across bidirectional
 navigation). Ready for human acceptance.
-
-## Human acceptance
-
-Pending.

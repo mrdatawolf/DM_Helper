@@ -184,7 +184,3 @@ whatever future task next touches that section.
 
 Re-ran after the ARCHITECTURE.md fix: no further findings. `npm test`:
 44/44 passing.
-
-## Human acceptance
-
-Pending.

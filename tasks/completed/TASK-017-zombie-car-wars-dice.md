@@ -281,7 +281,3 @@ small size and the thoroughness of the static trace.
   input that `rollWorldOfDarkness()` has never read (true both before and
   after this change) — pre-existing dead UI, not introduced or worsened by
   this task, not in scope to fix here.
-
-## Human acceptance
-
-Pending.

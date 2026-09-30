@@ -36,3 +36,10 @@ and its effect. Do not continue beyond the approved scope to bypass a blocker.
 
 Use `TASK-NNN-short-description.md`. Keep the identifier and filename stable when
 moving the file. Link contracts as `CONTRACT-NNN` and decisions as `ADR-NNN`.
+
+Task files do not track review or acceptance status; the directory does. The
+task template used to end with `## Review` ("Not reviewed.") and
+`## Human acceptance` ("Pending.") placeholder sections. That was a bug: the
+placeholders were never updated and contradicted the directory. They have been
+removed (2026-09-29). Do not add them to new tasks, and ignore any that
+reappear. A reviewer with actual findings still records them in the task file.

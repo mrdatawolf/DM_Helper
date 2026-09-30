@@ -216,7 +216,3 @@ Findings:
 
 No blocking findings. Acceptance criteria and validation requirements are
 genuinely satisfied.
-
-## Human acceptance
-
-Pending.

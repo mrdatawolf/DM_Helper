@@ -217,7 +217,3 @@ Date: 2026-09-19
 No blocking findings. Ready for human acceptance — manual browser
 verification (assignment speed/clarity, dark theme) remains the one open
 item, same as the rest of this batch.
-
-## Human acceptance
-
-Pending.

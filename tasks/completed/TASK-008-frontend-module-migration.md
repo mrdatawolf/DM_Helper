@@ -288,7 +288,3 @@ One pre-existing bug was discovered during implementation (not a
 regression, not fixed — see Implementation summary above): `player-claims.js`
 references an undefined `allCharacters`, breaking the Claims tab. Worth a
 follow-up bug-fix task.
-
-## Human acceptance
-
-Pending.
