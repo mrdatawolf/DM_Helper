@@ -34,6 +34,17 @@
         <div class="nav-user">
             <select class="nav-campaign" aria-label="Current campaign" hidden></select>
             <button class="nav-create-campaign" type="button" hidden>Create campaign</button>
+            <span class="nav-oneshot-badge" hidden>One-shot</span>
+            <button class="nav-promote-campaign" type="button" hidden>Promote to full campaign</button>
+            <dialog class="nav-create-dialog">
+                <form method="dialog">
+                    <label>Campaign name <input name="name" required></label>
+                    <label><input name="oneshot" type="checkbox"> One-shot</label>
+                    <label>Planned sessions (optional) <input name="limit" type="number" step="1"></label>
+                    <button type="button" class="nav-cancel-create">Cancel</button>
+                    <button type="submit">Create</button>
+                </form>
+            </dialog>
             <span class="nav-username"></span>
             <button class="nav-logout" onclick="handleNavLogout()">Logout</button>
         </div>

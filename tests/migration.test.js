@@ -405,3 +405,22 @@ for (const legacyConstraint of [false, true]) {
         }
     });
 }
+
+test('018 backfills existing campaigns and is idempotent without resetting one-shots', () => {
+    const { up } = require('../src/database/migrations/018-campaign-kind');
+    const db = new Database(':memory:');
+    try {
+        db.exec("CREATE TABLE campaigns (id INTEGER PRIMARY KEY, name TEXT NOT NULL); INSERT INTO campaigns VALUES (1, 'Existing')");
+        up(db);
+        assert.deepStrictEqual(db.prepare('SELECT * FROM campaigns').get(), {
+            id: 1, name: 'Existing', kind: 'campaign', planned_session_limit: null
+        });
+        db.exec("UPDATE campaigns SET kind = 'oneshot', planned_session_limit = 3");
+        up(db);
+        assert.deepStrictEqual(db.prepare('SELECT * FROM campaigns').get(), {
+            id: 1, name: 'Existing', kind: 'oneshot', planned_session_limit: 3
+        });
+        assert.throws(() => db.exec("UPDATE campaigns SET kind = 'invalid'"), { code: 'SQLITE_CONSTRAINT_CHECK' });
+        assert.throws(() => db.exec('UPDATE campaigns SET kind = NULL'), { code: 'SQLITE_CONSTRAINT_NOTNULL' });
+    } finally { db.close(); }
+});

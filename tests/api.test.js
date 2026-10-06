@@ -333,6 +333,8 @@ test('campaign switching scopes character access and rejects non-members', async
     assert.strictEqual(campaignList.status, 200);
     const activeCampaign = campaignList.body.campaigns.find(item => item.id === campaignList.body.current_campaign_id);
     assert.strictEqual(activeCampaign.name, 'Second Campaign');
+    assert.strictEqual(activeCampaign.kind, 'campaign');
+    assert.strictEqual(activeCampaign.planned_session_limit, null);
     assert.strictEqual(activeCampaign.system_label, 'D&D 5e');
     assert.strictEqual(activeCampaign.universe_label, 'Amber');
     assert.strictEqual(activeCampaign.branding.logo, '/logo.png');
@@ -569,4 +571,84 @@ test('the owner can delete their character', async () => {
 
     const gone = await api('GET', `/api/characters/${charId}`, { token: alice.token });
     assert.strictEqual(gone.status, 404);
+});
+
+test('campaign kinds, optional limits, and promotion preserve campaign data', async () => {
+    const { generateToken } = require('../src/middleware/auth');
+    const create = body => api('POST', '/api/auth/campaigns', {
+        token: dm.token, body: { name: 'Kind test', universe_id: null, ...body }
+    });
+    const defaultCampaign = await create({});
+    assert.strictEqual(defaultCampaign.status, 201);
+    assert.strictEqual(defaultCampaign.body.kind, 'campaign');
+    assert.strictEqual(defaultCampaign.body.planned_session_limit, null);
+    const noLimit = await create({ kind: 'oneshot' });
+    assert.strictEqual(noLimit.status, 201);
+    assert.strictEqual(noLimit.body.planned_session_limit, null);
+    for (const kind of ['invalid', null, 1]) {
+        assert.strictEqual((await create({ kind })).status, 400);
+    }
+    for (const planned_session_limit of ['3', 1.5, {}, Number.MAX_SAFE_INTEGER + 1]) {
+        assert.strictEqual((await create({ planned_session_limit })).status, 400);
+    }
+    const created = await create({ kind: 'oneshot', planned_session_limit: 3 });
+    assert.strictEqual(created.status, 201);
+    const id = created.body.id;
+    const list = await api('GET', '/api/auth/campaigns', { token: created.body.token });
+    const listed = list.body.campaigns.find(c => c.id === id);
+    assert.strictEqual(listed.kind, 'oneshot');
+    assert.strictEqual(listed.planned_session_limit, 3);
+    // Limits are informational: a fourth session remains allowed.
+    const session = await api('POST', '/api/sessions', {
+        token: created.body.token, body: { session_number: 4, session_date: '2026-10-06' }
+    });
+    assert.strictEqual(session.status, 201, JSON.stringify(session.body));
+    const before = db.prepare('SELECT * FROM campaigns WHERE id = ?').get(id);
+    const sessionsBefore = db.prepare('SELECT * FROM campaign_sessions WHERE campaign_id = ?').all(id);
+    const membersBefore = db.prepare('SELECT * FROM campaign_members WHERE campaign_id = ?').all(id);
+    const promote = token => api('POST', '/api/auth/campaigns/promote', { token });
+    assert.strictEqual((await promote()).status, 401);
+    // A non-member cannot gain access by forging a selected campaign in a valid token.
+    const aliceUser = db.prepare('SELECT * FROM users WHERE id = ?').get(alice.user.id);
+    assert.strictEqual((await promote(generateToken(aliceUser, id))).status, 403);
+    assert.strictEqual((await promote(generateToken({ ...aliceUser, is_dm: 1 }, id))).status, 403,
+        'legacy DM claim cannot bypass missing campaign membership');
+    db.prepare("INSERT INTO campaign_members (campaign_id, user_id, role) VALUES (?, ?, 'player')").run(id, alice.user.id);
+    assert.strictEqual((await promote(generateToken(aliceUser, id))).status, 403);
+    assert.strictEqual((await promote(generateToken({ ...aliceUser, is_dm: 1 }, id))).status, 403,
+        'legacy DM claim cannot bypass the live player role');
+    db.prepare('DELETE FROM campaign_members WHERE campaign_id = ? AND user_id = ?').run(id, alice.user.id);
+    // Promotion always targets the selected campaign, ignoring other memberships.
+    assert.strictEqual((await promote(dm.token)).status, 200);
+    assert.deepStrictEqual(db.prepare('SELECT * FROM campaigns WHERE id = ?').get(id), before);
+    assert.strictEqual((await promote(created.body.token)).status, 200);
+    assert.deepStrictEqual(db.prepare('SELECT * FROM campaigns WHERE id = ?').get(id), {
+        ...before, kind: 'campaign', planned_session_limit: null
+    });
+    assert.deepStrictEqual(db.prepare('SELECT * FROM campaign_sessions WHERE campaign_id = ?').all(id), sessionsBefore);
+    assert.deepStrictEqual(db.prepare('SELECT * FROM campaign_members WHERE campaign_id = ?').all(id), membersBefore);
+    assert.strictEqual((await promote(created.body.token)).status, 200, 'promotion is repeatable');
+    const promotedList = await api('GET', '/api/auth/campaigns', { token: created.body.token });
+    const promoted = promotedList.body.campaigns.find(c => c.id === id);
+    assert.strictEqual(promoted.kind, 'campaign');
+    assert.strictEqual(promoted.planned_session_limit, null);
+});
+
+test('promotion retains admin and super-admin overrides but requires membership', async () => {
+    const { generateToken } = require('../src/middleware/auth');
+    for (const [username, superAdmin] of [['admin', 0], ['promotion_super_admin', 1]]) {
+        const userId = db.prepare('SELECT id FROM users WHERE username = ?').get(username)?.id
+            || db.prepare('INSERT INTO users (username, password_hash, is_super_admin) VALUES (?, ?, ?)')
+                .run(username, 'unused', superAdmin).lastInsertRowid;
+        const id = db.prepare("INSERT INTO campaigns (name, system_id, universe_id, kind, planned_session_limit) VALUES (?, 'dnd5e', '', 'oneshot', 2)")
+            .run(`Override ${username}`).lastInsertRowid;
+        const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+        const token = generateToken(user, id);
+        assert.strictEqual((await api('POST', '/api/auth/campaigns/promote', { token })).status, 403);
+        db.prepare("INSERT INTO campaign_members (campaign_id, user_id, role) VALUES (?, ?, 'player')").run(id, userId);
+        assert.strictEqual((await api('POST', '/api/auth/campaigns/promote', { token })).status, 200);
+        assert.deepStrictEqual(db.prepare('SELECT kind, planned_session_limit FROM campaigns WHERE id = ?').get(id), {
+            kind: 'campaign', planned_session_limit: null
+        });
+    }
 });

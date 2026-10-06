@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS campaigns (
     owner_user_id INTEGER REFERENCES users(id),
     system_id TEXT NOT NULL,
     universe_id TEXT,
+    kind TEXT NOT NULL DEFAULT 'campaign' CHECK(kind IN ('campaign', 'oneshot')),
+    planned_session_limit INTEGER,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );

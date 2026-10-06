@@ -163,24 +163,110 @@ override, or require an actual `campaign_members.role = 'dm'` for this action
 as a specific exception? No authorization behavior has been guessed or changed.
 The task remains in `in-progress/` per the blocked-work lifecycle rule.
 
+**Resolved 2026-10-06 by Patrick:** reuse `requireCampaignRole('dm')` as-is,
+admin/super-admin override included. Promotion's authorization should behave
+like every other DM-gated action in the app; carving out a stricter
+one-off-only exception would make authorization inconsistent across actions
+and would re-litigate TASK-028's documented policy locally rather than
+through a deliberate, broader change. Implementation may proceed.
+
 ## Implementation handoff
 
-Implementation has not started; blocked after required reading and endpoint/
-authorization inspection. This is an investigation record, not a completed
-implementation handoff.
+Task: TASK-044: Campaign kind (one-off vs. full) and promotion
+Implementer: openai-coder
+Date: 2026-10-06
 
-- Read CLAUDE.md, AGENTS.md, docs/AI_DEVELOPMENT_SYSTEM.md,
-  docs/workflow/lifecycle.md, and docs/DEVELOPMENT.md in order; then read this
-  task, TASK-043, the implementation-report template, ADR-005, architecture,
-  migration 013, and TASK-022's copy-validation precedent.
-- Moved the assigned task from `approved/` to `in-progress/` before inspection.
-- Plan step 1: `rg -n 'router\.(put|patch|post).*campaign' src/routes`
-  found only campaign switch and creation in `src/routes/auth.js:279,290`;
-  no general campaign-update endpoint exists. A minimal promotion endpoint
-  is therefore appropriate once authorization is resolved.
-- Confirmed the existing helper and the policy conflict described above by
-  reading `src/middleware/auth.js` and inspecting TASK-023/028.
-- No application, schema, migration, or TASK-043 files changed. Existing
-  TASK-043 lifecycle moves in the working tree were left untouched.
-- Tests, migration-copy validation, dev server, and browser validation were
-  not run because implementation is blocked. No live database was opened.
+### Changes made
+
+- Added guarded migration 018-campaign-kind.js and matching schema.sql columns:
+  kind defaults to 'campaign', constrained to 'campaign'/'oneshot';
+  planned_session_limit is nullable INTEGER. SQLite's ALTER-column default
+  backfills existing campaigns without rewriting their other data. Re-running
+  the migration preserves existing one-shot classifications and limits.
+- Extended POST /api/auth/campaigns to accept kind and planned_session_limit,
+  return both fields, and preserve defaults when omitted. Invalid kinds and
+  non-integer/non-null limits receive 400. GET /api/auth/campaigns includes
+  both fields on each campaign.
+- Plan step 1 found no general campaign-update endpoint. Added minimal
+  POST /api/auth/campaigns/promote for the selected campaign (JWT campaign
+  context), using authenticate and requireCampaignRole('dm') unchanged.
+  It sets only kind = 'campaign' and planned_session_limit = NULL. Admin
+  and super-admin member overrides follow Patrick's resolved decision;
+  non-members still cannot promote, including admins.
+- Added a One-shot marker in switcher options and a visible badge for the
+  selected one-shot, showing its optional planned session limit. Promotion
+  appears for the selected campaign's DM or admin-equivalent member and
+  refreshes the switcher on success. Creation uses a small native dialog
+  with a One-shot checkbox (unchecked by default) and optional limit.
+- Added API and migration regression coverage. No session-limit enforcement,
+  content copying, plugin changes, or character-linkage changes were added.
+
+### Validation performed
+
+- npm test: 134 tests passed, 0 failed, 0 skipped (final run).
+- Fresh in-memory database: schema.sql plus the complete migration runner
+  passed, including schema shape synchronization. Migration 018 was also
+  exercised twice on a populated pre-column in-memory campaigns table:
+  existing rows default correctly, later one-shot data survives re-running,
+  and invalid/null kinds are rejected by database constraints.
+- API tests cover creation defaults, one-shots with/without limits, invalid
+  kinds/limit types, list fields before/after promotion, DM success, ordinary
+  player rejection, non-member rejection, admin and super-admin player-member
+  overrides, admin non-member rejection, and rejection of legacy DM claims
+  without the required live campaign role/membership. Promotion preserves
+  every other campaign column, session rows, and membership rows; a repeated
+  promotion succeeds. Session 4 remains creatable with a planned limit of 3.
+- Running-browser verification: launched the real Express app on an ephemeral
+  localhost port with DB_PATH=:memory:, then used Playwright with installed
+  Edge (headless). Verified the creation checkbox defaults unchecked; filled
+  the form to create a one-shot with limit 3; followed the actual UI reload;
+  confirmed the visible One-shot badge and planned limit; clicked promotion;
+  confirmed badge/button disappear and database kind/limit become campaign/NULL.
+  The server and browser were closed afterward.
+- Manual interactive browser verification was not performed: this environment
+  provides shell-driven browser automation, without an interactive browser
+  control tool. The check above is an actual scripted browser check, not a
+  claim of manual verification. The temporary browser script is outside the
+  repository at %TEMP%/task044-browser.cjs.
+- git diff --check passed. No live dm_helper.db file was opened or migrated;
+  no real-database copy was needed because all validation used memory.
+
+### Acceptance criteria evidence
+
+- Creation and listing defaults/new fields are covered by real API tests;
+  the running browser exercised the new creation controls and badge.
+- Promotion authorization is covered for DM, admin, super-admin, player,
+  and non-member, following the resolved authorization policy.
+- Exact campaign-row comparison plus session/member comparisons verifies
+  promotion only changes kind and clears the informational limit.
+- The running browser confirms the promote action refreshes the visible UI.
+- All 134 tests pass. Manual interactive verification remains unperformed,
+  as explicitly distinguished above; independent review/human acceptance
+  remain separate steps.
+
+### Assumptions and deviations
+
+- Promotion uses the selected campaign rather than a campaign-id URL/body,
+  matching the existing helper and other DM-gated route context. Select the
+  intended campaign through the existing switcher before promoting it.
+- The resolved admin/super-admin override applies to UI visibility as well
+  as backend permission. Existing role helpers were not changed.
+- planned_session_limit accepts any safe integer or null; no positive range
+  or 1-3 cap was imposed because the approved scope specifies informational
+  nullable INTEGER, not a restriction. Omission defaults to null.
+- Browser validation was scripted in headless Edge rather than manual;
+  no architectural or implementation scope deviations.
+- Preserved unrelated TASK-043 lifecycle changes in the working tree.
+
+### Unresolved risks
+
+- No known implementation blocker. Manual interactive visual/responsive
+  inspection remains for review. Live database migration remains pending
+  normal startup/deployment; it was deliberately not applied in this session.
+
+### Documentation updated
+
+- schema.sql documents the new approved column definitions.
+- Replaced this implementation handoff with the complete report, retained
+  the original Blocker history and Patrick's resolution intact, and moved
+  the task to tasks/review/ for independent review and human acceptance.

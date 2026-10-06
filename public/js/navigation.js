@@ -72,7 +72,7 @@ async function loadCampaignSwitcher(token, user) {
     const options = data.campaigns.map(campaign => {
         const option = document.createElement('option');
         option.value = campaign.id;
-        option.textContent = `${campaign.name} (${campaign.role})`;
+        option.textContent = `${campaign.name} (${campaign.role})${campaign.kind === 'oneshot' ? ' — One-shot' : ''}`;
         option.selected = campaign.id === data.current_campaign_id;
         return option;
     });
@@ -89,6 +89,27 @@ async function loadCampaignSwitcher(token, user) {
     createButton.hidden = !(user.is_dm || user.is_admin || user.is_super_admin);
     select.onchange = () => switchCampaign(token, select.value);
     createButton.onclick = () => createCampaign(token);
+    const badge = document.querySelector('.nav-oneshot-badge');
+    const promoteButton = document.querySelector('.nav-promote-campaign');
+    const isOneshot = activeCampaign?.kind === 'oneshot';
+    if (badge) {
+        badge.hidden = !isOneshot;
+        badge.textContent = activeCampaign?.planned_session_limit == null
+            ? 'One-shot' : `One-shot · ${activeCampaign.planned_session_limit} planned sessions`;
+    }
+    if (promoteButton) {
+        promoteButton.hidden = !(isOneshot && (activeCampaign.role === 'dm' || user.is_admin || user.is_super_admin));
+        promoteButton.onclick = async () => {
+            try {
+                const response = await fetch('/api/auth/campaigns/promote', {
+                    method: 'POST', headers: { Authorization: `Bearer ${token}` }
+                });
+                const result = await response.json();
+                if (!response.ok) return window.alert(result.error || 'Unable to promote campaign');
+                await loadCampaignSwitcher(token, user);
+            } catch (error) { window.alert('Unable to promote campaign'); }
+        };
+    }
 }
 
 async function switchCampaign(token, campaignId) {
@@ -104,17 +125,29 @@ async function switchCampaign(token, campaignId) {
 }
 
 async function createCampaign(token) {
-    const name = window.prompt('Campaign name');
-    if (!name) return;
-    const response = await fetch('/api/auth/campaigns', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name, system_id: 'dnd5e', universe_id: 'amber' })
-    });
-    const data = await response.json();
-    if (!response.ok) return window.alert(data.error || 'Unable to create campaign');
-    localStorage.setItem('token', data.token);
-    window.location.reload();
+    const dialog = document.querySelector('.nav-create-dialog');
+    const form = dialog.querySelector('form');
+    form.reset();
+    dialog.querySelector('.nav-cancel-create').onclick = () => dialog.close();
+    form.onsubmit = async event => {
+        event.preventDefault();
+        const name = form.elements.name.value.trim();
+        if (!name) return;
+        const kind = form.elements.oneshot.checked ? 'oneshot' : 'campaign';
+        const planned_session_limit = form.elements.limit.value === '' ? null : Number(form.elements.limit.value);
+        try {
+            const response = await fetch('/api/auth/campaigns', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ name, system_id: 'dnd5e', universe_id: 'amber', kind, planned_session_limit })
+            });
+            const data = await response.json();
+            if (!response.ok) return window.alert(data.error || 'Unable to create campaign');
+            localStorage.setItem('token', data.token);
+            window.location.reload();
+        } catch (error) { window.alert('Unable to create campaign'); }
+    };
+    dialog.showModal();
 }
 
 // Update navigation for authenticated user

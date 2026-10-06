@@ -1,6 +1,6 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
-const { generateToken, verifyToken, authenticate } = require('../middleware/auth');
+const { generateToken, verifyToken, authenticate, requireCampaignRole } = require('../middleware/auth');
 const { getDatabase } = require('../database/connection');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { getSystemForCampaign, requireSystem } = require('../systems/registry');
@@ -246,7 +246,7 @@ router.get('/characters', authenticate, asyncHandler((req, res, next) => {
 router.get('/campaigns', authenticate, asyncHandler((req, res) => {
     const db = getDatabase();
     const campaigns = db.prepare(`
-        SELECT c.id, c.name, c.system_id, c.universe_id, cm.role
+        SELECT c.id, c.name, c.system_id, c.universe_id, c.kind, c.planned_session_limit, cm.role
         FROM campaign_members cm JOIN campaigns c ON c.id = cm.campaign_id
         WHERE cm.user_id = ? ORDER BY c.name, c.id
     `).all(req.user.userId).map(campaign => {
@@ -287,14 +287,26 @@ router.post('/campaigns/switch', authenticate, asyncHandler((req, res) => {
     res.json({ token, current_campaign_id: campaignId, role: membership.role });
 }));
 
+// Promotion acts on the selected campaign, like other DM-gated routes.
+router.post('/campaigns/promote', authenticate, requireCampaignRole('dm'), asyncHandler((req, res) => {
+    const db = getDatabase();
+    db.prepare("UPDATE campaigns SET kind = 'campaign', planned_session_limit = NULL WHERE id = ?")
+        .run(req.campaign.id);
+    res.json({ id: req.campaign.id, kind: 'campaign', planned_session_limit: null });
+}));
+
 router.post('/campaigns', authenticate, asyncHandler((req, res) => {
     const db = getDatabase();
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.userId);
     if (!user.is_dm && req.user.username !== 'admin' && !req.user.isSuperAdmin) {
         return res.status(403).json({ error: 'DM access required to create a campaign' });
     }
-    const { name, system_id = 'dnd5e', universe_id = 'amber' } = req.body;
+    const { name, system_id = 'dnd5e', universe_id = 'amber', kind = 'campaign', planned_session_limit = null } = req.body;
     if (!name) return res.status(400).json({ error: 'Campaign name is required' });
+    if (!['campaign', 'oneshot'].includes(kind)) return res.status(400).json({ error: 'Invalid campaign kind' });
+    if (planned_session_limit !== null && !Number.isSafeInteger(planned_session_limit)) {
+        return res.status(400).json({ error: 'Planned session limit must be an integer or null' });
+    }
     try {
         requireSystem(system_id);
         if (universe_id) requireUniverse(universe_id);
@@ -305,8 +317,8 @@ router.post('/campaigns', authenticate, asyncHandler((req, res) => {
     // "no universe" in databases created before universe_id became nullable.
     const storedUniverseId = universe_id || '';
     const create = db.transaction(() => {
-        const result = db.prepare('INSERT INTO campaigns (name, owner_user_id, system_id, universe_id) VALUES (?, ?, ?, ?)')
-            .run(name, req.user.userId, system_id, storedUniverseId);
+        const result = db.prepare('INSERT INTO campaigns (name, owner_user_id, system_id, universe_id, kind, planned_session_limit) VALUES (?, ?, ?, ?, ?, ?)')
+            .run(name, req.user.userId, system_id, storedUniverseId, kind, planned_session_limit);
         db.prepare("INSERT INTO campaign_members (campaign_id, user_id, role) VALUES (?, ?, 'dm')").run(result.lastInsertRowid, req.user.userId);
         const universe = getUniverse(storedUniverseId);
         if (universe?.seed) universe.seed(db, Number(result.lastInsertRowid));
@@ -315,7 +327,7 @@ router.post('/campaigns', authenticate, asyncHandler((req, res) => {
     const campaignId = create();
     const token = generateToken(user, campaignId);
     res.cookie('token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 24 * 60 * 60 * 1000 });
-    res.status(201).json({ id: campaignId, name, system_id, universe_id: storedUniverseId || null, token, current_campaign_id: campaignId, role: 'dm' });
+    res.status(201).json({ id: campaignId, name, system_id, universe_id: storedUniverseId || null, kind, planned_session_limit, token, current_campaign_id: campaignId, role: 'dm' });
 }));
 
 module.exports = router;
