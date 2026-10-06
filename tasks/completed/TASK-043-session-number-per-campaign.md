@@ -217,3 +217,55 @@ Date: 2026-10-06
   assumptions. schema.sql now documents the approved constraint. No other
   behavior/architecture documentation required changes.
 
+## Review
+
+Reviewer: Claude
+Date: 2026-10-06
+
+Verified independently rather than trusting the handoff's self-report:
+
+- `git show --stat b0d7914`: exactly the four expected files changed
+  (`017-session-number-per-campaign.js`, `schema.sql`,
+  `tests/migration.test.js`, and this task file) — no route, middleware, or
+  UI file touched, matching the task's Excluded scope.
+- Read the full migration: it disables `foreign_keys` *outside* the
+  transaction (required — SQLite's pragma has no effect mid-transaction),
+  rebuilds `campaign_sessions` with `UNIQUE(campaign_id, session_number)`
+  replacing the standalone `UNIQUE`, preserves the `AUTOINCREMENT`
+  high-water mark via `sqlite_sequence`, re-creates only explicitly-defined
+  indexes/triggers (`sql IS NOT NULL` correctly excludes the old column's
+  auto-generated unique index, which disappears naturally with the dropped
+  table), and asserts zero `foreign_key_check` violations before the
+  transaction commits. The idempotency guard regexes the table's current
+  `CREATE TABLE` SQL for the legacy inline `UNIQUE`, so it correctly no-ops
+  on both an already-migrated table and a fresh install whose `schema.sql`
+  never had the old constraint.
+- Ran `npm test` myself: 131/131 passing, matching the handoff.
+- Read the new `tests/migration.test.js` cases: both the "fresh schema" and
+  "legacy rebuild" variants seed a populated session row, a referencing
+  `character_progress` row, and an explicit extra index, then assert exact
+  row/column/FK/index preservation after two direct `up(db)` calls, reject
+  duplicate inserts and a renumbering `UPDATE` in two separate campaigns
+  with `SQLITE_CONSTRAINT_UNIQUE`, and confirm the full migration runner is
+  also double-run safe. This is a real, non-vacuous regression test directly
+  encoding the acceptance criteria, not a smoke test.
+- Confirmed via the handoff's grep audit (`src/routes/sessions.js`,
+  `progress.js`, `shadows.js`, `init-db.js`) that no runtime call site
+  depended on global `session_number` uniqueness; spot-checked
+  `sessions.js:58,139,178` myself and agree all three are campaign-scoped
+  already.
+- Live-data discipline: the handoff records the live file's SHA-256 as
+  identical before and after validation, with only a timestamped copy ever
+  opened by SQLite — consistent with this project's established
+  live-database safety precedent (TASK-014, TASK-022).
+
+No blocking findings. One non-blocking note: the migration file is marked
+`transactional: false` so it can manage its own `db.transaction()` around
+the pragma toggle — worth remembering as precedent (alongside migration 015)
+if a future migration needs the same foreign-key-pragma-plus-rebuild shape,
+since the migration runner's default transactional wrapping would otherwise
+make the pragma toggle a no-op.
+
+All acceptance criteria are genuinely satisfied and independently verified,
+not just checked off. Ready for human acceptance.
+

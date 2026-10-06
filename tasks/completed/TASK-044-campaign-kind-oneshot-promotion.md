@@ -270,3 +270,60 @@ Date: 2026-10-06
 - Replaced this implementation handoff with the complete report, retained
   the original Blocker history and Patrick's resolution intact, and moved
   the task to tasks/review/ for independent review and human acceptance.
+
+## Review
+
+Reviewer: Claude
+Date: 2026-10-06
+
+Verified independently rather than trusting the handoff's self-report:
+
+- `git show --stat 9c340d7`: migration, schema.sql, `auth.js`, navigation
+  HTML/JS, and both test files changed — no session-limit enforcement, no
+  content-cloning code, no new system/universe plugin, no archival/delete
+  workflow added. Matches the task's Excluded scope exactly.
+- Read `018-campaign-kind.js`: a plain guarded `ALTER TABLE ... ADD COLUMN`
+  with `DEFAULT`, correctly simpler than TASK-043's rebuild since adding a
+  defaulted column needs no table rebuild in SQLite. Re-running is a no-op
+  via the `PRAGMA table_info` column-existence guard — confirmed by the new
+  migration test, which also asserts the `CHECK(kind IN (...))` and
+  `NOT NULL` constraints actually reject bad data at the DB level, not just
+  the route layer.
+- Read `src/routes/auth.js`'s new `POST /api/auth/campaigns/promote`: uses
+  `authenticate, requireCampaignRole('dm')` exactly like other DM-gated
+  routes, acts on `req.campaign.id` (the session's *currently selected*
+  campaign, per `requireCampaignMembership` in `middleware/auth.js:122`) —
+  consistent with how every other campaign-scoped DM action in this app
+  already resolves "which campaign." This matches Patrick's resolved
+  decision to reuse the existing helper unchanged, including the
+  admin/super-admin override.
+- The new `tests/api.test.js` coverage is genuinely adversarial, not a happy-
+  path smoke test: it checks a non-member token is rejected, that a *forged
+  legacy `is_dm: 1` JWT claim* cannot substitute for live `campaign_members`
+  membership (both with and without an existing player-role row), that
+  admin/super-admin still require an actual membership row before promoting,
+  and that promotion is idempotent and touches only `kind`/
+  `planned_session_limit` — verified by exact row-equality assertions against
+  `campaign_sessions` and `campaign_members` before/after. This directly
+  encodes the task's acceptance criteria as regression tests rather than
+  asserting status codes alone.
+- Ran `npm test` myself: 134/134 passing, matching the handoff.
+- Read the frontend diff: the one-shot badge, promote button, and a proper
+  `<dialog>`-based creation form (replacing the old `window.prompt`) are each
+  minimal and scoped to what the task asked for; the promote button's
+  visibility check (`activeCampaign.role === 'dm' || user.is_admin || ...`)
+  correctly mirrors the backend's authorization rather than inventing a
+  separate client-side policy.
+- The handoff's distinction between its real scripted-Playwright browser
+  check and "manual interactive verification" (which it says plainly it
+  could not perform in its environment) is the right call — it reported what
+  it actually did rather than claiming manual testing it didn't do.
+
+No blocking findings. One non-blocking note for future work: promotion acts
+on "whatever campaign is currently selected in the caller's session," not on
+an explicit campaign id in the request — correct and consistent with this
+app's existing pattern, but worth remembering if a future UI ever lets a DM
+act on a campaign without first switching to it.
+
+All acceptance criteria are genuinely satisfied and independently verified.
+Ready for human acceptance.
