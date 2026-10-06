@@ -16,6 +16,8 @@ const { up: campaignTenancy, CAMPAIGN_TABLES } = require('../src/database/migrat
 const { up: characterExtensionData, DND5E_CHARACTER_COLUMNS } = require('../src/database/migrations/014-character-extension-data');
 const { up: amberExtensionData, AMBER_CHARACTER_COLUMNS } = require('../src/database/migrations/015-amber-universe-extension-data');
 const { percentileFromScore } = require('../public/js/ability-conversion');
+const { up: sessionNumberPerCampaign } = require('../src/database/migrations/017-session-number-per-campaign');
+const { runMigrations } = require('../src/database/migrate');
 
 function legacyDb() {
     const db = new Database(':memory:');
@@ -346,3 +348,60 @@ test('015 snapshots every Amber schema column exactly once and removes only the 
     assert.strictEqual(db.pragma('foreign_key_check').length, 0);
     db.close();
 });
+
+for (const legacyConstraint of [false, true]) {
+    test(`017 scopes session numbers per campaign (${legacyConstraint ? 'legacy rebuild' : 'fresh schema'})`, () => {
+        const db = new Database(':memory:');
+        try {
+            let schema = fs.readFileSync(path.join(__dirname, '../src/database/schema.sql'), 'utf8');
+            if (legacyConstraint) schema = schema.replace('session_number INTEGER NOT NULL,', 'session_number INTEGER NOT NULL UNIQUE,')
+                .replace('updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,\r\n    UNIQUE(campaign_id, session_number)', 'updated_at DATETIME DEFAULT CURRENT_TIMESTAMP')
+                .replace('updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n    UNIQUE(campaign_id, session_number)', 'updated_at DATETIME DEFAULT CURRENT_TIMESTAMP');
+            db.exec(schema);
+            // Apply the complete chain preceding 017, with populated parent and child rows.
+            for (const file of fs.readdirSync(path.join(__dirname, '../src/database/migrations')).sort()) {
+                if (file.endsWith('.js') && file < '017') require(`../src/database/migrations/${file}`).up(db);
+            }
+            db.pragma('foreign_keys = ON');
+            db.exec(`
+                INSERT INTO campaigns (id, name, system_id) VALUES (2, 'Second', 'dnd5e');
+                INSERT INTO characters (id, name, species, class_type) VALUES (100, 'Test', 'Human', 'Wizard');
+                INSERT INTO campaign_sessions
+                    (id, campaign_id, session_number, session_date, session_title, dm_notes,
+                     session_status, opening_notes, mid_notes, closing_notes, created_at, updated_at)
+                VALUES (10, 1, 1, '2026-10-06', 'Title', 'DM', 'completed', 'Open', 'Mid', 'Close', '2026-01-01', '2026-02-01');
+                INSERT INTO campaign_sessions (id, campaign_id, session_number, session_date) VALUES (99, 1, 99, '2026-10-06');
+                DELETE FROM campaign_sessions WHERE id = 99;
+                INSERT INTO character_progress (character_id, session_id, campaign_id, summary) VALUES (100, 10, 1, 'Kept');
+                CREATE INDEX idx_session_number_test ON campaign_sessions(session_date);
+            `);
+            const rows = db.prepare('SELECT * FROM campaign_sessions ORDER BY id').all();
+            const children = db.prepare('SELECT * FROM character_progress').all();
+            const columns = db.pragma('table_info(campaign_sessions)').map(({ cid, ...column }) => column).sort((a, b) => a.name.localeCompare(b.name));
+            const foreignKeys = db.pragma('foreign_key_list(campaign_sessions)');
+            sessionNumberPerCampaign(db);
+            sessionNumberPerCampaign(db);
+            assert.deepStrictEqual(db.prepare('SELECT * FROM campaign_sessions ORDER BY id').all(), rows);
+            assert.deepStrictEqual(db.prepare('SELECT * FROM character_progress').all(), children);
+            assert.deepStrictEqual(db.pragma('table_info(campaign_sessions)').map(({ cid, ...column }) => column).sort((a, b) => a.name.localeCompare(b.name)), columns);
+            assert.deepStrictEqual(db.pragma('foreign_key_list(campaign_sessions)'), foreignKeys);
+            assert.strictEqual(db.pragma('foreign_keys', { simple: true }), 1);
+            assert.ok(db.pragma('index_list(campaign_sessions)').some(index => index.name === 'idx_session_number_test'));
+            const insert = db.prepare("INSERT INTO campaign_sessions (campaign_id, session_number, session_date) VALUES (?, ?, '2026-10-06')");
+            for (const campaign of [1, 2]) {
+                for (const number of [1, 2, 3]) {
+                    if (campaign !== 1 || number !== 1) assert.ok(insert.run(campaign, number).lastInsertRowid > 99);
+                    assert.throws(() => insert.run(campaign, number), { code: 'SQLITE_CONSTRAINT_UNIQUE' });
+                }
+            }
+            assert.throws(() => db.prepare('UPDATE campaign_sessions SET session_number = 1 WHERE campaign_id = 2 AND session_number = 2').run(), { code: 'SQLITE_CONSTRAINT_UNIQUE' });
+            runMigrations(db);
+            const migrated = db.prepare('SELECT * FROM campaign_sessions ORDER BY id').all();
+            runMigrations(db);
+            assert.deepStrictEqual(db.prepare('SELECT * FROM campaign_sessions ORDER BY id').all(), migrated);
+            assert.deepStrictEqual(db.pragma('foreign_key_check'), []);
+        } finally {
+            db.close();
+        }
+    });
+}

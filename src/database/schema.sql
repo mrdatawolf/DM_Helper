@@ -270,7 +270,7 @@ CREATE TABLE IF NOT EXISTS character_powers (
 -- Campaign Sessions
 CREATE TABLE IF NOT EXISTS campaign_sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    session_number INTEGER NOT NULL UNIQUE,
+    session_number INTEGER NOT NULL,
     session_date DATE NOT NULL,
     session_title TEXT,
     dm_notes TEXT,
@@ -280,7 +280,8 @@ CREATE TABLE IF NOT EXISTS campaign_sessions (
     closing_notes TEXT,
     campaign_id INTEGER REFERENCES campaigns(id),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(campaign_id, session_number)
 );
 
 -- Character Progress Tracking (Session by Session)
