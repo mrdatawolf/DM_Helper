@@ -1,6 +1,8 @@
 const { dndModifier } = require('../../../public/js/ability-conversion');
 const { DND5E_CHARACTER_COLUMNS } = require('../../database/migrations/014-character-extension-data');
 const { mutateDocument, readDocument, writeDocument } = require('../extension-data');
+const { readProfile } = require('../../capabilities/profile');
+const { projectPercentiles } = require('./capability-projection');
 
 const ZERO_FIELDS = DND5E_CHARACTER_COLUMNS.filter(field =>
     field.startsWith('skill_') || field.startsWith('save_') ||
@@ -29,7 +31,8 @@ function hydrateSheet(db, character, system = module.exports) {
     if (!character) return character;
     const data = readDocument(db, character.id, system);
     if (!data) throw new Error(`Missing ${system.namespace} data for character ${character.id}`);
-    return { ...character, ...data.sheet };
+    const profile = readProfile(db, character.id);
+    return { ...character, ...data.sheet, ...projectPercentiles(profile) };
 }
 
 function hydrateCharacter(db, character, system = module.exports) {

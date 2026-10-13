@@ -5,9 +5,6 @@ const UNIVERSAL_CHARACTER_UPDATE_FIELDS = [
     // Basic Info
     'name', 'player_name', 'species', 'class_type', 'subclass', 'level', 'background', 'alignment', 'size',
 
-    // Ability Scores
-    'strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma',
-
     // Character Details
     'languages', 'appearance', 'personality', 'backstory', 'character_notes',
     'age', 'height', 'weight', 'eyes', 'skin', 'hair', 'desires', 'fears',

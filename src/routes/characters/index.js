@@ -10,6 +10,8 @@ const { UNIVERSAL_CHARACTER_UPDATE_FIELDS } = require('./fields');
 const { percentileFromScore } = require('../../../public/js/ability-conversion');
 const { getSystemForCampaign } = require('../../systems/registry');
 const { getUniverseForCampaign, hydrateCharacterForCampaign } = require('../../universes/registry');
+const { writeProfile, readProfile } = require('../../capabilities/profile');
+const { profileFromScores, editPercentile, DND_ABILITY_KEYS } = require('../../systems/dnd5e/capability-projection');
 
 router.use(authenticate, requireCampaignMembership);
 router.use('/:id', requireCampaignCharacter);
@@ -134,6 +136,8 @@ router.post('/', asyncHandler((req, res) => {
 
     const characterId = result.lastInsertRowid;
 
+    writeProfile(db, characterId, profileFromScores({ strength, dexterity, constitution, intelligence, wisdom, charisma }));
+
     // Initialize claim pool for new character with 10 starting points
     db.prepare('INSERT INTO campaign_characters (campaign_id, character_id) VALUES (?, ?)').run(req.campaign.id, characterId);
     db.prepare(`INSERT INTO claim_point_pools (character_id, total_points, spent_points, campaign_id) VALUES (?, 10, 0, ?)`)
@@ -181,13 +185,23 @@ router.put('/:id', asyncHandler((req, res) => {
     const query = buildUpdateQuery('characters', UNIVERSAL_CHARACTER_UPDATE_FIELDS, req.body, characterId);
     const universeUpdates = universe ? Object.fromEntries(Object.entries(req.body)
         .filter(([field]) => universe.character.fields.includes(field))) : {};
-    if (!query && !Object.keys(systemUpdates).length && !Object.keys(universeUpdates).length) {
+    const abilityScoreUpdates = Object.fromEntries(
+        DND_ABILITY_KEYS.filter(key => Object.hasOwn(req.body, key)).map(key => [key, req.body[key]])
+    );
+    if (!query && !Object.keys(systemUpdates).length && !Object.keys(universeUpdates).length && !Object.keys(abilityScoreUpdates).length) {
         return res.status(400).json({ error: 'No valid fields to update' });
     }
     db.transaction(() => {
         if (query) db.prepare(query.sql).run(...query.values);
         if (Object.keys(systemUpdates).length) system.sheet.update(db, characterId, systemUpdates, system);
         if (Object.keys(universeUpdates).length) universe.character.update(db, characterId, universeUpdates, universe);
+        if (Object.keys(abilityScoreUpdates).length) {
+            let profile = readProfile(db, characterId);
+            for (const [ability, score] of Object.entries(abilityScoreUpdates)) {
+                profile = editPercentile(profile, ability, percentileFromScore(score));
+            }
+            writeProfile(db, characterId, profile);
+        }
     })();
 
     const updated = hydrateCharacterForCampaign(db, req.campaign.id, system.sheet.hydrateSheet(

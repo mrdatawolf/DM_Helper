@@ -94,4 +94,96 @@ The capability-profile contract and Patrick's approval of ADR-006 are required b
 
 ## Implementation handoff
 
-Not started.
+Completed by: Claude Sonnet 4.6 with Patrick
+Completed date: 2026-10-09
+
+### What changed
+
+**New files (capability foundation — authored by Codex):**
+
+- `src/capabilities/profile.js` — shared capability service: `CAPABILITY_KEYS`,
+  `validateValue`, `validateProfile`, `profileFromLegacyAbilities`, `readProfile`,
+  `writeProfile`. System-neutral; no D&D or game-rule imports.
+- `src/database/migrations/019-character-capabilities.js` — idempotent migration
+  that creates `character_capabilities` and seeds one row per key per character
+  from legacy D&D percentile columns. Halts on partial profiles rather than
+  silently overwriting.
+- `src/systems/dnd5e/capability-projection.js` — D&D projection module:
+  `DND_GROUPS`, `projectPercentiles`, `projectScores`, `editPercentile`,
+  `profileFromScores`. Owns all conversions between D&D scores and capability
+  values; no route or browser code performs these mappings.
+
+**Modified files (runtime cutover — Claude Sonnet 4.6 with Patrick):**
+
+- `src/routes/characters/fields.js` — removed `strength`, `dexterity`,
+  `constitution`, `intelligence`, `wisdom`, `charisma` from
+  `UNIVERSAL_CHARACTER_UPDATE_FIELDS`. These no longer reach `buildUpdateQuery`
+  or write to the legacy columns at runtime.
+- `src/routes/characters/index.js` — character creation (`POST /`) now calls
+  `writeProfile` inside the creation transaction; character update (`PUT /:id`)
+  detects ability score fields, reads the current profile, applies each score
+  through `editPercentile`, and persists the result via `writeProfile`.
+- `src/systems/dnd5e/index.js` — `hydrateSheet` now calls `readProfile` and
+  spreads `projectPercentiles(profile)` over the response, replacing the legacy
+  column values with profile-sourced ability percentiles on every read path.
+
+**New test file:**
+
+- `tests/capability-profile.test.js` — 35 tests covering capability-service
+  validation, `profileFromLegacyAbilities` mapping, `readProfile`/`writeProfile`,
+  all four D&D projection functions, and migration 019 (fresh DB, seeding,
+  idempotency, partial-profile detection, before/after score parity, legacy
+  column immutability). All pass.
+
+### Migration default for `fighting` and `appearance`
+
+Both are seeded at `31` (the repository's stored percentile for D&D score 10
+and the FASERIP Typical anchor). Patrick approved this default in CONTRACT-003
+on 2026-10-08 before implementation began.
+
+### Validation evidence
+
+**Unit tests:** 35 new tests, all passing (`node --test
+tests/capability-profile.test.js`). Pre-existing `jsdom` and `multer`
+module-not-found failures in `frontend-modules.test.js`, `tracker.test.js`, and
+similar files are unrelated to this task and were already present before any
+changes.
+
+**Migration rehearsal (2026-10-09):** Script at
+`scripts/migration-rehearsal-019.js`. Run against a timestamped copy of the
+live database (`dm_helper.db`, 160 KB, migrations 001–008 applied). Result:
+trivially passed with zero characters present. The live database has no
+characters yet; all projected-score comparisons pass vacuously. The
+idempotency check (second migration run on the copy) also passed. The live
+database was not modified.
+
+**Manual browser verification:** Pending — Patrick must start the server,
+open an existing D&D character sheet, confirm ability scores display
+correctly, edit an ability score, and verify the PDF export. The test suite
+and migration script cannot substitute for this step.
+
+### Remaining compatibility risk
+
+- The six legacy columns (`strength`, `dexterity`, `constitution`,
+  `intelligence`, `wisdom`, `charisma`) on the `characters` table are still
+  present and still written at creation time for backwards-compatibility. They
+  are no longer runtime truth. Physical removal is a separate task.
+- Any code path that bypasses `hydrateSheet` (direct SQL reads, raw character
+  selects outside the D&D system hydration path) will still see the legacy
+  column values. These should be audited in a follow-up before the compatibility
+  columns are removed.
+- The `appearance` field on the `characters` table is a TEXT description
+  column; `appearance` in `character_capabilities` is the 0–100 capability
+  integer. The two are in separate tables and do not collide, but the shared
+  name may cause confusion during future work.
+
+### Open items before acceptance
+
+- [ ] Patrick completes manual browser verification (D&D sheet display, ability
+  score edit, PDF export) and confirms behavior is unchanged.
+- [ ] Full `npm test` with `jsdom` and `multer` installed (these dependencies
+  were missing in the development environment; the tests they gate are
+  unrelated to this task but must pass before acceptance).
+- [ ] Migration rehearsal against a populated copy of the live database once
+  characters exist, to confirm projected scores match legacy values for real
+  data.

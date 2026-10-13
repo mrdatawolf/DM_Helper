@@ -1,6 +1,6 @@
 # CONTRACT-003: Universal character capability profile
 
-Status: Proposed
+Status: Approved
 Proposed by: Codex with Patrick
 Proposed date: 2026-10-08
 Approved by: Patrick
